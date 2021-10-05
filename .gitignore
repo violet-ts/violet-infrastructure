@@ -1,0 +1,12 @@
+node_modules/
+build/
+
+cdktf.out/
+cdktf.log
+.pnpm-debug.log*
+
+*terraform.*.tfstate*
+.terraform/
+tsconfig.tsbuildinfo
+
+*.local

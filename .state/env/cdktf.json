@@ -1,0 +1,14 @@
+{
+  "language": "typescript",
+  "app": "echo ERROR: you should specify app explicitly. && exit 1",
+  "projectId": "e9809131-0431-46c8-845a-b1e25cb4ee24",
+  "terraformProviders": [],
+  "terraformModules": [
+    "terraform-aws-modules/vpc/aws@ ~> 3.0.0",
+    "terraform-aws-modules/rds/aws@~> 3.0.0"
+  ],
+  "context": {
+    "excludeStackIdFromLogicalIds": "true",
+    "allowSepCharsInLogicalIds": "true"
+  }
+}
