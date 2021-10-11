@@ -2,11 +2,11 @@
   "language": "typescript",
   "app": "echo ERROR: you should specify app explicitly. && exit 1",
   "projectId": "dummy-project",
-  "terraformProviders": [],
-  "terraformModules": [
-    "terraform-aws-modules/vpc/aws@ ~> 3.0.0",
-    "terraform-aws-modules/rds/aws@~> 3.0.0"
+  "terraformProviders": [
+    "random",
+    "hashicorp/null@ ~>3.1.0"
   ],
+  "terraformModules": [],
   "context": {
     "excludeStackIdFromLogicalIds": "true",
     "allowSepCharsInLogicalIds": "true"

@@ -8,6 +8,8 @@ WIP
 - https://github.com/hashicorp/terraform-provider-aws
 - https://registry.terraform.io/providers/hashicorp/aws/latest/docs
 - https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/CHAP_TemplateQuickRef.html
+- Examples
+  - https://github.com/hashicorp/terraform-cdk
 
 ## Development Cycle
 
@@ -17,13 +19,24 @@ WIP
 - `manager`: 管理層になります。いろいろな設定値のインフラを作る上で、一個だけ存在しておけばよいというもの
 - `env`: 各環境向けのインフラ郡の単位
 
+## Rules
+
+- すべてのリソースについて、 `new` したものを変数に格納します
+- terraform 用のリソース名と、格納先の変数名を同一にします
+  - :+1: これにより、変数スコープで名前の衝突回避をします
+  - :+1: 考えるべき名前が一つ減ります
+- option と env var の境界
+  - TBD
+
 ## TODO comment scopes
 
-- (service): サービス品質に関するもの
-- (security): セキュリティに関するもの
-- (logging): ログに関するもの
-- (cost): コストに関するもの
-- (scale): スケーリングに関するもの
+- (service): サービス品質に関する
+- (security): セキュリティに関する
+- (logging): ログに関する
+- (cost): コストに関する
+- (scale): スケーリングに関する
+- (perf): パフォーマンスに関する
+- (hardcoded): ハードコーディングされている
 
 ## FAQ
 
@@ -31,4 +44,4 @@ WIP
   - 複数の環境を管理します
   - ステートファイル類は `.state/<name>/` 配下で管理
   - `.gen/` すべての環境で同じものを使う、固定するというところで git 管理しています
-    - `pnpm get` で更新します
+    - `pnpm run get` で更新します

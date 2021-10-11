@@ -3,12 +3,12 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import type { VioletEnvOptions } from '../stack/violet-env';
 import { VioletEnvStack } from '../stack/violet-env';
+import { configureBackend } from '../util/backend';
 
 dotenv.config({
   path: path.resolve(__dirname, '../.env.local'),
 });
 
-const app = new App();
 const options: VioletEnvOptions = {
   region: 'ap-northeast-1',
 
@@ -18,5 +18,7 @@ const options: VioletEnvOptions = {
   section: 'development',
 };
 
-void new VioletEnvStack(app, 'violet-infra', options);
+const app = new App();
+const stack = new VioletEnvStack(app, 'violet-infra', options);
+configureBackend(stack, stack.uniqueName);
 app.synth();

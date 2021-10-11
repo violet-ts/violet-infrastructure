@@ -20,6 +20,8 @@ const main = async (toWatch: boolean) => {
     };
   }
   await build({
+    keepNames: true,
+    minify: false,
     platform: 'node',
     format: 'cjs',
     target: 'es2020',

@@ -1,6 +1,16 @@
 import type { Construct } from 'constructs';
 import { TerraformStack } from 'cdktf';
-import { AwsProvider, ResourcegroupsGroup, EcrRepository, S3Bucket } from '@cdktf/provider-aws';
+import {
+  AwsProvider,
+  ResourcegroupsGroup,
+  EcrRepository,
+  S3Bucket,
+  IamRole,
+  IamRolePolicy,
+  Apigatewayv2Api,
+  CodebuildProject,
+} from '@cdktf/provider-aws';
+import { String as RandomString } from '@cdktf/provider-random';
 import { PROJECT_NAME } from '../const';
 
 /**
@@ -29,8 +39,21 @@ const genTags = (name: string | null, section?: Section | null): Record<string, 
 };
 
 export class VioletManagerStack extends TerraformStack {
-  constructor(scope: Construct, name: string, options: VioletManagerOptions) {
+  get uniqueName(): string {
+    return `manager-${this.options.region}`;
+  }
+
+  constructor(scope: Construct, name: string, private options: VioletManagerOptions) {
     super(scope, name);
+
+    // =================================================================
+    // Random Suffix
+    // https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string
+    // =================================================================
+    const suffix = new RandomString(this, 'suffix', {
+      length: 6,
+    });
+    void suffix;
 
     // =================================================================
     // AWS Provider
@@ -48,7 +71,7 @@ export class VioletManagerStack extends TerraformStack {
     // -----------------------------------------------------------------
     // Violet プロジェクトすべてのリソース
     // =================================================================
-    const allResources = new ResourcegroupsGroup(this, 'resources-all', {
+    const allResources = new ResourcegroupsGroup(this, 'allResources', {
       name: `violet-all`,
       resourceQuery: [
         {
@@ -72,7 +95,7 @@ export class VioletManagerStack extends TerraformStack {
     // -----------------------------------------------------------------
     // Violet Manager のリソース
     // =================================================================
-    const managerResources = new ResourcegroupsGroup(this, 'resources-manager', {
+    const managerResources = new ResourcegroupsGroup(this, 'managerResources', {
       name: `violet-manager`,
       resourceQuery: [
         {
@@ -107,7 +130,7 @@ export class VioletManagerStack extends TerraformStack {
     // -----------------------------------------------------------------
     // ECS Repository - Production API
     // -----------------------------------------------------------------
-    const ecsRepoProdFrontend = new EcrRepository(this, 'prod-api', {
+    const ecsRepoProdFrontend = new EcrRepository(this, 'ecsRepoProdFrontend', {
       name: `violet-prod-api`,
       imageTagMutability: 'IMMUTABLE',
       // TODO(security): for production
@@ -119,7 +142,7 @@ export class VioletManagerStack extends TerraformStack {
     // -----------------------------------------------------------------
     // ECS Repository - Development API
     // -----------------------------------------------------------------
-    const ecsRepoDevFrontend = new EcrRepository(this, 'dev-api', {
+    const ecsRepoDevFrontend = new EcrRepository(this, 'ecsRepoDevFrontend', {
       name: `violet-dev-api`,
       imageTagMutability: 'MUTABLE',
       // TODO(security): for production
@@ -134,33 +157,10 @@ export class VioletManagerStack extends TerraformStack {
     // =================================================================
 
     // -----------------------------------------------------------------
-    // S3 Bucket - DB snapshot for production
-    // TODO(scale): for release
+    // API Gateway
     // -----------------------------------------------------------------
-    const dbSnapshotsProd = new S3Bucket(this, 'db-snapshots-prod', {
-      // TODO(service): for prod: protection for deletion, versioning
-      // TODO(security): for prod: encryption
-      // TODO(logging): for prod
-      // TODO(cost): for prod: lifecycle
-      bucket: `violet-db-snapshots-prod`,
-      forceDestroy: true,
-      tags: genTags(null, 'production'),
-    });
-    void dbSnapshotsProd;
-
-    // -----------------------------------------------------------------
-    // S3 Bucket - DB snapshot for development
-    // TODO(scale): for release
-    // -----------------------------------------------------------------
-    const dbSnapshotsDev = new S3Bucket(this, 'db-snapshots-dev', {
-      // TODO(service): for prod: protection for deletion, versioning
-      // TODO(security): for prod: encryption
-      // TODO(logging): for prod
-      // TODO(cost): for prod: lifecycle
-      bucket: `violet-db-snapshots-dev`,
-      forceDestroy: true,
-      tags: genTags(null, 'development'),
-    });
-    void dbSnapshotsDev;
+    // new Apigatewayv2Api(this, '', {
+    //   tags:
+    // });
   }
 }
