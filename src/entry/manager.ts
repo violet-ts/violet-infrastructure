@@ -1,12 +1,12 @@
 import { App } from 'cdktf';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
 import type { VioletManagerOptions } from '../stack/violet-manager';
 import { VioletManagerStack } from '../stack/violet-manager';
 import { configureBackend } from '../util/backend';
+import { initEnv } from '../util/init-env';
 
-dotenv.config({
-  path: path.resolve(__dirname, '../.env.local'),
+initEnv({
+  produciton: true,
+  development: true,
 });
 
 const app = new App();

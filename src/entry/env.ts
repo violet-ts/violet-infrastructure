@@ -1,12 +1,12 @@
 import { App } from 'cdktf';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
 import type { VioletEnvOptions } from '../stack/violet-env';
 import { VioletEnvStack } from '../stack/violet-env';
 import { configureBackend } from '../util/backend';
+import { initEnv } from '../util/init-env';
 
-dotenv.config({
-  path: path.resolve(__dirname, '../.env.local'),
+initEnv({
+  produciton: false,
+  development: true,
 });
 
 const options: VioletEnvOptions = {

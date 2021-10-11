@@ -14,11 +14,17 @@ import {
   IamRole,
   IamRolePolicy,
   Vpc,
+  Route,
+  InternetGateway,
   Subnet,
   SecurityGroup,
+  RouteTable,
+  RouteTableAssociation,
+  EgressOnlyInternetGateway,
 } from '@cdktf/provider-aws';
 import { String as RandomString, RandomProvider, Password } from '@cdktf/provider-random';
 import * as path from 'path';
+import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource, NullProvider } from '@cdktf/provider-null';
 import { PROJECT_NAME } from '../const';
 import type { Section } from './violet-manager';
@@ -67,8 +73,8 @@ interface MysqlDbOptions {
 class MysqlDb extends Resource {
   readonly dbURL: string;
 
-  constructor(scope: Construct, name: string, options: MysqlDbOptions) {
-    super(scope, name);
+  constructor(scope: Construct, name: string, options: MysqlDbOptions, config?: ResourceConfig) {
+    super(scope, name, config);
     // =================================================================
     // Password for DB
     // https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password
@@ -83,6 +89,7 @@ class MysqlDb extends Resource {
     // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/db_subnet_group
     // =================================================================
     const dbSubnetGroup = new DbSubnetGroup(this, 'dbSubnetGroup', {
+      namePrefix: `violet-${options.violetEnvOptions.namespace}-${options.violetEnvOptions.section}-`,
       subnetIds: options.subnets.map((subnet) => subnet.id),
       tags: genTags(null, options.violetEnvOptions.namespace, options.violetEnvOptions.section),
     });
@@ -102,6 +109,10 @@ class MysqlDb extends Resource {
     // TODO(scale): prod: DB usage should be watched
     // TODO(perf): prod: tuning at scale
     const db = new DbInstance(this, 'db', {
+      // DB name
+      name: `violet`,
+      publiclyAccessible: ['development', 'preview', 'staging'].includes(options.violetEnvOptions.section),
+      identifierPrefix: `violet-${options.violetEnvOptions.namespace}-${options.violetEnvOptions.section}-`,
       allocatedStorage: 10,
       dbSubnetGroupName: dbSubnetGroup.name,
       snapshotIdentifier: options.snapshotIdentifier,
@@ -110,12 +121,12 @@ class MysqlDb extends Resource {
       engine: 'mysql',
       engineVersion: '8.0',
       instanceClass: 'db.t3.micro',
-      name: 'violet',
       username: 'admin',
       password: dbPassword.result,
       parameterGroupName: options.mysqlParameter.name,
       deletionProtection: false,
-      skipFinalSnapshot: false,
+      // finalSnapshotIdentifier: `violet-${options.violetEnvOptions.namespace}-${options.violetEnvOptions.section}-final`,
+      skipFinalSnapshot: true,
       tags: genTags(
         `Violet DB in ${options.violetEnvOptions.namespace}`,
         options.violetEnvOptions.namespace,
@@ -194,6 +205,8 @@ export class VioletEnvStack extends TerraformStack {
 
     // =================================================================
     // VPC
+    // https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Vpc.html
+    // https://docs.aws.amazon.com/vpc/latest/userguide/vpc-dns.html
     // =================================================================
     // const privateSubnets = [
     //   `10.${options.cidrNum}.1.0/24`,
@@ -210,11 +223,28 @@ export class VioletEnvStack extends TerraformStack {
     const vpc = new Vpc(this, 'vpc', {
       cidrBlock: `10.${options.cidrNum}.0.0/16`,
       assignGeneratedIpv6CidrBlock: true,
+      // TODO(security): prod
+      enableDnsSupport: true,
+      // TODO(security): prod
+      enableDnsHostnames: true,
       tags: genTags(`Violet ${options.namespace} ${options.section}`, options.namespace, options.section),
     });
     void vpc;
 
+    const igw = new InternetGateway(this, 'igw', {
+      vpcId: vpc.id,
+      tags: genTags(null, options.namespace, options.section),
+    });
+    void igw;
+
+    const igw6 = new EgressOnlyInternetGateway(this, 'igw6', {
+      vpcId: vpc.id,
+      tags: genTags(null, options.namespace, options.section),
+    });
+    void igw6;
+
     const apiSg = new SecurityGroup(this, 'apiSg', {
+      name: `violet-api-${options.namespace}-${options.section}`,
       vpcId: vpc.id,
       egress: [
         {
@@ -239,6 +269,7 @@ export class VioletEnvStack extends TerraformStack {
     void apiSg;
 
     const dbSg = new SecurityGroup(this, 'dbSg', {
+      name: `violet-db-${options.namespace}-${options.section}`,
       vpcId: vpc.id,
       egress: [
         {
@@ -262,6 +293,26 @@ export class VioletEnvStack extends TerraformStack {
     });
     void dbSg;
 
+    const publicRouteTable = new RouteTable(this, 'publicRouteTable', {
+      vpcId: vpc.id,
+      tags: genTags(null, options.namespace, options.section),
+    });
+    void publicRouteTable;
+
+    const publicRouteIgw = new Route(this, `publicRouteIgw`, {
+      routeTableId: publicRouteTable.id,
+      destinationCidrBlock: '0.0.0.0/0',
+      gatewayId: igw.id,
+    });
+    void publicRouteIgw;
+
+    const publicRouteIgw6 = new Route(this, `publicRouteIgw6`, {
+      routeTableId: publicRouteTable.id,
+      destinationIpv6CidrBlock: '::/0',
+      egressOnlyGatewayId: igw6.id,
+    });
+    void publicRouteIgw6;
+
     const publicSubnets = publicSubnetCidrs.map(
       (num, i) =>
         new Subnet(this, `publicSubnets${i}`, {
@@ -274,6 +325,15 @@ export class VioletEnvStack extends TerraformStack {
         }),
     );
     void publicSubnets;
+
+    const publicRtbAssocs = publicSubnets.map(
+      (subnet, i) =>
+        new RouteTableAssociation(this, `publicRtbAssocs${i}`, {
+          routeTableId: publicRouteTable.id,
+          subnetId: subnet.id,
+        }),
+    );
+    void publicRtbAssocs;
 
     // =================================================================
     // Resource Groups
@@ -308,7 +368,7 @@ export class VioletEnvStack extends TerraformStack {
       const { MYSQL_PARAM_JSON } = process.env;
       assert.ok(MYSQL_PARAM_JSON, 'MYSQL_PARAM_JSON');
       const tmp: Record<string, string> = JSON.parse(
-        fs.readFileSync(path.resolve(process.cwd(), MYSQL_PARAM_JSON)).toString(),
+        fs.readFileSync(path.resolve(__dirname, '..', MYSQL_PARAM_JSON)).toString(),
       );
       delete tmp['//'];
       return Object.entries(tmp).map(([name, value]) => ({ name, value }));
@@ -319,18 +379,30 @@ export class VioletEnvStack extends TerraformStack {
     // https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DBParameterGroup.html
     // =================================================================
     const mysqlParameter = new DbParameterGroup(this, 'mysqlParameter', {
+      name: `violet-mysql-param-${options.namespace}-${options.section}`,
       family: 'mysql8.0',
       parameter,
-      tags: genTags(`Violet MySQL Parameters in ${options.namespace}`, options.namespace, options.section),
+      tags: genTags(`Violet MySQL ${options.namespace} ${options.section}`, options.namespace, options.section),
     });
     void mysqlParameter;
 
-    const mysql = new MysqlDb(this, 'mysql', {
-      violetEnvOptions: options,
-      mysqlParameter,
-      subnets: publicSubnets,
-      vpcSecurityGroups: [dbSg],
-    });
+    const mysql = new MysqlDb(
+      this,
+      'mysql',
+      {
+        violetEnvOptions: options,
+        mysqlParameter,
+        subnets: publicSubnets,
+        vpcSecurityGroups: [dbSg],
+      },
+      {
+        dependsOn: [
+          // NOTE(depends): wait IGW setup
+          publicRouteIgw,
+          publicRouteIgw6,
+        ],
+      },
+    );
 
     // =================================================================
     // Output: DB URL for prisma schema
@@ -351,8 +423,11 @@ export class VioletEnvStack extends TerraformStack {
     });
     void buildCacheS3;
 
+    // =================================================================
+    // IAM Role - CodeBuild
+    // =================================================================
     const buildRole = new IamRole(this, 'buildRole', {
-      name: 'code-build-role',
+      name: `violet-build-${suffix.result}`,
       assumeRolePolicy: JSON.stringify({
         Version: '2012-10-17',
         Statement: [
@@ -427,68 +502,79 @@ export class VioletEnvStack extends TerraformStack {
     void buildRolePolicy;
 
     // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codebuild_project
-    // const buildApi = new CodebuildProject(this, 'buildApi', {
-    //   name: 'build-api',
-    //   badgeEnabled: true,
-    //   environment: [
-    //     {
-    //       computeType: 'BUILD_GENERAL1_SMALL',
-    //       image: 'aws/codebuild/standard:1.0',
-    //       type: 'LINUX_CONTAINER',
-    //       imagePullCredentialsType: 'CODEBUILD',
-    //       environmentVariable: [
-    //         {
-    //           name: 'SOME_KEY1',
-    //           value: 'SOME_VALUE1',
-    //         },
-    //         {
-    //           name: 'SOME_KEY2',
-    //           value: 'SOME_VALUE2',
-    //           type: 'PARAMETER_STORE',
-    //         },
-    //       ],
-    //     },
-    //   ],
-    //   source: [
-    //     {
-    //       type: 'GITHUB',
-    //       location: 'https://github.com/LumaKernel/violet.git',
-    //       gitCloneDepth: 1,
-    //
-    //       gitSubmodulesConfig: [
-    //         {
-    //           fetchSubmodules: true,
-    //         },
-    //       ],
-    //
-    //       buildspec: fs.readFileSync(path.resolve(__dirname, '../buildspecs/build-api.yml')).toString(),
-    //     },
-    //   ],
-    //   sourceVersion: (() => {
-    //     if (options.section === 'preview') {
-    //       return `refs/pull/${options.pull}/head`;
-    //     }
-    //     return 'master';
-    //   })(),
-    //   // NOTE: minutes
-    //   buildTimeout: 20,
-    //   serviceRole: buildRole.arn,
-    //   artifacts: [
-    //     {
-    //       type: 'NO_ARTIFACTS',
-    //     },
-    //   ],
-    //   cache: [
-    //     {
-    //       type: 'S3',
-    //       location: buildCacheS3.bucket,
-    //     },
-    //   ],
-    //
-    //   // TODO(logging)
-    //   tags: genTags(null, options.namespace, options.section),
-    // });
-    // void buildApi;
+    // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
+    const { ECR_API_DEV_NAME, AWS_ACCOUNT_ID } = process.env;
+    if (typeof ECR_API_DEV_NAME !== 'string') throw new TypeError('ECR_API_DEV_NAME is not string');
+    if (typeof AWS_ACCOUNT_ID !== 'string') throw new TypeError('AWS_ACCOUNT_ID is not string');
+    const apiBuild = new CodebuildProject(this, 'apiBuild', {
+      name: `violet-build-api-${options.namespace}-${options.section}`,
+      badgeEnabled: true,
+      environment: [
+        {
+          // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-compute-types.html
+          computeType: 'BUILD_GENERAL1_SMALL',
+          type: 'LINUX_CONTAINER',
+          // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-available.html
+          image: 'aws/codebuild/standard:5.0',
+          imagePullCredentialsType: 'CODEBUILD',
+          privilegedMode: true,
+          environmentVariable: [
+            {
+              name: 'IMAGE_REPO_NAME',
+              value: ECR_API_DEV_NAME,
+            },
+            {
+              name: 'IMAGE_TAG',
+              // TODO(naming)
+              value: 'todo',
+            },
+            {
+              name: 'AWS_ACCOUNT_ID',
+              value: AWS_ACCOUNT_ID,
+            },
+          ],
+        },
+      ],
+      source: [
+        {
+          type: 'GITHUB',
+          location: 'https://github.com/LumaKernel/violet.git',
+          gitCloneDepth: 1,
+
+          gitSubmodulesConfig: [
+            {
+              fetchSubmodules: true,
+            },
+          ],
+
+          buildspec: fs.readFileSync(path.resolve(__dirname, '../buildspecs/build-api.yml')).toString(),
+        },
+      ],
+      sourceVersion: (() => {
+        if (options.section === 'preview') {
+          return `refs/pull/${options.pull}/head`;
+        }
+        return 'master';
+      })(),
+      // NOTE: minutes
+      buildTimeout: 20,
+      serviceRole: buildRole.arn,
+      artifacts: [
+        {
+          type: 'NO_ARTIFACTS',
+        },
+      ],
+      cache: [
+        {
+          type: 'S3',
+          location: buildCacheS3.bucket,
+        },
+      ],
+
+      // TODO(logging)
+      tags: genTags(null, options.namespace, options.section),
+    });
+    void apiBuild;
 
     // =================================================================
     // ECS Cluster
