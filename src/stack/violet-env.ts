@@ -9,10 +9,6 @@ import {
   ResourcegroupsGroup,
   DbInstance,
   DbParameterGroup,
-  CodebuildProject,
-  S3Bucket,
-  IamRole,
-  IamRolePolicy,
   Vpc,
   Route,
   InternetGateway,
@@ -28,10 +24,13 @@ import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource, NullProvider } from '@cdktf/provider-null';
 import { PROJECT_NAME } from '../const';
 import type { Section } from './violet-manager';
+import type { SharedEnv } from '../util/env-vars';
 
 export interface VioletEnvOptions {
   region: string;
   section: Section;
+
+  sharedEnv: SharedEnv;
 
   /**
    * GitHub のプルリクエスト番号
@@ -197,9 +196,7 @@ export class VioletEnvStack extends TerraformStack {
     // =================================================================
     const aws = new AwsProvider(this, 'aws', {
       region: options.region,
-      profile: process.env.AWS_PROFILE,
-      accessKey: process.env.AWS_ACCESS_KEY,
-      secretKey: process.env.AWS_SECRET_KEY,
+      profile: options.sharedEnv.AWS_PROFILE,
     });
     void aws;
 
@@ -412,169 +409,6 @@ export class VioletEnvStack extends TerraformStack {
       sensitive: true,
     });
     void dbURL;
-
-    // =================================================================
-    // S3 Bucket - DB CodeBuild cache
-    // =================================================================
-    const buildCacheS3 = new S3Bucket(this, 'buildCacheS3', {
-      bucket: `violet-build-cache-${suffix.result}`,
-      forceDestroy: true,
-      tags: genTags(null, options.namespace, options.section),
-    });
-    void buildCacheS3;
-
-    // =================================================================
-    // IAM Role - CodeBuild
-    // =================================================================
-    const buildRole = new IamRole(this, 'buildRole', {
-      name: `violet-build-${suffix.result}`,
-      assumeRolePolicy: JSON.stringify({
-        Version: '2012-10-17',
-        Statement: [
-          {
-            Effect: 'Allow',
-            Principal: {
-              Service: 'codebuild.amazonaws.com',
-            },
-            Action: 'sts:AssumeRole',
-          },
-        ],
-      }),
-      tags: genTags(null, options.namespace, options.section),
-    });
-    void buildRole;
-
-    const buildRolePolicy = new IamRolePolicy(this, 'buildRolePolicy', {
-      role: buildRole.name,
-      policy: JSON.stringify({
-        Version: '2012-10-17',
-        Statement: [
-          {
-            Effect: 'Allow',
-            Resource: ['*'],
-            Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
-          },
-          // TODO(security): restrict
-          {
-            Action: [
-              'ecr:BatchCheckLayerAvailability',
-              'ecr:CompleteLayerUpload',
-              'ecr:GetAuthorizationToken',
-              'ecr:InitiateLayerUpload',
-              'ecr:PutImage',
-              'ecr:UploadLayerPart',
-            ],
-            Resource: '*',
-            Effect: 'Allow',
-          },
-          {
-            Effect: 'Allow',
-            Action: [
-              'ec2:CreateNetworkInterface',
-              'ec2:DescribeDhcpOptions',
-              'ec2:DescribeNetworkInterfaces',
-              'ec2:DeleteNetworkInterface',
-              'ec2:DescribeSubnets',
-              'ec2:DescribeSecurityGroups',
-              'ec2:DescribeVpcs',
-            ],
-            Resource: '*',
-          },
-          ...publicSubnets.map((subet) => ({
-            Effect: 'Allow',
-            Action: ['ec2:CreateNetworkInterfacePermission'],
-            Resource: [`arn:aws:ec2:${options.region}:${process.env.AWS_ACCOUNT_ID}:network-interface/*`],
-            Condition: {
-              StringEquals: {
-                'ec2:Subnet': subet.arn,
-                'ec2:AuthorizedService': 'codebuild.amazonaws.com',
-              },
-            },
-          })),
-          {
-            Effect: 'Allow',
-            Action: ['s3:*'],
-            Resource: [`${buildCacheS3.arn}`, `${buildCacheS3.arn}/*`],
-          },
-        ],
-      }),
-    });
-    void buildRolePolicy;
-
-    // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codebuild_project
-    // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
-    const { ECR_API_DEV_NAME, AWS_ACCOUNT_ID } = process.env;
-    if (typeof ECR_API_DEV_NAME !== 'string') throw new TypeError('ECR_API_DEV_NAME is not string');
-    if (typeof AWS_ACCOUNT_ID !== 'string') throw new TypeError('AWS_ACCOUNT_ID is not string');
-    const apiBuild = new CodebuildProject(this, 'apiBuild', {
-      name: `violet-build-api-${options.namespace}-${options.section}`,
-      badgeEnabled: true,
-      environment: [
-        {
-          // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-compute-types.html
-          computeType: 'BUILD_GENERAL1_SMALL',
-          type: 'LINUX_CONTAINER',
-          // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-available.html
-          image: 'aws/codebuild/standard:5.0',
-          imagePullCredentialsType: 'CODEBUILD',
-          privilegedMode: true,
-          environmentVariable: [
-            {
-              name: 'IMAGE_REPO_NAME',
-              value: ECR_API_DEV_NAME,
-            },
-            {
-              name: 'IMAGE_TAG',
-              // TODO(naming)
-              value: 'todo',
-            },
-            {
-              name: 'AWS_ACCOUNT_ID',
-              value: AWS_ACCOUNT_ID,
-            },
-          ],
-        },
-      ],
-      source: [
-        {
-          type: 'GITHUB',
-          location: 'https://github.com/LumaKernel/violet.git',
-          gitCloneDepth: 1,
-
-          gitSubmodulesConfig: [
-            {
-              fetchSubmodules: true,
-            },
-          ],
-
-          buildspec: fs.readFileSync(path.resolve(__dirname, '../buildspecs/build-api.yml')).toString(),
-        },
-      ],
-      sourceVersion: (() => {
-        if (options.section === 'preview') {
-          return `refs/pull/${options.pull}/head`;
-        }
-        return 'master';
-      })(),
-      // NOTE: minutes
-      buildTimeout: 20,
-      serviceRole: buildRole.arn,
-      artifacts: [
-        {
-          type: 'NO_ARTIFACTS',
-        },
-      ],
-      cache: [
-        {
-          type: 'LOCAL',
-          modes: ['LOCAL_DOCKER_LAYER_CACHE', 'LOCAL_SOURCE_CACHE'],
-        },
-      ],
-
-      // TODO(logging)
-      tags: genTags(null, options.namespace, options.section),
-    });
-    void apiBuild;
 
     // =================================================================
     // ECS Cluster

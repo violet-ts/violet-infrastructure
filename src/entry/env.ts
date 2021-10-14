@@ -2,6 +2,7 @@ import { App } from 'cdktf';
 import type { VioletEnvOptions } from '../stack/violet-env';
 import { VioletEnvStack } from '../stack/violet-env';
 import { configureBackend } from '../util/backend';
+import { requireSharedEnvVars } from '../util/env-vars';
 import { initEnv } from '../util/init-env';
 
 initEnv({
@@ -9,8 +10,12 @@ initEnv({
   development: true,
 });
 
+const sharedEnv = requireSharedEnvVars();
+
 const options: VioletEnvOptions = {
   region: 'ap-northeast-1',
+
+  sharedEnv,
 
   namespace: 'shared',
   cidrNum: '0',
