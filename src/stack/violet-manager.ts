@@ -14,8 +14,6 @@ import {
   Apigatewayv2Route,
   Apigatewayv2Stage,
   LambdaFunction,
-  CodebuildProject,
-  ApiGatewayStage,
 } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource, NullProvider } from '@cdktf/provider-null';

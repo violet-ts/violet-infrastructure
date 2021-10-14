@@ -565,9 +565,13 @@ export class VioletEnvStack extends TerraformStack {
         },
       ],
       cache: [
+        // {
+        //   type: 'S3',
+        //   location: buildCacheS3.bucket,
+        // },
         {
-          type: 'S3',
-          location: buildCacheS3.bucket,
+          type: 'LOCAL',
+          modes: ['LOCAL_DOCKER_LAYER_CACHE', 'LOCAL_SOURCE_CACHE'],
         },
       ],
 
