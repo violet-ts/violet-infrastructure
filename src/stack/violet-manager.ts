@@ -7,23 +7,32 @@ import {
   EcrRepository,
   S3Bucket,
   S3BucketObject,
+  IamUser,
   IamRole,
+  IamPolicy,
   IamRolePolicy,
   Apigatewayv2Api,
   Apigatewayv2Integration,
   Apigatewayv2Route,
   Apigatewayv2Stage,
   LambdaFunction,
+  SnsTopic,
+  SnsTopicPolicy,
+  DataAwsIamPolicyDocument,
   CodebuildProject,
+  CodestarnotificationsNotificationRule,
+  IamPolicyAttachment,
 } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource, NullProvider } from '@cdktf/provider-null';
+import * as fs from 'fs';
 import * as path from 'path';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
 import { PROJECT_NAME } from '../const';
 import type { SharedEnv, DevEnv, ProdEnv } from '../util/env-vars';
 
 /**
+ * - manage-only
  * - production
  * - development
  *   +- staging
@@ -92,6 +101,7 @@ class DevApiBuild extends Resource {
   });
 
   buildRolePolicy = new IamRolePolicy(this, 'buildRolePolicy', {
+    name: `violet-build-${this.options.suffix.result}`,
     role: this.buildRole.name,
     policy: JSON.stringify({
       Version: '2012-10-17',
@@ -160,18 +170,32 @@ class DevApiBuild extends Resource {
             name: 'AWS_ACCOUNT_ID',
             value: this.options.sharedEnv.AWS_ACCOUNT_ID,
           },
+          {
+            name: 'GIT_FETCH',
+            value: 'master',
+            // value: 'refs/pull/4/head',
+          },
           // TODO(extended): not supported private repos
           // IMAGE_TAG
-          // GIT_URL
-          // GIT_REV
         ],
       },
     ],
     source: [
       {
-        type: 'NO_SOURCE',
+        type: 'GITHUB',
+        location: 'https://github.com/LumaKernel/violet.git',
+        gitCloneDepth: 1,
+
+        gitSubmodulesConfig: [
+          {
+            fetchSubmodules: true,
+          },
+        ],
+
+        buildspec: fs.readFileSync(path.resolve(__dirname, '../buildspecs/build-api.yml')).toString(),
       },
     ],
+    sourceVersion: 'master',
     // NOTE: minutes
     buildTimeout: 20,
     serviceRole: this.buildRole.arn,
@@ -190,6 +214,66 @@ class DevApiBuild extends Resource {
     // TODO(logging)
     tags: this.tags,
   });
+
+  // =================================================================
+  // SNS Topic - API Build Notification
+  // =================================================================
+  apiBuildTopic = new SnsTopic(this, 'apiBuildTopic', {
+    name: `violet-api-build-${this.options.suffix.result}.fifo`,
+    displayName: 'Violet API Build Notification',
+    fifoTopic: true,
+    // lambdaSuccessFeedbackRoleArn
+    tags: this.tags,
+  });
+
+  // =================================================================
+  // IAM Policy Document
+  // -----------------------------------------------------------------
+  // CodeStar Notification に SNS Topic への publish を許可するポリシー
+  // =================================================================
+  apiBuildTopicPolicyDoc = new DataAwsIamPolicyDocument(this, 'apiBuildTopicPolicyDoc', {
+    statement: [
+      {
+        actions: ['sns:Publish'],
+        principals: [
+          {
+            type: 'Service',
+            identifiers: ['codestar-notifications.amazonaws.com'],
+          },
+        ],
+        resources: [this.apiBuildTopic.arn],
+      },
+    ],
+  });
+
+  apiBuildTopicPolicy = new SnsTopicPolicy(this, 'apiBuildTopicPolicy', {
+    arn: this.apiBuildTopic.arn,
+    policy: this.apiBuildTopicPolicyDoc.json,
+  });
+
+  // =================================================================
+  // CodeStar Notification Rule
+  // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codestarnotifications_notification_rule
+  // =================================================================
+  apiBuildNotification = new CodestarnotificationsNotificationRule(this, 'apiBuildNotification', {
+    name: `violet-api-build-${this.options.suffix.result}`,
+    resource: this.apiBuild.arn,
+    detailType: 'BASIC',
+    // https://docs.aws.amazon.com/ja_jp/dtconsole/latest/userguide/concepts.html#concepts-api
+    eventTypeIds: [
+      'codebuild-project-build-state-failed',
+      'codebuild-project-build-state-succeeded',
+      'codebuild-project-build-state-in-progress',
+      'codebuild-project-build-state-stopped',
+    ],
+    target: [
+      {
+        type: 'SNS',
+        address: this.apiBuildTopic.arn,
+      },
+    ],
+    tags: this.tags,
+  });
 }
 
 interface BotApiOptions extends VioletManagerOptions {
@@ -198,6 +282,10 @@ interface BotApiOptions extends VioletManagerOptions {
 }
 class Bot extends Resource {
   private tags = genTags(null, 'manage-only');
+
+  constructor(scope: Construct, name: string, private options: BotApiOptions, config?: ResourceConfig) {
+    super(scope, name, config);
+  }
 
   // =================================================================
   // IAM Role - Lamabda for Violet bot
@@ -220,25 +308,48 @@ class Bot extends Resource {
   });
 
   // =================================================================
-  // IAM Role - Lamabda for Violet bot
+  // IAM User - Bot
+  // -----------------------------------------------------------------
+  // ボットをローカルでテストする用のユーザ
+  // 必要に応じてアクセスキーを作成し、終わったらキーは削除する
   // =================================================================
-  botRolePolicy = new IamRolePolicy(this, 'botRolePolicy', {
-    role: this.botRole.name,
+  botLocal = new IamUser(this, 'botLocal', {
+    name: `violet-bot-${this.options.suffix.result}`,
+    forceDestroy: true,
+    tags: {
+      ...this.tags,
+      ForLocal: 'true',
+    },
+  });
+
+  // =================================================================
+  // IAM Policy - Lambda for Violet bot
+  // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy
+  // =================================================================
+  botPolicy = new IamPolicy(this, 'botPolicy', {
+    name: `violet-bot-${this.options.suffix.result}`,
     policy: JSON.stringify({
       Version: '2012-10-17',
       Statement: [
         {
           Effect: 'Allow',
-          Resource: ['*'],
-          Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
-        },
-        {
-          Effect: 'Allow',
           Resource: [this.options.devApiBuild.apiBuild.arn],
-          Action: ['codebuild:ListProjects', 'codebuild:ListBuildsForProject', 'codebuild:StartBuild'],
+          Action: ['codebuild:ListBuildsForProject', 'codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
         },
       ],
     }),
+    tags: this.tags,
+  });
+
+  // =================================================================
+  // IAM Policy Attachment - Lambda for Violet bot
+  // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy_attachment
+  // =================================================================
+  botPolicyAttachment = new IamPolicyAttachment(this, 'botPolicyAttachment', {
+    name: `violet-bot-${this.options.suffix.result}`,
+    roles: [this.botRole.name],
+    users: [this.botLocal.name],
+    policyArn: this.botPolicy.arn,
   });
 
   // =================================================================
@@ -317,10 +428,6 @@ class Bot extends Resource {
     //   format          : JSON.stringify({ "requestId" : "$context.requestId", "ip" : "$context.identity.sourceIp", "requestTime" : "$context.requestTime", "httpMethod" : "$context.httpMethod", "routeKey" : "$context.routeKey", "status" : "$context.status", "protocol" : "$context.protocol", "responseLength" : "$context.responseLength" }),
     // }]
   });
-
-  constructor(scope: Construct, name: string, private options: BotApiOptions, config?: ResourceConfig) {
-    super(scope, name, config);
-  }
 }
 
 export class VioletManagerStack extends TerraformStack {
@@ -330,130 +437,124 @@ export class VioletManagerStack extends TerraformStack {
 
   constructor(scope: Construct, name: string, private options: VioletManagerOptions) {
     super(scope, name);
-
-    // =================================================================
-    // Null Provider
-    // =================================================================
-    const nullProvider = new NullProvider(this, 'nullProvider', {});
-    void nullProvider;
-
-    // =================================================================
-    // Random Provider
-    // https://registry.terraform.io/providers/hashicorp/random/latest
-    // =================================================================
-    const random = new RandomProvider(this, 'random', {});
-    void random;
-
-    // =================================================================
-    // Random Suffix
-    // https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string
-    // =================================================================
-    const suffix = new RandomString(this, 'suffix', {
-      length: 6,
-      lower: true,
-      upper: false,
-      special: false,
-    });
-    void suffix;
-
-    // =================================================================
-    // AWS Provider
-    // =================================================================
-    const awsProvider = new AwsProvider(this, 'aws', {
-      region: options.region,
-      profile: options.sharedEnv.AWS_PROFILE,
-    });
-    void awsProvider;
-
-    // =================================================================
-    // Resource Groups
-    // -----------------------------------------------------------------
-    // Violet プロジェクトすべてのリソース
-    // =================================================================
-    const allResources = new ResourcegroupsGroup(this, 'allResources', {
-      name: `violet-all`,
-      resourceQuery: [
-        {
-          query: JSON.stringify({
-            ResourceTypeFilters: ['AWS::AllSupported'],
-            TagFilters: [
-              {
-                Key: 'Project',
-                Values: [PROJECT_NAME],
-              },
-            ],
-          }),
-        },
-      ],
-      tags: genTags('Project Violet All Resources'),
-    });
-    void allResources;
-
-    // =================================================================
-    // Resource Groups
-    // -----------------------------------------------------------------
-    // Violet Manager のリソース
-    // =================================================================
-    const managerResources = new ResourcegroupsGroup(this, 'managerResources', {
-      name: `violet-manager`,
-      resourceQuery: [
-        {
-          query: JSON.stringify({
-            ResourceTypeFilters: ['AWS::AllSupported'],
-            TagFilters: [
-              {
-                Key: 'Project',
-                Values: [PROJECT_NAME],
-              },
-              {
-                Key: 'Manager',
-                Values: ['true'],
-              },
-            ],
-          }),
-        },
-      ],
-      tags: genTags('Project Violet Manager Resources'),
-    });
-    void managerResources;
-
-    // =================================================================
-    // ECS Repositories
-    // https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_Repository.html
-    // -----------------------------------------------------------------
-    // 管理方針
-    // Production と Staging + Preview で無効化方針が変わるため分ける
-    // TODO: Public Repository のほうがよいかもしれない
-    // =================================================================
-
-    // -----------------------------------------------------------------
-    // ECS Repository - Production API
-    // -----------------------------------------------------------------
-    const ecsRepoProdFrontend = new EcrRepository(this, 'ecsRepoProdFrontend', {
-      name: options.prodEnv.ECR_API_PROD_NAME,
-      imageTagMutability: 'IMMUTABLE',
-      // TODO(security): for production
-      // imageScanningConfiguration,
-      tags: genTags(null),
-    });
-    void ecsRepoProdFrontend;
-
-    // -----------------------------------------------------------------
-    // ECS Repository - Development API
-    // -----------------------------------------------------------------
-    const ecsRepoDevFrontend = new EcrRepository(this, 'ecsRepoDevFrontend', {
-      name: options.devEnv.ECR_API_DEV_NAME,
-      imageTagMutability: 'MUTABLE',
-      // TODO(security): for production
-      // imageScanningConfiguration,
-      tags: genTags(null, 'development'),
-    });
-    void ecsRepoDevFrontend;
-
-    const devApiBuild = new DevApiBuild(this, 'devApiBuild', { ...options, suffix, name: `violet-dev-build-api` });
-    void devApiBuild;
-
-    const bot = new Bot(this, 'bot', { ...options, suffix, devApiBuild });
-    void bot;
   }
+
+  // =================================================================
+  // Null Provider
+  // =================================================================
+  nullProvider = new NullProvider(this, 'nullProvider', {});
+
+  // =================================================================
+  // Random Provider
+  // https://registry.terraform.io/providers/hashicorp/random/latest
+  // =================================================================
+  random = new RandomProvider(this, 'random', {});
+
+  // =================================================================
+  // Random Suffix
+  // https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string
+  // =================================================================
+  suffix = new RandomString(this, 'suffix', {
+    length: 6,
+    lower: true,
+    upper: false,
+    special: false,
+  });
+
+  // =================================================================
+  // AWS Provider
+  // =================================================================
+  awsProvider = new AwsProvider(this, 'aws', {
+    region: this.options.region,
+    profile: this.options.sharedEnv.AWS_PROFILE,
+  });
+
+  // =================================================================
+  // Resource Groups
+  // -----------------------------------------------------------------
+  // Violet プロジェクトすべてのリソース
+  // =================================================================
+  allResources = new ResourcegroupsGroup(this, 'allResources', {
+    name: `violet-all`,
+    resourceQuery: [
+      {
+        query: JSON.stringify({
+          ResourceTypeFilters: ['AWS::AllSupported'],
+          TagFilters: [
+            {
+              Key: 'Project',
+              Values: [PROJECT_NAME],
+            },
+          ],
+        }),
+      },
+    ],
+    tags: genTags('Project Violet All Resources'),
+  });
+
+  // =================================================================
+  // Resource Groups
+  // -----------------------------------------------------------------
+  // Violet Manager のリソース
+  // =================================================================
+  managerResources = new ResourcegroupsGroup(this, 'managerResources', {
+    name: `violet-manager`,
+    resourceQuery: [
+      {
+        query: JSON.stringify({
+          ResourceTypeFilters: ['AWS::AllSupported'],
+          TagFilters: [
+            {
+              Key: 'Project',
+              Values: [PROJECT_NAME],
+            },
+            {
+              Key: 'Manager',
+              Values: ['true'],
+            },
+          ],
+        }),
+      },
+    ],
+    tags: genTags('Project Violet Manager Resources'),
+  });
+
+  // =================================================================
+  // ECS Repositories
+  // https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_Repository.html
+  // -----------------------------------------------------------------
+  // 管理方針
+  // Production と Staging + Preview で無効化方針が変わるため分ける
+  // TODO: Public Repository のほうがよいかもしれない
+  // =================================================================
+
+  // -----------------------------------------------------------------
+  // ECS Repository - Production API
+  // -----------------------------------------------------------------
+  ecsRepoProdFrontend = new EcrRepository(this, 'ecsRepoProdFrontend', {
+    name: this.options.prodEnv.ECR_API_PROD_NAME,
+    imageTagMutability: 'IMMUTABLE',
+    // TODO(security): for production
+    // imageScanningConfiguration,
+    tags: genTags(null),
+  });
+
+  // -----------------------------------------------------------------
+  // ECS Repository - Development API
+  // -----------------------------------------------------------------
+  ecsRepoDevFrontend = new EcrRepository(this, 'ecsRepoDevFrontend', {
+    name: this.options.devEnv.ECR_API_DEV_NAME,
+    imageTagMutability: 'MUTABLE',
+    // TODO(security): for production
+    // imageScanningConfiguration,
+    tags: genTags(null, 'development'),
+  });
+
+  devApiBuild = new DevApiBuild(this, 'devApiBuild', {
+    ...this.options,
+    suffix: this.suffix,
+    name: `violet-dev-build-api`,
+  });
+
+  bot = new Bot(this, 'bot', { ...this.options, suffix: this.suffix, devApiBuild: this.devApiBuild });
 }

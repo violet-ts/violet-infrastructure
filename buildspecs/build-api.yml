@@ -13,10 +13,9 @@ phases:
       - echo "IMAGE_REPO_NAME=$IMAGE_REPO_NAME"
       - echo "IMAGE_TAG=$IMAGE_TAG"
       - echo "GIT_URL=$GIT_URL"
-      - echo "GIT_REV=$GIT_REV"
+      - echo "GIT_FETCH=$GIT_FETCH"
       - echo ==== Git clone ====
-      - git clone --depth 1 "$GIT_URL" "$(pwd)"
-      - git fetch origin "$GIT_REV"
+      - git fetch origin "$GIT_FETCH"
       - git checkout FETCH_HEAD
       - echo ==== Login to ECR ====
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "https://$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
