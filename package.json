@@ -4,45 +4,19 @@
   "private": true,
   "license": "TODO",
   "scripts": {
-    "compile": "ts-node -T ./scripts/build.ts",
-    "compile-watch": "ts-node -T ./scripts/build.ts --watch",
-    "get": "cdktf get",
     "lint": "eslint \"**/*.{js,cjs,mjs,ts,tsx,json}\"",
     "lint-fix": "pnpm run lint -- --fix",
     "lint-quiet": "pnpm run lint -- --quiet",
-    "_:cdktf:env": "cd ./.state/env && cdktf --app \"pnpm run --silent compile && node ../../build/env.js\"",
-    "_:cdktf:manager": "cd ./.state/manager && cdktf --app \"pnpm run --silent compile && node ../../build/manager.js\"",
-    "synth:env": "pnpm run _:cdktf:env -- synth",
-    "synth:manager": "pnpm run _:cdktf:manager -- synth",
-    "deploy:env": "pnpm run _:cdktf:env -- deploy",
-    "deploy:manager": "pnpm run _:cdktf:manager -- deploy",
-    "destroy:env": "pnpm run _:cdktf:env -- destroy",
-    "destroy:manager": "pnpm run _:cdktf:manager -- destroy",
-    "list:env": "pnpm run _:cdktf:env -- list",
-    "list:manager": "pnpm run _:cdktf:manager -- list",
-    "test": "run-s test:tsc test:jest",
-    "test:jest": "jest",
-    "test:tsc": "tsc --noEmit",
-    "test-watch": "run-p test-watch:*",
-    "test-watch:jest": "jest --watch",
-    "test-watch:tsc": "tsc --noEmit --watch",
+    "test": "pnpm run --filter=./pkg test",
+    "test-watch": "pnpm run --filter=./pkg test-watch",
     "prepare": "husky install"
   },
-  "dependencies": {
-    "cdktf": "0.6.4",
-    "constructs": "^10.0.5",
-    "dotenv": "^10.0.0"
-  },
   "devDependencies": {
-    "@cdktf/provider-aws": "^2.0.11",
-    "@cdktf/provider-null": "^0.2.8",
-    "@cdktf/provider-random": "^0.0.5",
     "@luma-dev/eslint-config-base": "^0.7.0",
     "@luma-dev/eslint-config-jest": "^0.2.5",
     "@luma-dev/prettier-config": "^0.1.0",
     "@types/jest": "^27.0.2",
     "@types/node": "^16.10.3",
-    "cdktf-cli": "^0.6.4",
     "esbuild": "^0.13.3",
     "esbuild-node-externals": "^1.3.0",
     "eslint": "^7.32.0",
@@ -55,6 +29,9 @@
     "typescript": "^4.4.3"
   },
   "engines": {
-    "node": ">=14"
+    "node": ">=12",
+    "npm": "use pnpm",
+    "pnpm": ">=6",
+    "yarn": "use pnpm"
   }
 }
