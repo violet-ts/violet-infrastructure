@@ -56,7 +56,6 @@ jobs:
           run_install: |
             - recursive: true
               args: [--frozen-lockfile, --prefer-offline]
-      - run: ./scripts/gen-readme.cjs
       - run: pnpm run --filter=./pkg compile
       - run: pnpm lint
       - run: pnpm test
