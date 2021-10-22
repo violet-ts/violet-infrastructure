@@ -1,0 +1,31 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo ==== Install unzip ====
+      - yum install -y unzip
+      - unzip -v
+      - echo ==== Install terraform ====
+      - curl https://releases.hashicorp.com/terraform/1.0.9/terraform_1.0.9_linux_amd64.zip -o terraform.zip
+      - unzip terraform.zip
+      - install terraform /usr/local/bin
+      - rm terraform.zip terraform
+      - echo ==== Install pnpm ====
+      - npm i -g pnpm@6
+  pre_build:
+      - echo ==== Clone infrastructure definitions repository ====
+      - |
+        git clone "$GIT_REPOSITORY_URL" --depth=0 repo
+        cd repo
+        git fetch "$GIT_REPOSITORY_REV"
+        git checkout FETCH_ORIGIN
+  build:
+    commands:
+      - pwd
+      - cd repo
+      - echo ==== Terraform apply ====
+      - pwd
+  post_build:
+    commands:
+      - echo ==== todo ====

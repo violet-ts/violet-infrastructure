@@ -23,7 +23,7 @@ import * as path from 'path';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource, NullProvider } from '@cdktf/provider-null';
 import { PROJECT_NAME } from '../const';
-import type { Section } from './violet-manager';
+import type { Section } from './types';
 import type { SharedEnv } from '../app/env-vars';
 
 export interface VioletEnvOptions {
