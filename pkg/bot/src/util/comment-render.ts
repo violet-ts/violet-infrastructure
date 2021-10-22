@@ -9,7 +9,8 @@ export const renderCommentBody = (body: CommentBody): string => {
     ...body.main.filter((e) => typeof e === 'string'),
     ...(body.hints
       ?.filter((e): e is CommentHint => e != null && typeof e === 'object')
-      .map((hint) => `<details><summary>${hint.title}</summary>\n\n${renderCommentBody(hint.body)}\n\n</details>`) ??
-      []),
+      .map(
+        (hint) => `\n<details><summary>${hint.title}</summary>\n\n${renderCommentBody(hint.body)}\n\n</details>\n`,
+      ) ?? []),
   ].join('\n');
 };

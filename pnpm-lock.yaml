@@ -42,6 +42,7 @@ importers:
       '@actions/github': ^5.0.0
       '@aws-sdk/client-dynamodb': ^3.37.0
       '@aws-sdk/util-dynamodb': ^3.37.0
+      '@js-temporal/polyfill': ^0.2.0
       '@octokit/auth-app': ^3.6.0
       '@octokit/rest': ^18.12.0
       '@octokit/webhooks': ^9.16.0
@@ -55,11 +56,13 @@ importers:
       promise-queue: ^2.2.5
       uuid: ^8.3.2
       winston: ^3.3.3
+      zod: ^3.10.3
     devDependencies:
       '@actions/core': 1.6.0
       '@actions/github': 5.0.0
       '@aws-sdk/client-dynamodb': 3.37.0
       '@aws-sdk/util-dynamodb': 3.37.0
+      '@js-temporal/polyfill': 0.2.0
       '@octokit/auth-app': 3.6.1
       '@octokit/rest': 18.12.0
       '@octokit/webhooks': 9.17.0
@@ -73,6 +76,7 @@ importers:
       promise-queue: 2.2.5
       uuid: 8.3.2
       winston: 3.3.3
+      zod: 3.10.3
 
   pkg/def:
     specifiers:
@@ -1578,6 +1582,14 @@ packages:
     resolution: {integrity: sha512-CtzORUwWTTOTqfVtHaKRJ0I1kNQd1bpn3sUh8I3nJDVY+5/M/Oe1DnEWzPQvqq/xPIIkzzzIP7mfCoAjFRvDhg==}
     dev: true
 
+  /@js-temporal/polyfill/0.2.0:
+    resolution: {integrity: sha512-GyjuWEUpK2i+hGIfFOEdA8iVS4xPNLupwCgU9CiQFbMH+QW8De/4egT1MSod3ZmPDLyuxvFJ1285Cg3QuZOVBQ==}
+    engines: {node: '>=12'}
+    dependencies:
+      big-integer: 1.6.50
+      es-abstract: 1.19.1
+    dev: true
+
   /@jsii/check-node/1.39.0:
     resolution: {integrity: sha512-tqx5o0Zw6WrVKmB9S1X0E8AajfXjWu9yoOUtUdYVCR6NAdi8mY/NQ3uYJ8II0AF1MtC0PdASOjb/6i3h02komw==}
     engines: {node: '>= 10.3.0'}
@@ -2773,6 +2785,11 @@ packages:
 
   /before-after-hook/2.2.2:
     resolution: {integrity: sha512-3pZEU3NT5BFUo/AD5ERPWOgQOCZITni6iavr5AUw5AUwQjMlI0kzu5btnyD39AF0gUEsDPwJT+oY1ORBJijPjQ==}
+    dev: true
+
+  /big-integer/1.6.50:
+    resolution: {integrity: sha512-+O2uoQWFRo8ysZNo/rjtri2jIwjr3XfeAgRjAUADRqGG+ZITvyn8J1kvXLTaKVr3hhGXk+f23tKfdzmklVM9vQ==}
+    engines: {node: '>=0.6'}
     dev: true
 
   /binary-extensions/2.2.0:
@@ -8202,4 +8219,8 @@ packages:
 
   /zod/1.11.17:
     resolution: {integrity: sha512-UzIwO92D0dSFwIRyyqAfRXICITLjF0IP8tRbEK/un7adirMssWZx8xF/1hZNE7t61knWZ+lhEuUvxlu2MO8qqA==}
+    dev: true
+
+  /zod/3.10.3:
+    resolution: {integrity: sha512-ngMXcA/TNXnlXWAmAdH98U6rV5W0K8wNASafMIYUuOrBfwtO7LyPXaOi/riRZns1qfWuE1lHr7gt9N4rmyYFlQ==}
     dev: true

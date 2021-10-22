@@ -18,6 +18,7 @@
     "@actions/github": "^5.0.0",
     "@aws-sdk/client-dynamodb": "^3.37.0",
     "@aws-sdk/util-dynamodb": "^3.37.0",
+    "@js-temporal/polyfill": "^0.2.0",
     "@octokit/auth-app": "^3.6.0",
     "@octokit/rest": "^18.12.0",
     "@octokit/webhooks": "^9.16.0",
@@ -30,7 +31,8 @@
     "dotenv": "^10.0.0",
     "promise-queue": "^2.2.5",
     "uuid": "^8.3.2",
-    "winston": "^3.3.3"
+    "winston": "^3.3.3",
+    "zod": "^3.10.3"
   },
   "engines": {
     "node": ">=12",

@@ -19,6 +19,15 @@ phases:
       - git checkout FETCH_HEAD
       - echo ==== Login to ECR ====
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "https://$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - echo ==== Login to Docker Hub ====
+      - |
+        if test -n "$DOCKERHUB_USER"
+        then
+          echo "Docker Hub crendentials found."
+          echo "$DOCKERHUB_PASS" | docker login --username "$DOCKERHUB_USER" --password-stdin
+        else
+          echo "Docker Hub crendentials not found."
+        fi
   build:
     commands:
       - echo ==== Build the Docker image ====

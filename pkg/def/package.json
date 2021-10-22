@@ -4,8 +4,8 @@
   "private": true,
   "license": "TODO",
   "scripts": {
-    "_:cdktf:env": "cd ./state/env && cdktf --app \"pnpm run --silent compile && node ../../build/env.js\"",
-    "_:cdktf:manager": "cd ./state/manager && cdktf --app \"pnpm run --silent compile && node ../../build/manager.js\"",
+    "_:cdktf:env": "cd ./state/env && cdktf --app \"pnpm run --silent compile --filter=./pkg -w && node ../../build/env.js\"",
+    "_:cdktf:manager": "cd ./state/manager && cdktf --app \"pnpm run --silent compile --filter=./pkg -w && node ../../build/manager.js\"",
     "compile": "ts-node -T ./scripts/build.ts",
     "compile-watch": "ts-node -T ./scripts/build.ts --watch",
     "deploy:env": "pnpm run _:cdktf:env -- deploy",

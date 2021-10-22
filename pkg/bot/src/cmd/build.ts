@@ -1,4 +1,6 @@
 import { CodeBuild } from 'aws-sdk';
+import { Intl } from '@js-temporal/polyfill';
+import { z } from 'zod';
 import type { ReplyCmd } from '../type/cmd';
 import { renderTimestamp } from '../util/comment-render';
 import { setupAws } from '../util/hint';
@@ -18,7 +20,16 @@ export interface BuiltInfo {
   imageSize: string;
   imageTag: string;
   imageRepoName: string;
+  timeRange: string;
 }
+
+const builtInfoSchema = z.object({
+  rev: z.string(),
+  imageSize: z.string(),
+  imageTag: z.string(),
+  imageRepoName: z.string(),
+  timeRange: z.string(),
+});
 
 export interface CommentValues {
   buildStatus: string;
@@ -92,6 +103,7 @@ const cmd: ReplyCmd<Name, Entry, CommentValues> = {
           `- 使用コミット: [${builtInfo.rev.slice(0, 6)}](https://github.com/LumaKernel/violet/pull/${
             entry.prNumber
           }/commits/${builtInfo.rev})`,
+        builtInfo != null && `- ビルド時間: \`${builtInfo.timeRange}\``,
         values.deepLogLink != null && `- [ビルドの詳細ログ (CloudWatch)](${values.deepLogLink})`,
       ],
       hints: [
@@ -99,11 +111,10 @@ const cmd: ReplyCmd<Name, Entry, CommentValues> = {
           title: 'Docker イメージの取得方法',
           body: {
             main: [
-              '```',
+              '```bash',
               ...setupAws,
               `aws ecr get-login-password --profile "$AWS_PROFILE" --region ${region} | docker login --username AWS --password-stdin "https://\${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com"`,
               `docker pull "\${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com/${builtInfo.imageRepoName}:${builtInfo.imageTag}"`,
-              '# docker logout',
               '```',
             ],
           },
@@ -120,24 +131,35 @@ const cmd: ReplyCmd<Name, Entry, CommentValues> = {
       .promise();
     const { builds } = r;
     if (builds == null) throw new TypeError('builds not found');
+    const first = builds[0];
     const last = builds[builds.length - 1];
     if (typeof last.buildStatus !== 'string') throw new TypeError('CodeBuild last buildStatus is not string');
-    if (last.startTime == null) throw new TypeError('CodeBuild last startTime is found');
+    const firstStartTime = first.startTime;
+    const lastEndTime = last.endTime;
+    if (firstStartTime == null) throw new TypeError('CodeBuild first startTime is not found');
+    if (lastEndTime == null) throw new TypeError('CodeBuild last endTime is not found');
 
     const computeBuiltInfo = async (): Promise<BuiltInfo | null> => {
-      const log = last.logs?.cloudWatchLogs;
-      ctx.logger.info(log);
-      if (log == null) return null;
-      if (log.groupName == null) return null;
-      if (log.streamName == null) return null;
-      const p = await collectLogsOutput(log.groupName, [log.streamName]);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-explicit-any
-      return p as any;
+      ctx.logger.info('checking cloudwatch logs', { logs: last.logs });
+      const { logs } = last;
+      if (logs == null) return null;
+      if (logs.groupName == null) return null;
+      if (logs.streamName == null) return null;
+      const p = await collectLogsOutput(logs.groupName, [logs.streamName]);
+      // TODO(hardcoded)
+      const timeRange = new Intl.DateTimeFormat('ja-JP').formatRange(firstStartTime, lastEndTime);
+      return builtInfoSchema.parse({
+        ...p,
+        timeRange,
+      });
     };
-    const builtInfo = last.buildStatus === 'Succeeded' ? await computeBuiltInfo() : null;
+    ctx.logger.info('Get last status.', { buildStatus: last.buildStatus });
+    const builtInfo = last.buildStatus === 'SUCCEEDED' ? await computeBuiltInfo() : null;
+    ctx.logger.info('Built info.', { builtInfo });
+
     const values: CommentValues = {
       buildStatus: last.buildStatus,
-      statusChangedAt: last.endTime ?? last.startTime,
+      statusChangedAt: lastEndTime,
       deepLogLink: last.logs?.deepLink,
       builtInfo,
     };

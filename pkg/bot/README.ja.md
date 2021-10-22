@@ -5,6 +5,9 @@
 - [x] help: help 表示
 - [x] build: 最新のコミットをDocker コンテナのビルドと ECR への publish
 
+- [ ] `/...` 形式のコマンドへ
+- [ ] DynamoDB schema 見直し
+
 - [ ] :star: preview/start, preview: 最新のコミットを専用の環境を作ってプレビュー
 - [ ] :star: preview/delete: 削除スケジュールを作成 (PR closed で自動でつくる）
 - [ ] preview/status: プレビュー環境のステータス

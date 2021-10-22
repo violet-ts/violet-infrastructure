@@ -33,15 +33,14 @@ const handler: Handler = async (event: unknown, context) => {
   })();
 
   if (oldEntry == null) {
-    logger.warn('Unknown event.');
-    logger.warn('event', event);
-    logger.warn('context', context);
+    logger.warn('Unknown event.', { event, context });
     return;
   }
 
   const secrets = await requireSecrets(env);
   const octokit = await createOctokit(env, secrets);
 
+  logger.info('Entry found.', { oldEntry });
   const cmd = cmds.find((cmd) => cmd.cmd === oldEntry.name);
   if (cmd == null) {
     logger.error(`Command not found for ${oldEntry.name}`, oldEntry);
@@ -51,6 +50,7 @@ const handler: Handler = async (event: unknown, context) => {
     logger.info(`No need to update for command ${oldEntry.name}`, oldEntry);
     return;
   }
+  logger.info('Command for entry found.', { cmd });
 
   const cmdCtx: CommandBasicContext = {
     octokit,
@@ -72,6 +72,7 @@ const handler: Handler = async (event: unknown, context) => {
     commentId: oldEntry.commentId,
     lastUpdate: new Date().toISOString(),
   };
+  logger.info('New entry computed.', { newEntry });
   const full = constructFullComment(cmd, newEntry, values, cmdCtx);
 
   await octokit.issues.updateComment({
@@ -80,6 +81,8 @@ const handler: Handler = async (event: unknown, context) => {
     comment_id: newEntry.commentId,
     body: full,
   });
+
+  logger.info('Finishing...');
 };
 
 export { handler };

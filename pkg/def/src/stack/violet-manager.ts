@@ -26,6 +26,8 @@ import {
   CodebuildProject,
   CodestarnotificationsNotificationRule,
   IamPolicyAttachment,
+  SecretsmanagerSecret,
+  SecretsmanagerSecretVersion,
 } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource, NullProvider } from '@cdktf/provider-null';
@@ -117,6 +119,56 @@ class DevApiBuild extends Resource {
     tags: this.tags,
   });
 
+  dockerHubCredentials = (() => {
+    const { DOCKERHUB } = this.options.sharedEnv;
+    if (DOCKERHUB == null) return null;
+    return new (class extends Resource {
+      constructor(
+        private DOCKERHUB: Required<SharedEnv>['DOCKERHUB'],
+        private parent: DevApiBuild,
+        name: string,
+        config?: ResourceConfig,
+      ) {
+        super(parent, name, config);
+      }
+
+      username = new SecretsmanagerSecret(this, 'username', {
+        name: `${this.parent.options.name}-dockerhub-username`,
+        tags: this.parent.tags,
+      });
+
+      password = new SecretsmanagerSecret(this, 'password', {
+        name: `${this.parent.options.name}-dockerhub-password`,
+        tags: this.parent.tags,
+      });
+
+      usernameValue = new SecretsmanagerSecretVersion(this, 'usernameValue', {
+        secretId: this.username.id,
+        secretString: this.DOCKERHUB.USER,
+      });
+
+      passwordValue = new SecretsmanagerSecretVersion(this, 'passwordValue', {
+        secretId: this.password.id,
+        secretString: this.DOCKERHUB.PASS,
+      });
+
+      buildSecretsRolePolicy = new IamRolePolicy(this, 'buildSecretsRolePolicy', {
+        name: `violet-build-secrets-${this.parent.options.suffix.result}`,
+        role: this.parent.buildRole.name,
+        policy: JSON.stringify({
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Effect: 'Allow',
+              Resource: [this.username.arn, this.password.arn],
+              Action: ['secretsmanager:GetSecretValue'],
+            },
+          ],
+        }),
+      });
+    })(DOCKERHUB, this, 'dockerHubCredentials');
+  })();
+
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codebuild_project
   // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
   apiBuild = new CodebuildProject(this, 'apiBuild', {
@@ -133,6 +185,20 @@ class DevApiBuild extends Resource {
         imagePullCredentialsType: 'CODEBUILD',
         privilegedMode: true,
         environmentVariable: [
+          ...(this.dockerHubCredentials
+            ? [
+                {
+                  name: 'DOCKERHUB_USER',
+                  value: this.dockerHubCredentials.username.arn,
+                  type: 'SECRETS_MANAGER',
+                },
+                {
+                  name: 'DOCKERHUB_PASS',
+                  value: this.dockerHubCredentials.password.arn,
+                  type: 'SECRETS_MANAGER',
+                },
+              ]
+            : []),
           {
             name: 'IMAGE_REPO_NAME',
             value: this.options.devEnv.ECR_API_DEV_NAME,
@@ -307,6 +373,12 @@ class Bot extends Resource {
   // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
   table = new DynamodbTable(this, 'table', {
     billingMode: 'PAY_PER_REQUEST',
+    ttl: [
+      {
+        enabled: true,
+        attributeName: 'ttl',
+      },
+    ],
     name: `violet-bot-${this.options.suffix.result}`,
     attribute: [
       {
@@ -469,6 +541,7 @@ class Bot extends Resource {
     s3Bucket: this.botLambdaS3.bucket,
     s3Key: this.githubBotZip.key,
     role: this.botRole.arn,
+    memorySize: 256,
     environment: this.lambdaEnvs,
     timeout: 20,
     handler: 'github-bot.handler',
@@ -481,6 +554,7 @@ class Bot extends Resource {
     s3Bucket: this.botLambdaS3.bucket,
     s3Key: this.onAnyZip.key,
     role: this.botRole.arn,
+    memorySize: 256,
     environment: this.lambdaEnvs,
     timeout: 20,
     handler: 'on-any.handler',
