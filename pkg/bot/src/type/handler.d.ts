@@ -1,7 +1,6 @@
 import type { Context as LambdaContext } from 'aws-lambda';
 import type { Logger } from 'winston';
 import type { Env } from '../app/env-vars';
-import type { GeneralEntry } from './cmd';
 
 export type BasicContext = {
   env: Env;
@@ -9,5 +8,6 @@ export type BasicContext = {
 };
 
 export interface CallbackHandler {
-  handle(ctx: BasicContext, event: unknown, context: LambdaContext): Promise<null | GeneralEntry>;
+  name: string;
+  handle(ctx: BasicContext, event: unknown, context: LambdaContext): Promise<unknown>;
 }

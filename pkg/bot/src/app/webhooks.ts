@@ -1,3 +1,4 @@
+import { Temporal, toTemporalInstant } from '@js-temporal/polyfill';
 import { DynamoDB } from 'aws-sdk';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import type { Logger } from 'winston';
@@ -15,15 +16,15 @@ import { renderCommentBody, renderTimestamp } from '../util/comment-render';
 import type { Secrets } from './secrets';
 
 // TODO(hardcoded)
-const botName = 'viola-bot';
+const botPrefix = '/';
 
 export const constructFullComment = (
   cmd: ReplyCmd,
-  entry: GeneralEntry,
-  values: undefined,
+  entry: GeneralEntry & Parameters<ReplyCmd['constructComment']>[0],
+  values: unknown,
   ctx: BasicContext,
 ): string => {
-  const commentHead = [embedDirective(`mark:${cmd.cmd}:${entry.uuid}`), `@${entry.callerName}`, '', ''].join('\n');
+  const commentHead = [embedDirective(`mark:${cmd.name}:${entry.uuid}`), `@${entry.callerName}`, '', ''].join('\n');
   const commentBodyStruct = cmd.constructComment(entry, values, ctx);
   const comment = renderCommentBody({
     main: commentBodyStruct.main,
@@ -32,7 +33,7 @@ export const constructFullComment = (
       {
         title: '詳細',
         body: {
-          main: [`- 最終更新: ${renderTimestamp(new Date(Date.parse(entry.lastUpdate)))}`],
+          main: [`- 最終更新: ${renderTimestamp(Temporal.Instant.fromEpochSeconds(entry.lastUpdate))}`],
         },
       },
     ],
@@ -45,7 +46,7 @@ export const constructFullComment = (
 const processRun = async (run: Command, octokit: Octokit, env: Env, payload: IssueCommentEvent, logger: Logger) => {
   logger.info('Trying to run', run.args);
   const [cmdName, ...args] = run.args;
-  const cmd = cmds.find((cmd) => cmd.cmd === cmdName);
+  const cmd = cmds.find((cmd) => cmd.name === cmdName);
   const { id: callerId, login: callerName } = payload.comment.user;
 
   if (cmd == null) {
@@ -56,7 +57,7 @@ const processRun = async (run: Command, octokit: Octokit, env: Env, payload: Iss
         {
           title: 'ヒント',
           body: {
-            main: [`- <code>@${botName} help</code> でヘルプを表示できます。`],
+            main: [`- <code>${botPrefix}help</code> でヘルプを表示できます。`],
           },
         },
       ],
@@ -84,10 +85,11 @@ const processRun = async (run: Command, octokit: Octokit, env: Env, payload: Iss
   const date = new Date();
   const generalEntry: GeneralEntry = {
     uuid,
-    name: cmd.cmd,
+    ttl: toTemporalInstant.call(date).add({ hours: 24 * 7 }).epochSeconds,
+    name: cmd.name,
     callerId,
     callerName,
-    lastUpdate: date.toISOString(),
+    lastUpdate: toTemporalInstant.call(date).epochSeconds,
     commentOwner: payload.repository.owner.login,
     commentRepo: payload.repository.name,
     commentIssueNumber: payload.issue.number,
@@ -158,7 +160,7 @@ export const createWebhooks = (
       logger.info('Authentication success.');
 
       const octokit = await createOctokit(env, secrets);
-      const runs = parseComment(payload.comment.body, botName);
+      const runs = parseComment(payload.comment.body, botPrefix);
       logger.info(`${runs.length} runs detected.`);
 
       // eslint-disable-next-line no-restricted-syntax

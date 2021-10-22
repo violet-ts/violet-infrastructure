@@ -91,15 +91,6 @@ class DevApiBuild extends Resource {
   private tags = genTags(null, 'development');
 
   // =================================================================
-  // S3 Bucket - DB CodeBuild cache
-  // =================================================================
-  buildCacheS3 = new S3Bucket(this, 'buildCacheS3', {
-    bucket: `violet-build-cache-${this.options.suffix.result}`,
-    forceDestroy: true,
-    tags: this.tags,
-  });
-
-  // =================================================================
   // IAM Role - CodeBuild
   // =================================================================
   buildRole = new IamRole(this, 'buildRole', {
@@ -132,24 +123,25 @@ class DevApiBuild extends Resource {
         super(parent, name, config);
       }
 
-      username = new SecretsmanagerSecret(this, 'username', {
-        name: `${this.parent.options.name}-dockerhub-username`,
+      USER_KEY = 'user';
+
+      PASS_KEY = 'pass';
+
+      credentials = new SecretsmanagerSecret(this, 'credentials', {
+        namePrefix: `${this.parent.options.name}-dockerhub-credentials`,
         tags: this.parent.tags,
       });
 
-      password = new SecretsmanagerSecret(this, 'password', {
-        name: `${this.parent.options.name}-dockerhub-password`,
-        tags: this.parent.tags,
-      });
+      credentialsUserArn = `${this.credentials.arn}:${this.USER_KEY}`;
 
-      usernameValue = new SecretsmanagerSecretVersion(this, 'usernameValue', {
-        secretId: this.username.id,
-        secretString: this.DOCKERHUB.USER,
-      });
+      credentialsPassArn = `${this.credentials.arn}:${this.PASS_KEY}`;
 
-      passwordValue = new SecretsmanagerSecretVersion(this, 'passwordValue', {
-        secretId: this.password.id,
-        secretString: this.DOCKERHUB.PASS,
+      credentialsValue = new SecretsmanagerSecretVersion(this, 'usernameValue', {
+        secretId: this.credentials.id,
+        secretString: JSON.stringify({
+          [this.USER_KEY]: this.DOCKERHUB.USER,
+          [this.PASS_KEY]: this.DOCKERHUB.PASS,
+        }),
       });
 
       buildSecretsRolePolicy = new IamRolePolicy(this, 'buildSecretsRolePolicy', {
@@ -160,7 +152,7 @@ class DevApiBuild extends Resource {
           Statement: [
             {
               Effect: 'Allow',
-              Resource: [this.username.arn, this.password.arn],
+              Resource: [this.credentials.arn],
               Action: ['secretsmanager:GetSecretValue'],
             },
           ],
@@ -189,12 +181,12 @@ class DevApiBuild extends Resource {
             ? [
                 {
                   name: 'DOCKERHUB_USER',
-                  value: this.dockerHubCredentials.username.arn,
+                  value: this.dockerHubCredentials.credentialsUserArn,
                   type: 'SECRETS_MANAGER',
                 },
                 {
                   name: 'DOCKERHUB_PASS',
-                  value: this.dockerHubCredentials.password.arn,
+                  value: this.dockerHubCredentials.credentialsPassArn,
                   type: 'SECRETS_MANAGER',
                 },
               ]
@@ -288,11 +280,6 @@ class DevApiBuild extends Resource {
             'ec2:DescribeVpcs',
           ],
           Resource: '*',
-        },
-        {
-          Effect: 'Allow',
-          Action: ['s3:*'],
-          Resource: [`${this.buildCacheS3.arn}`, `${this.buildCacheS3.arn}/*`],
         },
       ],
     }),
@@ -501,6 +488,8 @@ class Bot extends Resource {
   // =================================================================
   botLambdaS3 = new S3Bucket(this, 'botLambdaS3', {
     bucket: `violet-bot-lambda-${this.options.suffix.result}`,
+    acl: 'private',
+    forceDestroy: true,
     tags: this.tags,
   });
 
@@ -510,6 +499,7 @@ class Bot extends Resource {
     bucket: this.botLambdaS3.bucket,
     key: `github-bot-\${sha1(filebase64("${this.githubBotZipPath}"))}.zip`,
     source: this.githubBotZipPath,
+    forceDestroy: true,
     tags: this.tags,
   });
 
@@ -519,6 +509,7 @@ class Bot extends Resource {
     bucket: this.botLambdaS3.bucket,
     key: `on-any-\${sha1(filebase64("${this.onAnyZipPath}"))}.zip`,
     source: this.onAnyZipPath,
+    forceDestroy: true,
     tags: this.tags,
   });
 

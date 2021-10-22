@@ -4,15 +4,17 @@
 // そのため、uuid を特定する材料さえ見つければ良い。
 
 import type { Handler } from 'aws-lambda';
+import { toTemporalInstant } from '@js-temporal/polyfill';
 import { cmds } from '../../app/cmds';
 import { createOctokit } from '../../app/github-app';
 import { handlers } from '../../app/handlers';
 import { constructFullComment } from '../../app/webhooks';
-import type { BasicContext as CommandBasicContext, GeneralEntry } from '../../type/cmd';
+import type { BasicContext as CommandBasicContext } from '../../type/cmd';
 import type { BasicContext as HandlerBasicContext } from '../../type/handler';
 import { requireEnvVars } from '../../app/env-vars';
 import { createLambdaLogger } from '../../util/loggers';
 import { requireSecrets } from '../../app/secrets';
+import { generalEntrySchema } from '../../type/cmd';
 
 const handler: Handler = async (event: unknown, context) => {
   const env = requireEnvVars();
@@ -23,11 +25,16 @@ const handler: Handler = async (event: unknown, context) => {
     logger,
   };
 
-  const oldEntry: GeneralEntry | null = await (async () => {
+  const oldEntry = await (async () => {
     // eslint-disable-next-line no-restricted-syntax
-    for await (const handler of handlers) {
-      const tmp = await handler.handle(handlerCtx, event, context);
-      if (tmp != null) return tmp;
+    for (const handler of handlers) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const entry = await handler.handle(handlerCtx, event, context);
+        return generalEntrySchema.passthrough().parse(entry);
+      } catch (err: unknown) {
+        logger.info(`Checking for "${handler.name}" was failed because ${err}`, { err });
+      }
     }
     return null;
   })();
@@ -41,7 +48,7 @@ const handler: Handler = async (event: unknown, context) => {
   const octokit = await createOctokit(env, secrets);
 
   logger.info('Entry found.', { oldEntry });
-  const cmd = cmds.find((cmd) => cmd.cmd === oldEntry.name);
+  const cmd = cmds.find((cmd) => cmd.name === oldEntry.name);
   if (cmd == null) {
     logger.error(`Command not found for ${oldEntry.name}`, oldEntry);
     return;
@@ -58,7 +65,8 @@ const handler: Handler = async (event: unknown, context) => {
     logger,
   };
 
-  const { entry, values } = await cmd.update(oldEntry, cmdCtx);
+  const { entry, values } = await cmd.update(cmd.entrySchema.and(generalEntrySchema).parse(oldEntry), cmdCtx);
+  const date = new Date();
   const newEntry = {
     ...oldEntry,
     ...entry,
@@ -70,7 +78,8 @@ const handler: Handler = async (event: unknown, context) => {
     commentOwner: oldEntry.commentOwner,
     commentIssueNumber: oldEntry.commentIssueNumber,
     commentId: oldEntry.commentId,
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: toTemporalInstant.call(date).epochSeconds,
+    ttl: toTemporalInstant.call(date).add({ hours: 24 * 7 }).epochSeconds,
   };
   logger.info('New entry computed.', { newEntry });
   const full = constructFullComment(cmd, newEntry, values, cmdCtx);

@@ -1,27 +1,18 @@
 import { CodeBuild } from 'aws-sdk';
-import { Intl } from '@js-temporal/polyfill';
+import type { Temporal } from '@js-temporal/polyfill';
+import { toTemporalInstant } from '@js-temporal/polyfill';
 import { z } from 'zod';
 import type { ReplyCmd } from '../type/cmd';
-import { renderTimestamp } from '../util/comment-render';
+import { renderTimestamp, renderDuration } from '../util/comment-render';
 import { setupAws } from '../util/hint';
 import { collectLogsOutput } from '../util/logs-output';
 
-const name = 'build';
-type Name = typeof name;
-
-export interface Entry {
-  prNumber: number;
-  buildId: string;
-  buildArn: string;
-}
-
-export interface BuiltInfo {
-  rev: string;
-  imageSize: string;
-  imageTag: string;
-  imageRepoName: string;
-  timeRange: string;
-}
+const entrySchema = z.object({
+  prNumber: z.number(),
+  buildId: z.string(),
+  buildArn: z.string(),
+});
+export type Entry = z.infer<typeof entrySchema>;
 
 const builtInfoSchema = z.object({
   rev: z.string(),
@@ -30,19 +21,21 @@ const builtInfoSchema = z.object({
   imageRepoName: z.string(),
   timeRange: z.string(),
 });
+export type BuiltInfo = z.infer<typeof builtInfoSchema>;
 
 export interface CommentValues {
   buildStatus: string;
-  statusChangedAt: Date;
+  statusChangedAt: Temporal.Instant;
   deepLogLink?: string | null;
   builtInfo?: BuiltInfo | null;
 }
 
-const cmd: ReplyCmd<Name, Entry, CommentValues> = {
-  cmd: name,
+const cmd: ReplyCmd<Entry, CommentValues> = {
+  name: 'build',
   where: 'pr',
   description: 'build',
   hidden: false,
+  entrySchema,
   async main(ctx, _args) {
     const { number: prNumber } = ctx.commentPayload.issue;
     const codeBuild = new CodeBuild();
@@ -77,7 +70,7 @@ const cmd: ReplyCmd<Name, Entry, CommentValues> = {
 
     const values: CommentValues = {
       buildStatus: build.buildStatus,
-      statusChangedAt: build.startTime,
+      statusChangedAt: toTemporalInstant.call(build.startTime),
     };
 
     return {
@@ -103,7 +96,7 @@ const cmd: ReplyCmd<Name, Entry, CommentValues> = {
           `- 使用コミット: [${builtInfo.rev.slice(0, 6)}](https://github.com/LumaKernel/violet/pull/${
             entry.prNumber
           }/commits/${builtInfo.rev})`,
-        builtInfo != null && `- ビルド時間: \`${builtInfo.timeRange}\``,
+        builtInfo != null && `- ビルド時間: ${builtInfo.timeRange}`,
         values.deepLogLink != null && `- [ビルドの詳細ログ (CloudWatch)](${values.deepLogLink})`,
       ],
       hints: [
@@ -130,14 +123,16 @@ const cmd: ReplyCmd<Name, Entry, CommentValues> = {
       })
       .promise();
     const { builds } = r;
+    ctx.logger.info('builds', { builds });
     if (builds == null) throw new TypeError('builds not found');
     const first = builds[0];
     const last = builds[builds.length - 1];
     if (typeof last.buildStatus !== 'string') throw new TypeError('CodeBuild last buildStatus is not string');
     const firstStartTime = first.startTime;
+    const lastStartTime = last.startTime;
     const lastEndTime = last.endTime;
     if (firstStartTime == null) throw new TypeError('CodeBuild first startTime is not found');
-    if (lastEndTime == null) throw new TypeError('CodeBuild last endTime is not found');
+    if (lastStartTime == null) throw new TypeError('CodeBuild last startTime is not found');
 
     const computeBuiltInfo = async (): Promise<BuiltInfo | null> => {
       ctx.logger.info('checking cloudwatch logs', { logs: last.logs });
@@ -146,8 +141,9 @@ const cmd: ReplyCmd<Name, Entry, CommentValues> = {
       if (logs.groupName == null) return null;
       if (logs.streamName == null) return null;
       const p = await collectLogsOutput(logs.groupName, [logs.streamName]);
-      // TODO(hardcoded)
-      const timeRange = new Intl.DateTimeFormat('ja-JP').formatRange(firstStartTime, lastEndTime);
+      const timeRange = renderDuration(
+        toTemporalInstant.call(firstStartTime).until(toTemporalInstant.call(lastEndTime ?? lastStartTime)),
+      );
       return builtInfoSchema.parse({
         ...p,
         timeRange,
@@ -159,7 +155,7 @@ const cmd: ReplyCmd<Name, Entry, CommentValues> = {
 
     const values: CommentValues = {
       buildStatus: last.buildStatus,
-      statusChangedAt: lastEndTime,
+      statusChangedAt: toTemporalInstant.call(lastEndTime ?? lastStartTime),
       deepLogLink: last.logs?.deepLink,
       builtInfo,
     };

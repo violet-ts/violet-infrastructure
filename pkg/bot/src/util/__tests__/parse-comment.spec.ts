@@ -4,28 +4,21 @@ describe('parseComment', () => {
   it('should parse comments for the bot', () => {
     expect(
       parseComment(
-        `
-      hi! I'm calling my bot.
-      @my-bot foo  bar
-      And once again!
-      @my-bot hello
-      not related!
-      @me hello
-      @my-bot-foo hello
-      `,
-        'my-bot',
+        [
+          "hi! I'm calling my bot.",
+          '/foo  bar',
+          'And once again!',
+          '/hello',
+          'not related!',
+          '@me hello',
+          '  /hello',
+        ].join('\n'),
+        '/',
       ),
     ).toEqual([{ args: ['foo', 'bar'] }, { args: ['hello'] }]);
   });
   it('should ignore the comments marked as ignore', () => {
-    expect(
-      parseComment(
-        `<!-- violet: ignore -->
-      @my-bot foo  bar
-      `,
-        'my-bot',
-      ),
-    ).toEqual([]);
+    expect(parseComment(['<!-- violet: ignore -->', '/foo  bar'].join('\n'), '/')).toEqual([]);
   });
 });
 

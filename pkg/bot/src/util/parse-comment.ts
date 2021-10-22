@@ -2,20 +2,14 @@ export interface Command {
   args: string[];
 }
 
-export const parseComment = (body: string, botName: string): Command[] => {
-  const lines = body.split(/[\r\n]+/).map((line) => line.trim());
+export const parseComment = (body: string, botPrefix: string): Command[] => {
+  const lines = body.split(/[\r\n]+/);
   if (lines.length === 0) return [];
   if (parseDirective(lines[0]) === 'ignore') return [];
-  const pat = /^@\S+\s+(.*)$/;
-  const cmds: Command[] = [];
-  lines
-    .filter((line) => line.startsWith(`@${botName} `))
-    .forEach((line) => {
-      const cmd = line.match(pat)?.[1];
-      if (typeof cmd === 'string') {
-        cmds.push({ args: cmd.split(/\s+/) });
-      }
-    });
+  const cmds: Command[] = lines
+    .filter((line) => line.startsWith(botPrefix))
+    .map((line) => line.slice(botPrefix.length))
+    .map((line) => ({ args: line.split(/\s+/) }));
   return cmds;
 };
 

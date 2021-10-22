@@ -1,18 +1,39 @@
+import { z } from 'zod';
 import type { CallbackHandler } from '../type/handler';
 import { tryParseJSON } from '../util/try-parse-json';
-import { queryOneOrNull } from './util/db';
+import { queryOne } from './util/db';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+const snsEventSchema = z.object({
+  Records: z.tuple([
+    z.object({
+      Sns: z.object({
+        Message: z.string(),
+      }),
+    }),
+  ]),
+});
+
+const codeBuildMessageSchema = z.object({
+  detail: z.object({
+    'build-status': z.string(),
+    'build-id': z.string(),
+    'project-name': z.string(),
+  }),
+});
+
+// eslint-disable-next-line no-unused-expressions -- assert
+(v: CodeBuildMessage) => {
+  ((_: z.infer<typeof codeBuildMessageSchema>) => 0)(v);
+};
+
 const handler: CallbackHandler = {
-  async handle(ctx, event: any, _context) {
-    const messageRaw = event?.Records?.[0]?.Sns?.Message;
-    if (typeof messageRaw !== 'string') return null;
-    const messageUnknown: any = tryParseJSON(messageRaw);
-    if (typeof messageUnknown !== 'object' || messageUnknown == null) return null;
-    if (typeof messageUnknown.detail?.['build-status'] !== 'string') return null;
-    if (typeof messageUnknown.detail?.['build-id'] !== 'string') return null;
-    const message: CodeBuildMessage = messageUnknown as any;
-    return queryOneOrNull(
+  name: 'CodeBuild Status Change',
+  async handle(ctx, event, _context) {
+    const snsEvent = snsEventSchema.parse(event);
+    const messageRaw = snsEvent.Records[0].Sns.Message;
+    const messageUnknown = tryParseJSON(messageRaw);
+    const message = codeBuildMessageSchema.parse(messageUnknown);
+    return queryOne(
       {
         TableName: ctx.env.TABLE_NAME,
         FilterExpression: 'buildArn = :arn',
@@ -22,7 +43,6 @@ const handler: CallbackHandler = {
     );
   },
 };
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export type CodeBuildMessage = {
   /** example: '111111111111' */
