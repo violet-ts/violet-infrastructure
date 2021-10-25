@@ -1,4 +1,4 @@
-import { AwsProvider, EcrRepository, ResourcegroupsGroup, SsmParameter } from '@cdktf/provider-aws';
+import { AwsProvider, ECR, ResourceGroups, SSM } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
 import { TerraformOutput, TerraformStack } from 'cdktf';
@@ -8,6 +8,7 @@ import { PROJECT_NAME } from '../../const';
 import { Bot } from './bot';
 import { ApiBuild } from './build-api';
 import { DockerHubCredentials } from './dockerhub-credentials';
+import { EnvDeploy } from './env-deploy';
 import { botEnv, genTags } from './values';
 
 export interface VioletManagerOptions {
@@ -26,90 +27,74 @@ export class VioletManagerStack extends TerraformStack {
     super(scope, name);
   }
 
-  // =================================================================
-  // Null Provider
-  // =================================================================
   readonly nullProvider = new NullProvider(this, 'nullProvider', {});
 
-  // =================================================================
-  // Random Provider
-  // https://registry.terraform.io/providers/hashicorp/random/latest
-  // =================================================================
   readonly random = new RandomProvider(this, 'random', {});
 
-  // =================================================================
-  // Random Suffix
-  // https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string
-  // =================================================================
-  readonly suffix = new RandomString(this, 'suffix', {
+  readonly awsProvider = new AwsProvider(this, 'awsProvider', {
+    region: this.options.region,
+    profile: this.options.sharedEnv.AWS_PROFILE,
+  });
+
+  private readonly suffix = new RandomString(this, 'suffix', {
     length: 6,
     lower: true,
     upper: false,
     special: false,
   });
 
-  // =================================================================
-  // AWS Provider
-  // =================================================================
-  readonly awsProvider = new AwsProvider(this, 'aws', {
-    region: this.options.region,
-    profile: this.options.sharedEnv.AWS_PROFILE,
-  });
-
-  // =================================================================
-  // Resource Groups
-  // -----------------------------------------------------------------
   // Violet プロジェクトすべてのリソース
-  // =================================================================
-  readonly allResources = new ResourcegroupsGroup(this, 'allResources', {
+  readonly allResources = new ResourceGroups.ResourcegroupsGroup(this, 'allResources', {
     name: `violet-all`,
-    resourceQuery: [
-      {
-        query: JSON.stringify({
-          ResourceTypeFilters: ['AWS::AllSupported'],
-          TagFilters: [
-            {
-              Key: 'Project',
-              Values: [PROJECT_NAME],
-            },
-          ],
-        }),
-      },
-    ],
-    tags: genTags('Project Violet All Resources'),
+    resourceQuery: {
+      query: JSON.stringify({
+        ResourceTypeFilters: ['AWS::AllSupported'],
+        TagFilters: [
+          {
+            Key: 'Project',
+            Values: [PROJECT_NAME],
+          },
+        ],
+      }),
+    },
+    tags: {
+      ...genTags('Project Violet All Resources'),
+    },
   });
 
-  // =================================================================
-  // Resource Groups
-  // -----------------------------------------------------------------
   // Violet Manager のリソース
-  // =================================================================
-  readonly managerResources = new ResourcegroupsGroup(this, 'managerResources', {
+  readonly managerResources = new ResourceGroups.ResourcegroupsGroup(this, 'managerResources', {
     name: `violet-manager`,
-    resourceQuery: [
-      {
-        query: JSON.stringify({
-          ResourceTypeFilters: ['AWS::AllSupported'],
-          TagFilters: [
-            {
-              Key: 'Project',
-              Values: [PROJECT_NAME],
-            },
-            {
-              Key: 'Manager',
-              Values: ['true'],
-            },
-          ],
-        }),
-      },
-    ],
-    tags: genTags('Project Violet Manager Resources'),
+    resourceQuery: {
+      query: JSON.stringify({
+        ResourceTypeFilters: ['AWS::AllSupported'],
+        TagFilters: [
+          {
+            Key: 'Project',
+            Values: [PROJECT_NAME],
+          },
+          {
+            Key: 'Manager',
+            Values: ['true'],
+          },
+        ],
+      }),
+    },
+    tags: {
+      ...genTags('Project Violet Manager Resources'),
+    },
   });
 
   readonly dockerHubCredentials = (() => {
     const { DOCKERHUB } = this.options.sharedEnv;
     if (DOCKERHUB == null) return null;
-    return new DockerHubCredentials(this, 'dockerHubCredentials', { DOCKERHUB });
+    return new DockerHubCredentials(this, 'dockerHubCredentials', {
+      DOCKERHUB,
+      prefix: 'violet',
+      tags: {
+        ...genTags(null),
+      },
+    });
   })();
 
   readonly ssmPrefix = `/${PROJECT_NAME}-${this.suffix.result}`;
@@ -118,49 +103,57 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly botParameters = botEnv.map(
     ([key, value]) =>
-      new SsmParameter(this, `botParameters-${key}`, {
+      new SSM.SsmParameter(this, `botParameters-${key}`, {
         name: `${this.ssmBotPrefix}/${key}`,
         value,
         type: 'SecureString',
-        tags: genTags(null),
+        tags: {
+          ...genTags(null),
+        },
       }),
   );
 
-  // =================================================================
-  // ECS Repositories
+  // === ECR Repositories ===
   // https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_Repository.html
-  // -----------------------------------------------------------------
-  // 管理方針
-  // Production と Staging + Preview で無効化方針が変わるため分ける
-  // TODO: Public Repository のほうがよいかもしれない
-  // =================================================================
+  // 管理方針:
+  //   Production と Staging + Preview で無効化方針が変わるため分ける
+  //   TODO: Public Repository のほうがよいかもしれない
 
-  // -----------------------------------------------------------------
-  // ECS Repository - Production API
-  // -----------------------------------------------------------------
-  readonly ecrProdApi = new EcrRepository(this, 'ecrProdApi', {
+  readonly ecrProdApi = new ECR.EcrRepository(this, 'ecrProdApi', {
     name: this.options.prodEnv.ECR_API_PROD_NAME,
     imageTagMutability: 'IMMUTABLE',
     // TODO(security): for production
     // imageScanningConfiguration,
-    tags: genTags(null, 'production'),
+    tags: {
+      ...genTags(null, 'production'),
+    },
   });
 
-  // -----------------------------------------------------------------
-  // ECS Repository - Development API
-  // -----------------------------------------------------------------
-  readonly ecrDevApi = new EcrRepository(this, 'ecrDevApi', {
+  readonly ecrDevApi = new ECR.EcrRepository(this, 'ecrDevApi', {
     name: this.options.devEnv.ECR_API_DEV_NAME,
     imageTagMutability: 'MUTABLE',
     // TODO(security): for production
     // imageScanningConfiguration,
-    tags: genTags(null, 'development'),
+    tags: {
+      ...genTags(null, 'development'),
+    },
   });
+
+  // ===
 
   readonly devApiBuild = new ApiBuild(this, 'devApiBuild', {
     prefix: 'violet-dev-api-build',
     ecr: this.ecrDevApi,
-    tags: genTags(null, 'development'),
+    tags: {
+      ...genTags(null, 'development'),
+    },
+  });
+
+  readonly devEnvDeploy = new EnvDeploy(this, 'devEnvDeploy', {
+    prefix: 'violet-dev-env-deploy',
+    tags: {
+      ...genTags(null, 'development'),
+    },
   });
 
   readonly bot = new Bot(this, 'bot', {
@@ -168,17 +161,18 @@ export class VioletManagerStack extends TerraformStack {
     devApiBuild: this.devApiBuild,
     ssmBotPrefix: this.ssmBotPrefix,
     botParameters: this.botParameters,
-    tags: genTags(null, 'manage-only'),
+    tags: {
+      ...genTags(null),
+    },
   });
-
-  // =================================================================
-  // Outputs
-  // =================================================================
 
   readonly botApiEndpoint = new TerraformOutput(this, 'botApiEndpoint', {
     value: this.bot.botApi.apiEndpoint,
   });
 
+  /**
+   * ローカルで bot をサーブする場合は、 <project>/pkg/bot/.env.local に追記する
+   */
   readonly botEnvFile = new TerraformOutput(this, 'botEnvFile', {
     value: [
       `SSM_PREFIX=${this.ssmBotPrefix}`,

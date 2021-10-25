@@ -130,11 +130,12 @@ export class String extends cdktf.TerraformResource {
   }
 
   // keepers - computed: false, optional: true, required: false
-  private _keepers?: { [key: string]: string } | cdktf.IResolvable;
+  private _keepers?: { [key: string]: string } | cdktf.IResolvable | undefined; 
   public get keepers() {
+    // Getting the computed value is not yet implemented
     return this.interpolationForAttribute('keepers') as any;
   }
-  public set keepers(value: { [key: string]: string } | cdktf.IResolvable ) {
+  public set keepers(value: { [key: string]: string } | cdktf.IResolvable | undefined) {
     this._keepers = value;
   }
   public resetKeepers() {
@@ -146,7 +147,7 @@ export class String extends cdktf.TerraformResource {
   }
 
   // length - computed: false, optional: false, required: true
-  private _length: number;
+  private _length?: number; 
   public get length() {
     return this.getNumberAttribute('length');
   }
@@ -159,11 +160,11 @@ export class String extends cdktf.TerraformResource {
   }
 
   // lower - computed: false, optional: true, required: false
-  private _lower?: boolean | cdktf.IResolvable;
+  private _lower?: boolean | cdktf.IResolvable | undefined; 
   public get lower() {
-    return this.getBooleanAttribute('lower');
+    return this.getBooleanAttribute('lower') as any;
   }
-  public set lower(value: boolean | cdktf.IResolvable ) {
+  public set lower(value: boolean | cdktf.IResolvable | undefined) {
     this._lower = value;
   }
   public resetLower() {
@@ -175,11 +176,11 @@ export class String extends cdktf.TerraformResource {
   }
 
   // min_lower - computed: false, optional: true, required: false
-  private _minLower?: number;
+  private _minLower?: number | undefined; 
   public get minLower() {
     return this.getNumberAttribute('min_lower');
   }
-  public set minLower(value: number ) {
+  public set minLower(value: number | undefined) {
     this._minLower = value;
   }
   public resetMinLower() {
@@ -191,11 +192,11 @@ export class String extends cdktf.TerraformResource {
   }
 
   // min_numeric - computed: false, optional: true, required: false
-  private _minNumeric?: number;
+  private _minNumeric?: number | undefined; 
   public get minNumeric() {
     return this.getNumberAttribute('min_numeric');
   }
-  public set minNumeric(value: number ) {
+  public set minNumeric(value: number | undefined) {
     this._minNumeric = value;
   }
   public resetMinNumeric() {
@@ -207,11 +208,11 @@ export class String extends cdktf.TerraformResource {
   }
 
   // min_special - computed: false, optional: true, required: false
-  private _minSpecial?: number;
+  private _minSpecial?: number | undefined; 
   public get minSpecial() {
     return this.getNumberAttribute('min_special');
   }
-  public set minSpecial(value: number ) {
+  public set minSpecial(value: number | undefined) {
     this._minSpecial = value;
   }
   public resetMinSpecial() {
@@ -223,11 +224,11 @@ export class String extends cdktf.TerraformResource {
   }
 
   // min_upper - computed: false, optional: true, required: false
-  private _minUpper?: number;
+  private _minUpper?: number | undefined; 
   public get minUpper() {
     return this.getNumberAttribute('min_upper');
   }
-  public set minUpper(value: number ) {
+  public set minUpper(value: number | undefined) {
     this._minUpper = value;
   }
   public resetMinUpper() {
@@ -239,11 +240,11 @@ export class String extends cdktf.TerraformResource {
   }
 
   // number - computed: false, optional: true, required: false
-  private _number?: boolean | cdktf.IResolvable;
+  private _number?: boolean | cdktf.IResolvable | undefined; 
   public get number() {
-    return this.getBooleanAttribute('number');
+    return this.getBooleanAttribute('number') as any;
   }
-  public set number(value: boolean | cdktf.IResolvable ) {
+  public set number(value: boolean | cdktf.IResolvable | undefined) {
     this._number = value;
   }
   public resetNumber() {
@@ -255,11 +256,11 @@ export class String extends cdktf.TerraformResource {
   }
 
   // override_special - computed: false, optional: true, required: false
-  private _overrideSpecial?: string;
+  private _overrideSpecial?: string | undefined; 
   public get overrideSpecial() {
     return this.getStringAttribute('override_special');
   }
-  public set overrideSpecial(value: string ) {
+  public set overrideSpecial(value: string | undefined) {
     this._overrideSpecial = value;
   }
   public resetOverrideSpecial() {
@@ -276,11 +277,11 @@ export class String extends cdktf.TerraformResource {
   }
 
   // special - computed: false, optional: true, required: false
-  private _special?: boolean | cdktf.IResolvable;
+  private _special?: boolean | cdktf.IResolvable | undefined; 
   public get special() {
-    return this.getBooleanAttribute('special');
+    return this.getBooleanAttribute('special') as any;
   }
-  public set special(value: boolean | cdktf.IResolvable ) {
+  public set special(value: boolean | cdktf.IResolvable | undefined) {
     this._special = value;
   }
   public resetSpecial() {
@@ -292,11 +293,11 @@ export class String extends cdktf.TerraformResource {
   }
 
   // upper - computed: false, optional: true, required: false
-  private _upper?: boolean | cdktf.IResolvable;
+  private _upper?: boolean | cdktf.IResolvable | undefined; 
   public get upper() {
-    return this.getBooleanAttribute('upper');
+    return this.getBooleanAttribute('upper') as any;
   }
-  public set upper(value: boolean | cdktf.IResolvable ) {
+  public set upper(value: boolean | cdktf.IResolvable | undefined) {
     this._upper = value;
   }
   public resetUpper() {

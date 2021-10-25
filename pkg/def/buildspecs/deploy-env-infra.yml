@@ -1,31 +1,68 @@
 version: 0.2
 
+env:
+  variables:
+    TERRAFORM_VERSION: "1.0.9"
+    PNPM_VERSION: "6"
+
 phases:
   install:
+    runtime-versions:
+      nodejs: 14
     commands:
-      - echo ==== Install unzip ====
-      - yum install -y unzip
-      - unzip -v
-      - echo ==== Install terraform ====
-      - curl https://releases.hashicorp.com/terraform/1.0.9/terraform_1.0.9_linux_amd64.zip -o terraform.zip
+      - echo ==== tool versions ====
+      - aws --version
+      - git --version
+      - echo ==== install terraform ====
+      - curl "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o terraform.zip
       - unzip terraform.zip
       - install terraform /usr/local/bin
       - rm terraform.zip terraform
-      - echo ==== Install pnpm ====
-      - npm i -g pnpm@6
+      - terraform -version
+      - echo ==== install pnpm ====
+      - npm i -g "pnpm@${PNPM_VERSION}"
+      - pnpm --version
+      - echo ==== info ====
+      - pwd
+      - whoami
+      - echo ==== finished ====
   pre_build:
-      - echo ==== Clone infrastructure definitions repository ====
-      - |
-        git clone "$GIT_REPOSITORY_URL" --depth=0 repo
-        cd repo
-        git fetch "$GIT_REPOSITORY_REV"
-        git checkout FETCH_ORIGIN
+    commands:
+      - echo ==== git clone main repository ====
+      - mkdir main || true
+      - cd main
+      -   git init || true
+      -   git reset --hard HEAD || true
+      -   git remote remove origin || true
+      -   git remote add origin "$GIT_URL_MAIN"
+      -   git fetch origin "$GIT_FETCH_MAIN"
+      -   git checkout FETCH_HEAD
+      - cd ..
+      - echo ==== git clone infra repository ====
+      - mkdir infra || true
+      - cd infra
+      -   git init || true
+      -   git reset --hard HEAD || true
+      -   git remote remove origin || true
+      -   git remote add origin "$GIT_URL_INFRA"
+      -   git fetch origin "$GIT_FETCH_INFRA"
+      -   git checkout FETCH_HEAD
+      - cd
+      - echo ==== infra/pnpm install ====
+      - pnpm install --recursive --frozen-lockfile --prefer-offline
+      - echo ==== finished ====
   build:
     commands:
-      - pwd
-      - cd repo
-      - echo ==== Terraform apply ====
-      - pwd
+      - echo ==== terraform apply ====
+      - pnpm run --dir ./pkg/def deploy:env -- --auto-approve
+      - echo ==== finished ====
   post_build:
     commands:
-      - echo ==== todo ====
+      - echo ==== TODO ====
+      - echo ==== finished ====
+
+cache:
+  paths:
+    - "main/.git/**/*"
+    - "infra/.git/**/*"
+    - "/root/.pnpm-store/**/*"

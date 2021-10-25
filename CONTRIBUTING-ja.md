@@ -31,9 +31,14 @@ WIP
 - 可能なすべての箇所に `tags` を指定する
 - 可能なすべての `tags` 継承オプションを指定する
 - 可能なすべての `name` を指定する
-- アカウント内、もしくは全体で共通のネームスペースを使うリソースの場合、ランダムプロバイダーで生成した suffix を使用します
-  - ただし、 SecretsManager に限り `namePrefix` を使用します
+- アカウント内、もしくは全体で共通のネームスペースを使うリソースの場合、ランダムプロバイダーで生成した `suffix` を使用します
+  - `suffix` はクラスごとに生成し、 `private` を指定します
+  - SecretsManager に限り `namePrefix` を使用します
     - why: SecretsManager の削除は即時には行われないため
+- class は修飾子が基本必要ないレベルまで分割する
+  - つまり、 `devBuildApiRole = new ...` より `role = new ...` にできるレベルに分割
+- `fs.readFileSync` よりも terraform の `file()` か `filebase64` を使います。
+  - why: `${}` による変数展開されてしまう可能性がある
 
 ## TODO comment scopes
 

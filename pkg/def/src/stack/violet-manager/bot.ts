@@ -1,24 +1,10 @@
 import * as path from 'path';
-import type { SsmParameter } from '@cdktf/provider-aws';
-import {
-  Apigatewayv2Api,
-  Apigatewayv2Integration,
-  Apigatewayv2Route,
-  Apigatewayv2Stage,
-  DynamodbTable,
-  IamPolicy,
-  IamPolicyAttachment,
-  IamRole,
-  IamUser,
-  LambdaFunction,
-  LambdaPermission,
-  S3Bucket,
-  S3BucketObject,
-  SnsTopicSubscription,
-} from '@cdktf/provider-aws';
+import type { SSM } from '@cdktf/provider-aws';
+import { APIGatewayV2, DynamoDB, IAM, LambdaFunction, S3, SNS } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
+import * as z from 'zod';
 import type { VioletManagerStack } from '.';
 import type { ApiBuild } from './build-api';
 import { ensurePath } from '../../util/ensure-path';
@@ -27,7 +13,7 @@ import { botBuildDir } from './values';
 export interface BotApiOptions {
   devApiBuild: ApiBuild;
   ssmBotPrefix: string;
-  botParameters: SsmParameter[];
+  botParameters: SSM.SsmParameter[];
   tags: Record<string, string>;
   prefix: string;
 }
@@ -36,10 +22,7 @@ export class Bot extends Resource {
     super(parent, name, config);
   }
 
-  // =================================================================
-  // Random Suffix
-  // =================================================================
-  readonly suffix = new RandomString(this, 'suffix', {
+  private readonly suffix = new RandomString(this, 'suffix', {
     length: 6,
     lower: true,
     upper: false,
@@ -47,15 +30,13 @@ export class Bot extends Resource {
   });
 
   // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
-  readonly table = new DynamodbTable(this, 'table', {
+  readonly table = new DynamoDB.DynamodbTable(this, 'table', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     billingMode: 'PAY_PER_REQUEST',
-    ttl: [
-      {
-        enabled: true,
-        attributeName: 'ttl',
-      },
-    ],
+    ttl: {
+      enabled: true,
+      attributeName: 'ttl',
+    },
     attribute: [
       {
         name: 'uuid',
@@ -63,13 +44,15 @@ export class Bot extends Resource {
       },
     ],
     hashKey: 'uuid',
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
   // =================================================================
   // IAM Role - Lamabda for Violet bot
   // =================================================================
-  readonly botRole = new IamRole(this, 'botRole', {
+  readonly botRole = new IAM.IamRole(this, 'botRole', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     assumeRolePolicy: JSON.stringify({
       Version: '2012-10-17',
@@ -83,7 +66,9 @@ export class Bot extends Resource {
         },
       ],
     }),
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
   // =================================================================
@@ -92,7 +77,7 @@ export class Bot extends Resource {
   // ボットをローカルでテストする用のユーザ
   // 必要に応じてアクセスキーを作成し、終わったらキーは削除する
   // =================================================================
-  readonly botLocal = new IamUser(this, 'botLocal', {
+  readonly botLocal = new IAM.IamUser(this, 'botLocal', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     forceDestroy: true,
     tags: {
@@ -105,7 +90,7 @@ export class Bot extends Resource {
   // IAM Policy - Lambda for Violet bot
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy
   // =================================================================
-  readonly botPolicy = new IamPolicy(this, 'botPolicy', {
+  readonly botPolicy = new IAM.IamPolicy(this, 'botPolicy', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     policy: JSON.stringify({
       Version: '2012-10-17',
@@ -148,16 +133,18 @@ export class Bot extends Resource {
         },
       ],
     }),
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
   // =================================================================
   // IAM Policy Attachment - Lambda for Violet bot
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy_attachment
   // =================================================================
-  readonly botPolicyAttachment = new IamPolicyAttachment(this, 'botPolicyAttachment', {
+  readonly botPolicyAttachment = new IAM.IamPolicyAttachment(this, 'botPolicyAttachment', {
     name: `${this.options.prefix}-${this.suffix.result}`,
-    roles: [this.botRole.name],
+    roles: [z.string().parse(this.botRole.name)],
     users: [this.botLocal.name],
     policyArn: this.botPolicy.arn,
   });
@@ -166,57 +153,61 @@ export class Bot extends Resource {
   // API Gateway - Violet GitHub Bot
   // https://docs.aws.amazon.com/apigatewayv2/latest/api-reference/apis-apiid.html
   // =================================================================
-  readonly botApi = new Apigatewayv2Api(this, 'botApi', {
+  readonly botApi = new APIGatewayV2.Apigatewayv2Api(this, 'botApi', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     protocolType: 'HTTP',
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
   // =================================================================
   // S3 Bucket - Lambda for Violet bot
   // =================================================================
-  readonly botLambdaS3 = new S3Bucket(this, 'botLambdaS3', {
+  readonly botLambdaS3 = new S3.S3Bucket(this, 'botLambdaS3', {
     bucket: `${this.options.prefix}-lambda-${this.suffix.result}`,
     acl: 'private',
     forceDestroy: true,
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
   readonly githubBotZipPath = ensurePath(path.resolve(botBuildDir, 'github-bot.zip'));
 
-  readonly githubBotZip = new S3BucketObject(this, 'githubBotZip', {
-    bucket: this.botLambdaS3.bucket,
+  readonly githubBotZip = new S3.S3BucketObject(this, 'githubBotZip', {
+    bucket: z.string().parse(this.botLambdaS3.bucket),
     key: `github-bot-\${sha1(filebase64("${this.githubBotZipPath}"))}.zip`,
     source: this.githubBotZipPath,
     forceDestroy: true,
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
   readonly onAnyZipPath = ensurePath(path.resolve(botBuildDir, 'on-any.zip'));
 
-  readonly onAnyZip = new S3BucketObject(this, 'onAnyZip', {
-    bucket: this.botLambdaS3.bucket,
+  readonly onAnyZip = new S3.S3BucketObject(this, 'onAnyZip', {
+    bucket: z.string().parse(this.botLambdaS3.bucket),
     key: `on-any-\${sha1(filebase64("${this.onAnyZipPath}"))}.zip`,
     source: this.onAnyZipPath,
     forceDestroy: true,
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
-  readonly lambdaEnvs = [
-    {
-      variables: {
-        SSM_PREFIX: this.options.ssmBotPrefix,
-        API_BUILD_PROJECT_NAME: this.options.devApiBuild.build.name,
-        TABLE_NAME: this.table.name,
-      },
+  readonly lambdaEnvs = {
+    variables: {
+      SSM_PREFIX: this.options.ssmBotPrefix,
+      API_BUILD_PROJECT_NAME: this.options.devApiBuild.build.name,
+      TABLE_NAME: this.table.name,
     },
-  ];
+  };
 
-  // =================================================================
-  // Lambda Function - Lambda for Violet bot
+  // Main Lambda function triggered by GitHub webhooks
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function
-  // =================================================================
-  readonly botFunction = new LambdaFunction(this, 'botFunction', {
+  readonly botFunction = new LambdaFunction.LambdaFunction(this, 'botFunction', {
     functionName: `${this.options.prefix}-github-bot-${this.suffix.result}`,
     s3Bucket: this.botLambdaS3.bucket,
     s3Key: this.githubBotZip.key,
@@ -226,10 +217,12 @@ export class Bot extends Resource {
     timeout: 20,
     handler: 'github-bot.handler',
     runtime: 'nodejs14.x',
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
-  readonly onAnyFunction = new LambdaFunction(this, 'onAnyFunction', {
+  readonly onAnyFunction = new LambdaFunction.LambdaFunction(this, 'onAnyFunction', {
     functionName: `${this.options.prefix}-on-any-${this.suffix.result}`,
     s3Bucket: this.botLambdaS3.bucket,
     s3Key: this.onAnyZip.key,
@@ -239,10 +232,12 @@ export class Bot extends Resource {
     timeout: 20,
     handler: 'on-any.handler',
     runtime: 'nodejs14.x',
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
-  readonly allowApigwToBotFunction = new LambdaPermission(this, 'allowApigwToBotFunction', {
+  readonly allowApigwToBotFunction = new LambdaFunction.LambdaPermission(this, 'allowApigwToBotFunction', {
     statementId: 'AllowExecutionFromAPIGatewayv2',
     action: 'lambda:InvokeFunction',
     functionName: this.botFunction.functionName,
@@ -250,24 +245,22 @@ export class Bot extends Resource {
     sourceArn: `${this.botApi.executionArn}/*/*/*`,
   });
 
-  readonly allowSnsToOnAnyFunction = new LambdaPermission(this, 'allowSnsToOnAnyFunction', {
-    statementId: 'AllowExecutionFromSNS',
+  readonly allowExecutionFromDevApiBuild = new LambdaFunction.LambdaPermission(this, 'allowExecutionFromDevApiBuild', {
+    statementId: 'AllowExecutionFromDevApiBuild',
     action: 'lambda:InvokeFunction',
     functionName: this.onAnyFunction.functionName,
     principal: 'sns.amazonaws.com',
     sourceArn: this.options.devApiBuild.topic.arn,
   });
 
-  readonly subscription = new SnsTopicSubscription(this, 'subscription', {
+  readonly subscription = new SNS.SnsTopicSubscription(this, 'subscription', {
     topicArn: this.options.devApiBuild.topic.arn,
     protocol: 'lambda',
     endpoint: this.onAnyFunction.arn,
   });
 
-  // =================================================================
-  // API Gateway V2 Integration - API to Lambda for Violet bot
-  // =================================================================
-  readonly botInteg = new Apigatewayv2Integration(this, 'botInteg', {
+  // API to Lambda for Violet bot
+  readonly botInteg = new APIGatewayV2.Apigatewayv2Integration(this, 'botInteg', {
     apiId: this.botApi.id,
     integrationType: 'AWS_PROXY',
 
@@ -280,20 +273,20 @@ export class Bot extends Resource {
     // passthroughBehavior: 'WHEN_NO_MATCH',
   });
 
-  // =================================================================
-  // API Gateway V2 Route - API to Lambda for Violet bot
-  // =================================================================
-  readonly botApiHookRoute = new Apigatewayv2Route(this, 'botApiHookRoute', {
+  // API to Lambda for Violet bot
+  readonly botApiHookRoute = new APIGatewayV2.Apigatewayv2Route(this, 'botApiHookRoute', {
     apiId: this.botApi.id,
     routeKey: 'POST /hook',
     target: `integrations/${this.botInteg.id}`,
   });
 
-  readonly botApiDefaultStage = new Apigatewayv2Stage(this, 'botApiDefaultStage', {
+  readonly botApiDefaultStage = new APIGatewayV2.Apigatewayv2Stage(this, 'botApiDefaultStage', {
     apiId: this.botApi.id,
     name: '$default',
     autoDeploy: true,
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
     // TODO(logging)
     // accessLogSettings:[{
     //   destinationArn : aws_cloudwatch_log_group.api_gateway_sample.arn,

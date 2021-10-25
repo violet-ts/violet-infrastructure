@@ -79,7 +79,7 @@ export class Id extends cdktf.TerraformResource {
   }
 
   // byte_length - computed: false, optional: false, required: true
-  private _byteLength: number;
+  private _byteLength?: number; 
   public get byteLength() {
     return this.getNumberAttribute('byte_length');
   }
@@ -107,11 +107,12 @@ export class Id extends cdktf.TerraformResource {
   }
 
   // keepers - computed: false, optional: true, required: false
-  private _keepers?: { [key: string]: string } | cdktf.IResolvable;
+  private _keepers?: { [key: string]: string } | cdktf.IResolvable | undefined; 
   public get keepers() {
+    // Getting the computed value is not yet implemented
     return this.interpolationForAttribute('keepers') as any;
   }
-  public set keepers(value: { [key: string]: string } | cdktf.IResolvable ) {
+  public set keepers(value: { [key: string]: string } | cdktf.IResolvable | undefined) {
     this._keepers = value;
   }
   public resetKeepers() {
@@ -123,11 +124,11 @@ export class Id extends cdktf.TerraformResource {
   }
 
   // prefix - computed: false, optional: true, required: false
-  private _prefix?: string;
+  private _prefix?: string | undefined; 
   public get prefix() {
     return this.getStringAttribute('prefix');
   }
-  public set prefix(value: string ) {
+  public set prefix(value: string | undefined) {
     this._prefix = value;
   }
   public resetPrefix() {

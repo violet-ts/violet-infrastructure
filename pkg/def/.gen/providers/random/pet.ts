@@ -81,11 +81,12 @@ export class Pet extends cdktf.TerraformResource {
   }
 
   // keepers - computed: false, optional: true, required: false
-  private _keepers?: { [key: string]: string } | cdktf.IResolvable;
+  private _keepers?: { [key: string]: string } | cdktf.IResolvable | undefined; 
   public get keepers() {
+    // Getting the computed value is not yet implemented
     return this.interpolationForAttribute('keepers') as any;
   }
-  public set keepers(value: { [key: string]: string } | cdktf.IResolvable ) {
+  public set keepers(value: { [key: string]: string } | cdktf.IResolvable | undefined) {
     this._keepers = value;
   }
   public resetKeepers() {
@@ -97,11 +98,11 @@ export class Pet extends cdktf.TerraformResource {
   }
 
   // length - computed: false, optional: true, required: false
-  private _length?: number;
+  private _length?: number | undefined; 
   public get length() {
     return this.getNumberAttribute('length');
   }
-  public set length(value: number ) {
+  public set length(value: number | undefined) {
     this._length = value;
   }
   public resetLength() {
@@ -113,11 +114,11 @@ export class Pet extends cdktf.TerraformResource {
   }
 
   // prefix - computed: false, optional: true, required: false
-  private _prefix?: string;
+  private _prefix?: string | undefined; 
   public get prefix() {
     return this.getStringAttribute('prefix');
   }
-  public set prefix(value: string ) {
+  public set prefix(value: string | undefined) {
     this._prefix = value;
   }
   public resetPrefix() {
@@ -129,11 +130,11 @@ export class Pet extends cdktf.TerraformResource {
   }
 
   // separator - computed: false, optional: true, required: false
-  private _separator?: string;
+  private _separator?: string | undefined; 
   public get separator() {
     return this.getStringAttribute('separator');
   }
-  public set separator(value: string ) {
+  public set separator(value: string | undefined) {
     this._separator = value;
   }
   public resetSeparator() {

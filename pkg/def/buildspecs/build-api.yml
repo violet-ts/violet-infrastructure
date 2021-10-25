@@ -1,25 +1,38 @@
 version: 0.2
 
 phases:
-  pre_build:
+  install:
     commands:
-      - echo ==== Tool versions ====
+      - echo ==== tool versions ====
       - aws --version
       - docker --version
       - git --version
-      - echo ==== Environment variables ====
+      - echo ==== environment variables ====
       - echo "AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION"
       - echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
       - echo "IMAGE_REPO_NAME=$IMAGE_REPO_NAME"
       - echo "IMAGE_TAG=$IMAGE_TAG"
       - echo "GIT_URL=$GIT_URL"
       - echo "GIT_FETCH=$GIT_FETCH"
-      - echo ==== Git clone ====
-      - git fetch origin "$GIT_FETCH"
-      - git checkout FETCH_HEAD
-      - echo ==== Login to ECR ====
+      - echo ==== info ====
+      - pwd
+      - whoami
+      - echo ==== finished ====
+  pre_build:
+    commands:
+      - echo ==== git clone repository ====
+      - mkdir main || true
+      - cd main
+      -   git init || true
+      -   git reset --hard HEAD || true
+      -   git remote remove origin || true
+      -   git remote add origin "$GIT_URL"
+      -   git fetch origin "$GIT_FETCH"
+      -   git checkout FETCH_HEAD
+      - cd ..
+      - echo ==== login to ECR ====
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "https://$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
-      - echo ==== Login to Docker Hub ====
+      - echo ==== login to DockerHub ====
       - |
         if test -n "$DOCKERHUB_USER"
         then
@@ -28,18 +41,29 @@ phases:
         else
           echo "Docker Hub crendentials not found."
         fi
+      - echo ==== finished ====
   build:
     commands:
-      - echo ==== Build the Docker image ====
-      - echo Build started on `date`
-      - docker build . -f ./docker/api/Dockerfile -t "$IMAGE_REPO_NAME:$IMAGE_TAG"
-      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+      - echo ==== build the Docker image ====
+      - cd main
+      -   docker build . -f ./docker/api/Dockerfile -t "$IMAGE_REPO_NAME:$IMAGE_TAG"
+      -   docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+      - cd ..
+      - echo ==== finished ====
   post_build:
     commands:
-      - echo ==== Push the Docker image ====
+      - echo ==== push the Docker image ====
       - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
-      - echo ==== Output ====
-      - echo "!output=rev=$(git rev-parse HEAD)"
+      - echo ==== output ====
+      - cd main
+      -   echo "!output=rev=$(git rev-parse HEAD)"
+      - cd ..
       - echo "!output=imageSize=$(docker images "$IMAGE_REPO_NAME:$IMAGE_TAG" --format '{{ .Size }}')"
+      - echo "!output=imageDigest=$(docker images "$IMAGE_REPO_NAME:$IMAGE_TAG" --no-trunc --format '{{ .ID }}')"
       - echo "!output=imageTag=$IMAGE_TAG"
       - echo "!output=imageRepoName=$IMAGE_REPO_NAME"
+      - echo ==== finished ====
+
+cache:
+  paths:
+    - "main/.git/**/*"

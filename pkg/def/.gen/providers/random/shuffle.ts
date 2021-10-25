@@ -83,7 +83,7 @@ export class Shuffle extends cdktf.TerraformResource {
   }
 
   // input - computed: false, optional: false, required: true
-  private _input: string[];
+  private _input?: string[]; 
   public get input() {
     return this.getListAttribute('input');
   }
@@ -96,11 +96,12 @@ export class Shuffle extends cdktf.TerraformResource {
   }
 
   // keepers - computed: false, optional: true, required: false
-  private _keepers?: { [key: string]: string } | cdktf.IResolvable;
+  private _keepers?: { [key: string]: string } | cdktf.IResolvable | undefined; 
   public get keepers() {
+    // Getting the computed value is not yet implemented
     return this.interpolationForAttribute('keepers') as any;
   }
-  public set keepers(value: { [key: string]: string } | cdktf.IResolvable ) {
+  public set keepers(value: { [key: string]: string } | cdktf.IResolvable | undefined) {
     this._keepers = value;
   }
   public resetKeepers() {
@@ -117,11 +118,11 @@ export class Shuffle extends cdktf.TerraformResource {
   }
 
   // result_count - computed: false, optional: true, required: false
-  private _resultCount?: number;
+  private _resultCount?: number | undefined; 
   public get resultCount() {
     return this.getNumberAttribute('result_count');
   }
-  public set resultCount(value: number ) {
+  public set resultCount(value: number | undefined) {
     this._resultCount = value;
   }
   public resetResultCount() {
@@ -133,11 +134,11 @@ export class Shuffle extends cdktf.TerraformResource {
   }
 
   // seed - computed: false, optional: true, required: false
-  private _seed?: string;
+  private _seed?: string | undefined; 
   public get seed() {
     return this.getStringAttribute('seed');
   }
-  public set seed(value: string ) {
+  public set seed(value: string | undefined) {
     this._seed = value;
   }
   public resetSeed() {

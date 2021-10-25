@@ -17,6 +17,7 @@ export type Entry = z.infer<typeof entrySchema>;
 const builtInfoSchema = z.object({
   rev: z.string(),
   imageSize: z.string(),
+  imageDigest: z.string(),
   imageTag: z.string(),
   imageRepoName: z.string(),
   timeRange: z.string(),
@@ -43,6 +44,11 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
       .startBuild({
         projectName: ctx.env.API_BUILD_PROJECT_NAME,
         environmentVariablesOverride: [
+          {
+            name: 'GIT_URL',
+            // TODO(hardcoded)
+            value: 'https://github.com/LumaKernel/violet.git',
+          },
           {
             name: 'GIT_FETCH',
             value: `refs/pull/${prNumber}/head`,
@@ -91,6 +97,7 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
         `- ビルドID: [${entry.buildId}](${buildUrl})`,
         `- ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
         builtInfo != null && `- イメージタグ: \`${builtInfo.imageTag}\``,
+        builtInfo != null && `- イメージダイジェスト: \`${builtInfo.imageDigest}\``,
         builtInfo != null && `- イメージサイズ: ${builtInfo.imageSize}`,
         builtInfo != null &&
           `- 使用コミット: [${builtInfo.rev.slice(0, 6)}](https://github.com/LumaKernel/violet/pull/${
@@ -107,7 +114,7 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
               '```bash',
               ...setupAws,
               `aws ecr get-login-password --profile "$AWS_PROFILE" --region ${region} | docker login --username AWS --password-stdin "https://\${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com"`,
-              `docker pull "\${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com/${builtInfo.imageRepoName}:${builtInfo.imageTag}"`,
+              `docker pull "\${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com/${builtInfo.imageRepoName}:${builtInfo.imageDigest}"`,
               '```',
             ],
           },

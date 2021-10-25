@@ -1,23 +1,16 @@
-import type { EcrRepository } from '@cdktf/provider-aws';
-import {
-  SnsTopic,
-  IamRole,
-  CodebuildProject,
-  CodestarnotificationsNotificationRule,
-  DataAwsIamPolicyDocument,
-  IamRolePolicy,
-  SnsTopicPolicy,
-} from '@cdktf/provider-aws';
+import type { ECR } from '@cdktf/provider-aws';
+import { S3, SNS, IAM, CodeBuild, CodeStar } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
+import * as z from 'zod';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
-import * as fs from 'fs';
 import * as path from 'path';
 import type { VioletManagerStack } from '.';
+import { ensurePath } from '../../util/ensure-path';
 import { defRootDir } from './values';
 
 export interface ApiBuildOptions {
-  ecr: EcrRepository;
+  ecr: ECR.EcrRepository;
   tags: Record<string, string>;
   prefix: string;
 }
@@ -39,20 +32,29 @@ export class ApiBuild extends Resource {
     super(parent, name, config);
   }
 
-  // =================================================================
-  // Random Suffix
-  // =================================================================
-  readonly suffix = new RandomString(this, 'suffix', {
+  private readonly suffix = new RandomString(this, 'suffix', {
     length: 6,
     lower: true,
     upper: false,
     special: false,
   });
 
-  // =================================================================
-  // IAM Role - CodeBuild
-  // =================================================================
-  readonly role = new IamRole(this, 'buildRolrole', {
+  // TODO
+  readonly cachename = `${this.options.prefix}-cache`;
+
+  // TODO(cost): lifecycle
+  readonly cache = new S3.S3Bucket(this, 'cache', {
+    // TODO
+    bucket: this.cachename,
+    // bucket: `${this.options.prefix}-cache-${this.suffix.result}`,
+    acl: 'private',
+    forceDestroy: true,
+    tags: {
+      ...this.options.tags,
+    },
+  });
+
+  readonly role = new IAM.IamRole(this, 'role', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     assumeRolePolicy: JSON.stringify({
       Version: '2012-10-17',
@@ -66,14 +68,16 @@ export class ApiBuild extends Resource {
         },
       ],
     }),
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
   readonly dockerHubRolePolicy =
     this.parent.dockerHubCredentials &&
-    new IamRolePolicy(this, 'dockerHubRolePolicy', {
+    new IAM.IamRolePolicy(this, 'dockerHubRolePolicy', {
       name: `${this.options.prefix}-dockerhub-${this.suffix.result}`,
-      role: this.role.name,
+      role: z.string().parse(this.role.name),
       policy: JSON.stringify({
         Version: '2012-10-17',
         Statement: [
@@ -88,91 +92,68 @@ export class ApiBuild extends Resource {
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codebuild_project
   // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
-  readonly build = new CodebuildProject(this, 'build', {
+  readonly build = new CodeBuild.CodebuildProject(this, 'build', {
     name: `${this.options.prefix}-${this.suffix.result}`,
-    badgeEnabled: true,
     concurrentBuildLimit: 3,
-    environment: [
-      {
-        // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-compute-types.html
-        computeType: 'BUILD_GENERAL1_SMALL',
-        type: 'LINUX_CONTAINER',
-        // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-available.html
-        image: 'aws/codebuild/standard:5.0',
-        imagePullCredentialsType: 'CODEBUILD',
-        privilegedMode: true,
-        environmentVariable: [
-          ...(this.parent.dockerHubCredentials
-            ? [
-                {
-                  name: 'DOCKERHUB_USER',
-                  value: this.parent.dockerHubCredentials.credentialsUserArn,
-                  type: 'SECRETS_MANAGER',
-                },
-                {
-                  name: 'DOCKERHUB_PASS',
-                  value: this.parent.dockerHubCredentials.credentialsPassArn,
-                  type: 'SECRETS_MANAGER',
-                },
-              ]
-            : []),
-          {
-            name: 'IMAGE_REPO_NAME',
-            value: this.options.ecr.name,
-          },
-          {
-            name: 'AWS_ACCOUNT_ID',
-            value: this.parent.options.sharedEnv.AWS_ACCOUNT_ID,
-          },
-          {
-            name: 'GIT_FETCH',
-            value: 'master',
-            // value: 'refs/pull/4/head',
-          },
-          // TODO(extended): not supported private repos
-          // IMAGE_TAG
-        ],
-      },
-    ],
-    source: [
-      {
-        type: 'GITHUB',
-        location: 'https://github.com/LumaKernel/violet.git',
-        gitCloneDepth: 1,
-
-        gitSubmodulesConfig: [
-          {
-            fetchSubmodules: true,
-          },
-        ],
-
-        buildspec: fs.readFileSync(path.resolve(defRootDir, 'buildspecs', 'build-api.yml')).toString(),
-      },
-    ],
-    sourceVersion: 'master',
+    environment: {
+      // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-compute-types.html
+      computeType: 'BUILD_GENERAL1_SMALL',
+      type: 'LINUX_CONTAINER',
+      // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-available.html
+      image: 'aws/codebuild/standard:5.0',
+      imagePullCredentialsType: 'CODEBUILD',
+      privilegedMode: true,
+      environmentVariable: [
+        ...(this.parent.dockerHubCredentials?.codeBuildEnvironmentVariables ?? []),
+        {
+          name: 'IMAGE_REPO_NAME',
+          value: this.options.ecr.name,
+        },
+        {
+          name: 'AWS_ACCOUNT_ID',
+          value: this.parent.options.sharedEnv.AWS_ACCOUNT_ID,
+        },
+        {
+          name: 'GIT_URL',
+          // TODO(hardcoded)
+          value: 'https://github.com/LumaKernel/violet.git',
+        },
+        {
+          name: 'GIT_FETCH',
+          value: 'master',
+        },
+        // GIT_URL
+        // GIT_FETCH
+        // IMAGE_TAG
+      ],
+    },
+    source: {
+      type: 'NO_SOURCE',
+      buildspec: `\${file("${ensurePath(path.resolve(defRootDir, 'buildspecs', 'build-api.yml'))}")}`,
+    },
     // NOTE: minutes
     buildTimeout: 20,
     serviceRole: this.role.arn,
-    artifacts: [
-      {
-        type: 'NO_ARTIFACTS',
-      },
-    ],
-    cache: [
-      {
-        type: 'LOCAL',
-        modes: ['LOCAL_DOCKER_LAYER_CACHE', 'LOCAL_SOURCE_CACHE'],
-      },
-    ],
+    artifacts: {
+      type: 'NO_ARTIFACTS',
+    },
+    cache: {
+      // https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-s3
+      type: 'S3',
+      location: this.cachename,
+      // location: this.cache.arn,
+    },
 
     // TODO(logging)
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
   // NOTE(security): dev 環境の policy で誰でも任意コード実行と考えて設計する
-  readonly rolePolicy = new IamRolePolicy(this, 'rolePolicy', {
+  readonly rolePolicy = new IAM.IamRolePolicy(this, 'rolePolicy', {
     name: `${this.options.prefix}-${this.suffix.result}`,
-    role: this.role.name,
+    role: z.string().parse(this.role.name),
     policy: JSON.stringify({
       Version: '2012-10-17',
       Statement: [
@@ -182,20 +163,28 @@ export class ApiBuild extends Resource {
           Resource: ['*'],
           Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
         },
-        // TODO(security): restrict
+        {
+          Effect: 'Allow',
+          Resource: [this.cache.arn, `${this.cache.arn}/*`],
+          Action: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
+        },
+        {
+          Action: ['ecr:GetAuthorizationToken'],
+          Resource: ['*'],
+          Effect: 'Allow',
+        },
         {
           Action: [
             'ecr:BatchCheckLayerAvailability',
             'ecr:CompleteLayerUpload',
-            'ecr:GetAuthorizationToken',
             'ecr:InitiateLayerUpload',
             'ecr:PutImage',
             'ecr:UploadLayerPart',
           ],
-          Resource: '*',
+          Resource: [this.options.ecr.arn],
           Effect: 'Allow',
         },
-        // TODO(security): restrict
+        // TODO(security): restrict: needed?
         // {
         //   Effect: 'Allow',
         //   Action: [
@@ -213,21 +202,15 @@ export class ApiBuild extends Resource {
     }),
   });
 
-  // =================================================================
-  // SNS Topic - API Build Notification
-  // =================================================================
-  readonly topic = new SnsTopic(this, 'topic', {
+  readonly topic = new SNS.SnsTopic(this, 'topic', {
     name: `${this.options.prefix}-${this.suffix.result}`,
-    displayName: 'Violet API Build Notification',
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 
-  // =================================================================
-  // IAM Policy Document
-  // -----------------------------------------------------------------
   // CodeStar Notification に SNS Topic への publish を許可するポリシー
-  // =================================================================
-  readonly apiBuildTopicPolicyDoc = new DataAwsIamPolicyDocument(this, 'apiBuildTopicPolicyDoc', {
+  readonly topicPolicyDoc = new IAM.DataAwsIamPolicyDocument(this, 'topicPolicyDoc', {
     statement: [
       {
         actions: ['sns:Publish'],
@@ -242,16 +225,13 @@ export class ApiBuild extends Resource {
     ],
   });
 
-  readonly apiBuildTopicPolicy = new SnsTopicPolicy(this, 'apiBuildTopicPolicy', {
+  readonly topicPolicy = new SNS.SnsTopicPolicy(this, 'topicPolicy', {
     arn: this.topic.arn,
-    policy: this.apiBuildTopicPolicyDoc.json,
+    policy: this.topicPolicyDoc.json,
   });
 
-  // =================================================================
-  // CodeStar Notification Rule
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codestarnotifications_notification_rule
-  // =================================================================
-  readonly apiBuildNotification = new CodestarnotificationsNotificationRule(this, 'apiBuildNotification', {
+  readonly notification = new CodeStar.CodestarnotificationsNotificationRule(this, 'notification', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     resource: this.build.arn,
     detailType: 'BASIC',
@@ -268,6 +248,8 @@ export class ApiBuild extends Resource {
         address: this.topic.arn,
       },
     ],
-    tags: this.options.tags,
+    tags: {
+      ...this.options.tags,
+    },
   });
 }

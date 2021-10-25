@@ -81,11 +81,12 @@ export class Integer extends cdktf.TerraformResource {
   }
 
   // keepers - computed: false, optional: true, required: false
-  private _keepers?: { [key: string]: string } | cdktf.IResolvable;
+  private _keepers?: { [key: string]: string } | cdktf.IResolvable | undefined; 
   public get keepers() {
+    // Getting the computed value is not yet implemented
     return this.interpolationForAttribute('keepers') as any;
   }
-  public set keepers(value: { [key: string]: string } | cdktf.IResolvable ) {
+  public set keepers(value: { [key: string]: string } | cdktf.IResolvable | undefined) {
     this._keepers = value;
   }
   public resetKeepers() {
@@ -97,7 +98,7 @@ export class Integer extends cdktf.TerraformResource {
   }
 
   // max - computed: false, optional: false, required: true
-  private _max: number;
+  private _max?: number; 
   public get max() {
     return this.getNumberAttribute('max');
   }
@@ -110,7 +111,7 @@ export class Integer extends cdktf.TerraformResource {
   }
 
   // min - computed: false, optional: false, required: true
-  private _min: number;
+  private _min?: number; 
   public get min() {
     return this.getNumberAttribute('min');
   }
@@ -128,11 +129,11 @@ export class Integer extends cdktf.TerraformResource {
   }
 
   // seed - computed: false, optional: true, required: false
-  private _seed?: string;
+  private _seed?: string | undefined; 
   public get seed() {
     return this.getStringAttribute('seed');
   }
-  public set seed(value: string ) {
+  public set seed(value: string | undefined) {
     this._seed = value;
   }
   public resetSeed() {
