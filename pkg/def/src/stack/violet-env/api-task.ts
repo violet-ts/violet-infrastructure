@@ -1,4 +1,4 @@
-import { ECS, ELB, ACM, Route53, IAM, EC2 } from '@cdktf/provider-aws';
+import { ECS, ELB, ACM, Route53, IAM, VPC } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
@@ -72,28 +72,43 @@ export class ApiTask extends Resource {
   // TODO(service): prod availavility
   readonly subnets = [this.parent.publicSubnets[0], this.parent.publicSubnets[1]];
 
-  readonly ipv4s = this.subnets.map((_subnet, i) => new EC2.Eip(this, `ipv4s-${i}`, { vpc: true }));
-
-  readonly ipv6s = this.subnets.map(
-    (subnet, i) =>
-      `\${cidrhost(cidrsubnet("${subnet.ipv6CidrBlock}", 32, ${this.options.ipv6interfaceIdPrefix}), ${i})}`,
-  );
+  readonly lbSg = new VPC.SecurityGroup(this, 'lbSg', {
+    name: `${this.options.prefix}-lb-${this.suffix.result}`,
+    vpcId: this.parent.vpc.id,
+    egress: [
+      {
+        fromPort: 0,
+        toPort: 0,
+        protocol: '-1',
+        cidrBlocks: ['0.0.0.0/0'],
+        ipv6CidrBlocks: ['::/0'],
+      },
+    ],
+    ingress: [
+      {
+        fromPort: 0,
+        toPort: 0,
+        protocol: '-1',
+        cidrBlocks: ['0.0.0.0/0'],
+        ipv6CidrBlocks: ['::/0'],
+      },
+    ],
+    tagsAll: {
+      ...this.options.defaultTags,
+    },
+  });
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb
   readonly alb = new ELB.Alb(this, 'alb', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     internal: false,
     loadBalancerType: 'application',
-    securityGroups: [this.parent.apiLbSg.id],
+    securityGroups: [this.lbSg.id],
     ipAddressType: 'dualstack',
 
-    subnetMapping: this.subnets.map((subnet, i) => ({
-      subnetId: subnet.id,
-      allocationId: this.ipv4s[i].id,
-      ipv6Address: this.ipv6s[i],
-    })),
+    subnets: this.subnets.map((subnet) => subnet.id),
 
-    tags: {
+    tagsAll: {
       ...this.options.defaultTags,
     },
 
@@ -106,6 +121,15 @@ export class ApiTask extends Resource {
     ],
   });
 
+  readonly albEnis = new VPC.DataAwsNetworkInterfaces(this, 'albEnis', {
+    filter: [
+      {
+        name: 'description',
+        values: [`ELB ${this.alb.arnSuffix}`],
+      },
+    ],
+  });
+
   // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-type
   readonly backend = new ELB.AlbTargetGroup(this, 'backend', {
     port: 80,
@@ -113,7 +137,7 @@ export class ApiTask extends Resource {
     protocol: 'HTTP',
     vpcId: this.parent.vpc.id,
 
-    tags: {
+    tagsAll: {
       ...this.options.defaultTags,
     },
 
@@ -137,7 +161,7 @@ export class ApiTask extends Resource {
       },
     ],
 
-    tags: {
+    tagsAll: {
       ...this.options.defaultTags,
     },
   });
@@ -161,7 +185,7 @@ export class ApiTask extends Resource {
   readonly executionRole = new IAM.IamRole(this, 'executionRole', {
     name: `${this.options.prefix}-exec-${this.suffix.result}`,
     assumeRolePolicy: this.executionRoleAssumeDocument.json,
-    tags: {
+    tagsAll: {
       ...this.options.defaultTags,
     },
   });
@@ -210,7 +234,7 @@ export class ApiTask extends Resource {
   readonly taskRole = new IAM.IamRole(this, 'taskRole', {
     name: `${this.options.prefix}-task-${this.suffix.result}`,
     assumeRolePolicy: this.taskRoleAssumeDocument.json,
-    tags: {
+    tagsAll: {
       ...this.options.defaultTags,
     },
   });
@@ -234,6 +258,7 @@ export class ApiTask extends Resource {
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_TaskDefinition.html
   readonly definition = new ECS.EcsTaskDefinition(this, 'definition', {
     requiresCompatibilities: ['FARGATE'],
+    // NOTE: FARGATE only supports 'awsvpc'
     networkMode: 'awsvpc',
     executionRoleArn: this.executionRole.arn,
     taskRoleArn: this.taskRole.arn,
@@ -271,31 +296,54 @@ export class ApiTask extends Resource {
     memory: '512',
     family: 'api',
 
-    tags: {
+    tagsAll: {
       ...this.options.defaultTags,
     },
   });
 
-  readonly aRecord = new Route53.Route53Record(this, 'aRecord', {
+  readonly cnameRecord = new Route53.Route53Record(this, 'cnameRecord', {
     zoneId: z.string().parse(this.parent.zone.zoneId),
-    type: 'A',
+    type: 'CNAME',
     ttl: 5,
     name: this.subdomain,
-    // records: this.ipv4s.map((ipv4) => ipv4.publicIp),
+    records: [this.alb.dnsName],
   });
 
-  readonly aaaaRecord = new Route53.Route53Record(this, 'aaaaRecord', {
-    zoneId: z.string().parse(this.parent.zone.zoneId),
-    type: 'AAAA',
-    ttl: 5,
-    name: this.subdomain,
-    records: this.ipv6s.map((ipv6) => ipv6),
+  readonly serviceSg = new VPC.SecurityGroup(this, 'serviceSg', {
+    name: `${this.options.prefix}-svc-${this.suffix.result}`,
+    vpcId: this.parent.vpc.id,
+    egress: [
+      {
+        fromPort: 0,
+        toPort: 0,
+        protocol: '-1',
+        cidrBlocks: ['0.0.0.0/0'],
+        ipv6CidrBlocks: ['::/0'],
+      },
+    ],
+    ingress: [
+      {
+        fromPort: 0,
+        toPort: 0,
+        protocol: '-1',
+        securityGroups: [this.lbSg.id],
+      },
+    ],
+    tagsAll: {
+      ...this.options.defaultTags,
+    },
   });
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_Service.html
   readonly service = new ECS.EcsService(this, 'service', {
     name: `${this.options.prefix}-${this.suffix.result}`,
+    networkConfiguration: {
+      subnets: this.parent.publicSubnets.map((subnet) => subnet.id),
+      securityGroups: [this.serviceSg.id],
+      // TODO(security): prod: NAT
+      assignPublicIp: true,
+    },
     cluster: this.parent.cluster.id,
     launchType: 'FARGATE',
     // TODO(performance)
@@ -310,7 +358,7 @@ export class ApiTask extends Resource {
       },
     ],
 
-    tags: {
+    tagsAll: {
       ...this.options.defaultTags,
     },
 

@@ -52,7 +52,7 @@ export class MysqlDb extends Resource {
     name: `${this.options.prefix}-${this.suffix.result}`,
     family: 'mysql8.0',
     parameter: this.parameter,
-    tags: {
+    tagsAll: {
       ...this.options.defaultTags,
       Name: `Violet MySQL ${this.parent.options.envEnv.NAMESPACE} ${this.parent.options.section}`,
     },
@@ -62,7 +62,7 @@ export class MysqlDb extends Resource {
   readonly dbSubnetGroup = new RDS.DbSubnetGroup(this, 'dbSubnetGroup', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     subnetIds: this.options.subnets.map((subnet) => subnet.id),
-    tags: {
+    tagsAll: {
       ...this.options.defaultTags,
     },
   });
@@ -96,7 +96,7 @@ export class MysqlDb extends Resource {
     deletionProtection: false,
     // finalSnapshotIdentifier: `violet-${options.violetEnvOptions.namespace}-${options.violetEnvOptions.section}-final`,
     skipFinalSnapshot: true,
-    tags: {
+    tagsAll: {
       ...this.options.defaultTags,
       Name: `Violet MySQL in ${this.parent.options.envEnv.NAMESPACE}`,
     },

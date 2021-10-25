@@ -56,11 +56,8 @@ export class VioletEnvStack extends TerraformStack {
 
   // https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Vpc.html
   // https://docs.aws.amazon.com/vpc/latest/userguide/vpc-dns.html
-  // readonly privateSubnets = [
-  //   `10.${options.cidrNum}.1.0/24`,
-  //   `10.${options.cidrNum}.2.0/24`,
-  //   `10.${options.cidrNum}.3.0/24`,
-  // ] as const;
+  readonly privateSubnetCidrs = [1, 2, 3] as const;
+
   readonly publicSubnetCidrs = [101, 102, 103] as const;
 
   // readonly databaseSubnets = [
@@ -78,7 +75,7 @@ export class VioletEnvStack extends TerraformStack {
     enableDnsSupport: true,
     // TODO(security): prod
     enableDnsHostnames: true,
-    tags: {
+    tagsAll: {
       Name: `Violet ${this.options.envEnv.NAMESPACE} ${this.options.section}`,
     },
   });
@@ -91,63 +88,12 @@ export class VioletEnvStack extends TerraformStack {
     vpcId: this.vpc.id,
   });
 
-  readonly apiLbSg = new VPC.SecurityGroup(this, 'apiLbSg', {
-    name: `${this.prefix}-api-lb-${this.suffix.result}`,
-    vpcId: this.vpc.id,
-    egress: [
-      {
-        fromPort: 0,
-        toPort: 0,
-        protocol: '-1',
-        cidrBlocks: ['0.0.0.0/0'],
-        ipv6CidrBlocks: ['::/0'],
-      },
-    ],
-    ingress: [
-      {
-        fromPort: 0,
-        toPort: 0,
-        protocol: '-1',
-        cidrBlocks: ['0.0.0.0/0'],
-        ipv6CidrBlocks: ['::/0'],
-      },
-    ],
-    tags: {
-      Name: `Violet ${this.options.envEnv.NAMESPACE} ${this.options.section}`,
-    },
-  });
-
   readonly apiRepo = new ECR.DataAwsEcrRepository(this, 'apiRepo', {
     name: this.options.envEnv.API_ECR_NAME,
   });
 
   readonly zone = new Route53.DataAwsRoute53Zone(this, 'zone', {
     zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
-  });
-
-  readonly apiSg = new VPC.SecurityGroup(this, 'apiSg', {
-    name: `${this.prefix}-api-${this.suffix.result}`,
-    vpcId: this.vpc.id,
-    egress: [
-      {
-        fromPort: 0,
-        toPort: 0,
-        protocol: '-1',
-        cidrBlocks: ['0.0.0.0/0'],
-        ipv6CidrBlocks: ['::/0'],
-      },
-    ],
-    ingress: [
-      {
-        fromPort: 80,
-        toPort: 80,
-        protocol: 'tcp',
-        securityGroups: [this.apiLbSg.id],
-      },
-    ],
-    tags: {
-      Name: `Violet ${this.options.envEnv.NAMESPACE} ${this.options.section}`,
-    },
   });
 
   readonly dbSg = new VPC.SecurityGroup(this, 'dbSg', {
@@ -171,9 +117,13 @@ export class VioletEnvStack extends TerraformStack {
         ipv6CidrBlocks: [this.vpc.ipv6CidrBlock],
       },
     ],
-    tags: {
+    tagsAll: {
       Name: `Violet ${this.options.envEnv.NAMESPACE} ${this.options.section}`,
     },
+  });
+
+  readonly privateRouteTable = new VPC.RouteTable(this, 'privateRouteTable', {
+    vpcId: this.vpc.id,
   });
 
   readonly publicRouteTable = new VPC.RouteTable(this, 'publicRouteTable', {
@@ -192,6 +142,21 @@ export class VioletEnvStack extends TerraformStack {
     egressOnlyGatewayId: this.igw6.id,
   });
 
+  readonly privateSubnets = this.privateSubnetCidrs.map(
+    (num, i) =>
+      new VPC.Subnet(this, `privateSubnets-${i}`, {
+        // TODO(hardcoded)
+        cidrBlock: `10.${this.options.envEnv.CIDR_NUM}.${num}.0/24`,
+        ipv6CidrBlock: `\${cidrsubnet(${this.vpc.terraformResourceType}.${this.vpc.node.id}.ipv6_cidr_block,8,${num})}`,
+        assignIpv6AddressOnCreation: true,
+        availabilityZone: this.azs[i],
+        vpcId: this.vpc.id,
+        tagsAll: {
+          Name: `Violet Private ${i}`,
+        },
+      }),
+  );
+
   readonly publicSubnets = this.publicSubnetCidrs.map(
     (num, i) =>
       new VPC.Subnet(this, `publicSubnets-${i}`, {
@@ -201,9 +166,17 @@ export class VioletEnvStack extends TerraformStack {
         assignIpv6AddressOnCreation: true,
         availabilityZone: this.azs[i],
         vpcId: this.vpc.id,
-        tags: {
+        tagsAll: {
           Name: `Violet Public ${i}`,
         },
+      }),
+  );
+
+  readonly privateRtbAssocs = this.privateSubnets.map(
+    (subnet, i) =>
+      new VPC.RouteTableAssociation(this, `privateRtbAssocs-${i}`, {
+        routeTableId: this.privateRouteTable.id,
+        subnetId: subnet.id,
       }),
   );
 
@@ -234,7 +207,7 @@ export class VioletEnvStack extends TerraformStack {
         ],
       }),
     },
-    tags: {
+    tagsAll: {
       Name: `Violet Resources in ${this.options.envEnv.NAMESPACE}`,
     },
   });
@@ -279,7 +252,7 @@ export class VioletEnvStack extends TerraformStack {
     // TODO(cost): for prod: lifecycle
     bucket: `${this.prefix}-${this.suffix.result}`,
     forceDestroy: true,
-    tags: {
+    tagsAll: {
       ...this.tags,
     },
   });
