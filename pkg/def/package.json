@@ -31,7 +31,8 @@
     "cdktf": "0.7.0",
     "cdktf-cli": "^0.7.0",
     "constructs": "^10.0.5",
-    "dotenv": "^10.0.0"
+    "dotenv": "^10.0.0",
+    "zod": "^3.11.2"
   },
   "engines": {
     "node": ">=12",

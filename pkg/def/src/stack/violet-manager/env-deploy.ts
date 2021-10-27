@@ -9,7 +9,7 @@ import { ensurePath } from '../../util/ensure-path';
 import { defRootDir } from './values';
 
 export interface ApiBuildOptions {
-  tags: Record<string, string>;
+  tagsAll: Record<string, string>;
   prefix: string;
 }
 
@@ -43,8 +43,8 @@ export class EnvDeploy extends Resource {
     // bucket: `${this.options.prefix}-cache-${this.suffix.result}`,
     acl: 'private',
     forceDestroy: true,
-    tags: {
-      ...this.options.tags,
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 
@@ -52,8 +52,8 @@ export class EnvDeploy extends Resource {
     bucket: `${this.options.prefix}-tfstate-${this.suffix.result}`,
     acl: 'private',
     forceDestroy: true,
-    tags: {
-      ...this.options.tags,
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 
@@ -71,8 +71,8 @@ export class EnvDeploy extends Resource {
         },
       ],
     }),
-    tags: {
-      ...this.options.tags,
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 
@@ -131,8 +131,8 @@ export class EnvDeploy extends Resource {
     },
 
     // TODO(logging)
-    tags: {
-      ...this.options.tags,
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 
@@ -150,11 +150,13 @@ export class EnvDeploy extends Resource {
           Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
         },
         {
+          // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
           Effect: 'Allow',
           Resource: [this.cache.arn, `${this.cache.arn}/*`],
           Action: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
         },
         {
+          // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
           Effect: 'Allow',
           Resource: [this.tfstate.arn, `${this.tfstate.arn}/*`],
           Action: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
@@ -165,8 +167,8 @@ export class EnvDeploy extends Resource {
 
   readonly topic = new SNS.SnsTopic(this, 'topic', {
     name: `${this.options.prefix}-${this.suffix.result}`,
-    tags: {
-      ...this.options.tags,
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 
@@ -208,8 +210,9 @@ export class EnvDeploy extends Resource {
         address: this.topic.arn,
       },
     ],
-    tags: {
-      ...this.options.tags,
+
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 }

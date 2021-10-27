@@ -9,7 +9,7 @@ import type { VioletEnvStack } from '.';
 
 export interface MysqlDbOptions {
   prefix: string;
-  defaultTags?: Record<string, string>;
+  tagsAll?: Record<string, string>;
   /** e.g. rds:production-2015-06-26-06-05 */
   snapshotIdentifier?: string;
   vpcSecurityGroups: VPC.SecurityGroup[];
@@ -52,8 +52,9 @@ export class MysqlDb extends Resource {
     name: `${this.options.prefix}-${this.suffix.result}`,
     family: 'mysql8.0',
     parameter: this.parameter,
+
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
       Name: `Violet MySQL ${this.parent.options.envEnv.NAMESPACE} ${this.parent.options.section}`,
     },
   });
@@ -62,8 +63,9 @@ export class MysqlDb extends Resource {
   readonly dbSubnetGroup = new RDS.DbSubnetGroup(this, 'dbSubnetGroup', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     subnetIds: this.options.subnets.map((subnet) => subnet.id),
+
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
     },
   });
 
@@ -96,8 +98,9 @@ export class MysqlDb extends Resource {
     deletionProtection: false,
     // finalSnapshotIdentifier: `violet-${options.violetEnvOptions.namespace}-${options.violetEnvOptions.section}-final`,
     skipFinalSnapshot: true,
+
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
       Name: `Violet MySQL in ${this.parent.options.envEnv.NAMESPACE}`,
     },
   });

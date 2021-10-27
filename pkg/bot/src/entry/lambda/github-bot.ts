@@ -7,7 +7,7 @@ import { createLambdaLogger } from '../../util/loggers';
 import { requireSecrets } from '../../app/secrets';
 
 const handler: APIGatewayProxyHandlerV2 = async (event, _context) => {
-  const logger = createLambdaLogger();
+  const logger = createLambdaLogger('github-bot');
   const env = requireEnvVars();
   const secrets = await requireSecrets(env);
   const { body } = event;

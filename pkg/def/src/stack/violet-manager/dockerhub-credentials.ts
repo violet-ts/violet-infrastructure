@@ -7,8 +7,8 @@ import type { SharedEnv } from '../../app/env-vars';
 
 export interface DockerHubCredentialsOptions {
   DOCKERHUB: Required<SharedEnv>['DOCKERHUB'];
-  tags: Record<string, string>;
   prefix: string;
+  tagsAll: Record<string, string>;
 }
 
 export class DockerHubCredentials extends Resource {
@@ -27,8 +27,9 @@ export class DockerHubCredentials extends Resource {
 
   readonly credentials = new SecretsManager.SecretsmanagerSecret(this, 'credentials', {
     namePrefix: `${this.options.prefix}-dockerhub-credentials-`,
-    tags: {
-      ...this.options.tags,
+
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 

@@ -34,6 +34,9 @@ export class VioletManagerStack extends TerraformStack {
   readonly awsProvider = new AwsProvider(this, 'awsProvider', {
     region: this.options.region,
     profile: this.options.sharedEnv.AWS_PROFILE,
+    defaultTags: {
+      tags: genTags(null),
+    },
   });
 
   private readonly suffix = new RandomString(this, 'suffix', {
@@ -57,9 +60,6 @@ export class VioletManagerStack extends TerraformStack {
         ],
       }),
     },
-    tags: {
-      ...genTags('Project Violet All Resources'),
-    },
   });
 
   // Violet Manager のリソース
@@ -80,7 +80,7 @@ export class VioletManagerStack extends TerraformStack {
         ],
       }),
     },
-    tags: {
+    tagsAll: {
       ...genTags('Project Violet Manager Resources'),
     },
   });
@@ -91,7 +91,8 @@ export class VioletManagerStack extends TerraformStack {
     return new DockerHubCredentials(this, 'dockerHubCredentials', {
       DOCKERHUB,
       prefix: 'violet',
-      tags: {
+
+      tagsAll: {
         ...genTags(null),
       },
     });
@@ -107,7 +108,7 @@ export class VioletManagerStack extends TerraformStack {
         name: `${this.ssmBotPrefix}/${key}`,
         value,
         type: 'SecureString',
-        tags: {
+        tagsAll: {
           ...genTags(null),
         },
       }),
@@ -119,22 +120,22 @@ export class VioletManagerStack extends TerraformStack {
   //   Production と Staging + Preview で無効化方針が変わるため分ける
   //   TODO: Public Repository のほうがよいかもしれない
 
-  readonly ecrProdApi = new ECR.EcrRepository(this, 'ecrProdApi', {
+  readonly apiProdRepo = new ECR.EcrRepository(this, 'apiProdRepo', {
     name: this.options.prodEnv.ECR_API_PROD_NAME,
     imageTagMutability: 'IMMUTABLE',
     // TODO(security): for production
     // imageScanningConfiguration,
-    tags: {
+    tagsAll: {
       ...genTags(null, 'production'),
     },
   });
 
-  readonly ecrDevApi = new ECR.EcrRepository(this, 'ecrDevApi', {
+  readonly apiDevRepo = new ECR.EcrRepository(this, 'apiDevRepo', {
     name: this.options.devEnv.ECR_API_DEV_NAME,
     imageTagMutability: 'MUTABLE',
     // TODO(security): for production
     // imageScanningConfiguration,
-    tags: {
+    tagsAll: {
       ...genTags(null, 'development'),
     },
   });
@@ -143,15 +144,17 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly devApiBuild = new ApiBuild(this, 'devApiBuild', {
     prefix: 'violet-dev-api-build',
-    ecr: this.ecrDevApi,
-    tags: {
+    ecr: this.apiDevRepo,
+
+    tagsAll: {
       ...genTags(null, 'development'),
     },
   });
 
   readonly devEnvDeploy = new EnvDeploy(this, 'devEnvDeploy', {
     prefix: 'violet-dev-env-deploy',
-    tags: {
+
+    tagsAll: {
       ...genTags(null, 'development'),
     },
   });
@@ -161,13 +164,14 @@ export class VioletManagerStack extends TerraformStack {
     devApiBuild: this.devApiBuild,
     ssmBotPrefix: this.ssmBotPrefix,
     botParameters: this.botParameters,
-    tags: {
+
+    tagsAll: {
       ...genTags(null),
     },
   });
 
-  readonly botApiEndpoint = new TerraformOutput(this, 'botApiEndpoint', {
-    value: this.bot.botApi.apiEndpoint,
+  readonly botApiEndpoint = new TerraformOutput(this, 'botWebhookEndpoint', {
+    value: this.bot.webhookEndpoint,
   });
 
   /**

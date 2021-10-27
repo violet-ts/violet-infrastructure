@@ -1,4 +1,4 @@
-import { ECS, ELB, ACM, Route53, IAM, VPC } from '@cdktf/provider-aws';
+import { ECS, ELB, ACM, Route53, IAM, VPC, CloudWatch } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
@@ -12,7 +12,7 @@ export interface ApiTaskOptions {
    * https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#VPC_Sizing
    */
   ipv6interfaceIdPrefix: number;
-  defaultTags?: Record<string, string>;
+  tagsAll?: Record<string, string>;
 }
 
 export class ApiTask extends Resource {
@@ -75,6 +75,7 @@ export class ApiTask extends Resource {
   readonly lbSg = new VPC.SecurityGroup(this, 'lbSg', {
     name: `${this.options.prefix}-lb-${this.suffix.result}`,
     vpcId: this.parent.vpc.id,
+    // TODO(security): restrict
     egress: [
       {
         fromPort: 0,
@@ -94,7 +95,7 @@ export class ApiTask extends Resource {
       },
     ],
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
     },
   });
 
@@ -109,7 +110,7 @@ export class ApiTask extends Resource {
     subnets: this.subnets.map((subnet) => subnet.id),
 
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
     },
 
     dependsOn: [
@@ -136,9 +137,16 @@ export class ApiTask extends Resource {
     targetType: 'ip',
     protocol: 'HTTP',
     vpcId: this.parent.vpc.id,
+    // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-health-checks.html
+    healthCheck: {
+      port: '80',
+      protocol: 'HTTP',
+      enabled: true,
+      path: '/healthz',
+    },
 
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
     },
 
     dependsOn: [
@@ -162,7 +170,7 @@ export class ApiTask extends Resource {
     ],
 
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
     },
   });
 
@@ -186,7 +194,7 @@ export class ApiTask extends Resource {
     name: `${this.options.prefix}-exec-${this.suffix.result}`,
     assumeRolePolicy: this.executionRoleAssumeDocument.json,
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
     },
   });
 
@@ -194,15 +202,19 @@ export class ApiTask extends Resource {
     version: '2012-10-17',
     statement: [
       {
+        effect: 'Allow',
         // TODO(security): restrict
         actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
         resources: ['*'],
       },
       {
+        effect: 'Allow',
         actions: ['ecr:GetAuthorizationToken'],
         resources: ['*'],
       },
       {
+        // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerregistry.html
+        effect: 'Allow',
         actions: ['ecr:BatchCheckLayerAvailability', 'ecr:GetDownloadUrlForLayer', 'ecr:BatchGetImage'],
         resources: [this.parent.apiRepo.arn],
       },
@@ -235,7 +247,16 @@ export class ApiTask extends Resource {
     name: `${this.options.prefix}-task-${this.suffix.result}`,
     assumeRolePolicy: this.taskRoleAssumeDocument.json,
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
+    },
+  });
+
+  readonly logGroup = new CloudWatch.CloudwatchLogGroup(this, 'logGroup', {
+    name: `${this.options.prefix}-${this.suffix.result}`,
+    // TODO(service): longer for prod
+    retentionInDays: 7,
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 
@@ -243,8 +264,9 @@ export class ApiTask extends Resource {
     version: '2012-10-17',
     statement: [
       {
-        actions: ['s3:*'],
-        resources: [this.parent.s3.arn],
+        // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
+        actions: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
+        resources: [this.parent.s3.arn, `${this.parent.s3.arn}/*`],
       },
     ],
   });
@@ -266,8 +288,7 @@ export class ApiTask extends Resource {
     containerDefinitions: JSON.stringify([
       {
         name: 'api',
-        // TODO(hardcoded)
-        image: `${this.parent.options.sharedEnv.AWS_ACCOUNT_ID}.dkr.ecr.${this.parent.aws.region}.amazonaws.com/violet-dev-api@sha256:e72b91647d18b4778e4ab869a0aecb92041fabb5e29de09b7094e0a8a7f6a1cf`,
+        image: `${this.parent.options.sharedEnv.AWS_ACCOUNT_ID}.dkr.ecr.${this.parent.aws.region}.amazonaws.com/${this.parent.apiImage.repositoryName}@${this.parent.apiImage.imageDigest}`,
         environment: [
           {
             name: 'BASE_PATH',
@@ -282,6 +303,14 @@ export class ApiTask extends Resource {
             name: 'DATABASE_URL',
             value: this.parent.dbURL.value,
           },
+          {
+            name: 'S3_BUCKET',
+            value: this.parent.s3.bucket,
+          },
+          {
+            name: 'S3_REGION',
+            value: this.parent.s3.region,
+          },
         ],
         portMappings: [
           {
@@ -290,6 +319,16 @@ export class ApiTask extends Resource {
             protocol: 'tcp',
           },
         ],
+        // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_LogConfiguration.html
+        logConfiguration: {
+          logDriver: 'awslogs',
+          // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_awslogs.html
+          options: {
+            'awslogs-region': this.parent.aws.region,
+            'awslogs-group': this.logGroup.name,
+            'awslogs-stream-prefix': 'api',
+          },
+        },
       },
     ]),
     cpu: '256',
@@ -297,7 +336,7 @@ export class ApiTask extends Resource {
     family: 'api',
 
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
     },
   });
 
@@ -312,6 +351,7 @@ export class ApiTask extends Resource {
   readonly serviceSg = new VPC.SecurityGroup(this, 'serviceSg', {
     name: `${this.options.prefix}-svc-${this.suffix.result}`,
     vpcId: this.parent.vpc.id,
+    // TODO(security): restrict
     egress: [
       {
         fromPort: 0,
@@ -326,11 +366,21 @@ export class ApiTask extends Resource {
         fromPort: 0,
         toPort: 0,
         protocol: '-1',
-        securityGroups: [this.lbSg.id],
+        cidrBlocks: ['0.0.0.0/0'],
+        ipv6CidrBlocks: ['::/0'],
       },
     ],
+    // ingress: [
+    //   {
+    //     fromPort: 80,
+    //     toPort: 80,
+    //     protocol: 'tcp',
+    //     securityGroups: [this.lbSg.id],
+    //   },
+    // ],
+
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
     },
   });
 
@@ -338,6 +388,7 @@ export class ApiTask extends Resource {
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_Service.html
   readonly service = new ECS.EcsService(this, 'service', {
     name: `${this.options.prefix}-${this.suffix.result}`,
+    propagateTags: 'SERVICE',
     networkConfiguration: {
       subnets: this.parent.publicSubnets.map((subnet) => subnet.id),
       securityGroups: [this.serviceSg.id],
@@ -359,7 +410,7 @@ export class ApiTask extends Resource {
     ],
 
     tagsAll: {
-      ...this.options.defaultTags,
+      ...this.options.tagsAll,
     },
 
     lifecycle: {

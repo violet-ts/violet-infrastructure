@@ -11,7 +11,7 @@ import { defRootDir } from './values';
 
 export interface ApiBuildOptions {
   ecr: ECR.EcrRepository;
-  tags: Record<string, string>;
+  tagsAll: Record<string, string>;
   prefix: string;
 }
 
@@ -49,8 +49,9 @@ export class ApiBuild extends Resource {
     // bucket: `${this.options.prefix}-cache-${this.suffix.result}`,
     acl: 'private',
     forceDestroy: true,
-    tags: {
-      ...this.options.tags,
+
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 
@@ -68,8 +69,9 @@ export class ApiBuild extends Resource {
         },
       ],
     }),
-    tags: {
-      ...this.options.tags,
+
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 
@@ -145,12 +147,11 @@ export class ApiBuild extends Resource {
     },
 
     // TODO(logging)
-    tags: {
-      ...this.options.tags,
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 
-  // NOTE(security): dev 環境の policy で誰でも任意コード実行と考えて設計する
   readonly rolePolicy = new IAM.IamRolePolicy(this, 'rolePolicy', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     role: z.string().parse(this.role.name),
@@ -184,28 +185,15 @@ export class ApiBuild extends Resource {
           Resource: [this.options.ecr.arn],
           Effect: 'Allow',
         },
-        // TODO(security): restrict: needed?
-        // {
-        //   Effect: 'Allow',
-        //   Action: [
-        //     'ec2:CreateNetworkInterface',
-        //     'ec2:DescribeDhcpOptions',
-        //     'ec2:DescribeNetworkInterfaces',
-        //     'ec2:DeleteNetworkInterface',
-        //     'ec2:DescribeSubnets',
-        //     'ec2:DescribeSecurityGroups',
-        //     'ec2:DescribeVpcs',
-        //   ],
-        //   Resource: '*',
-        // },
       ],
     }),
   });
 
   readonly topic = new SNS.SnsTopic(this, 'topic', {
     name: `${this.options.prefix}-${this.suffix.result}`,
-    tags: {
-      ...this.options.tags,
+
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 
@@ -248,8 +236,9 @@ export class ApiBuild extends Resource {
         address: this.topic.arn,
       },
     ],
-    tags: {
-      ...this.options.tags,
+
+    tagsAll: {
+      ...this.options.tagsAll,
     },
   });
 }

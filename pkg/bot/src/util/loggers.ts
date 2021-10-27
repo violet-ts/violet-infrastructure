@@ -1,16 +1,20 @@
 import * as winston from 'winston';
 import type { Logger } from 'winston';
 
-export const createLambdaLogger = (): Logger => {
+export const cloudwatchLogsFormat = winston.format.printf(({ message, level, meta }) => {
+  return `${level}: ${message} ${JSON.stringify(meta)}`;
+});
+
+export const createLambdaLogger = (service: string): Logger => {
   const logger = winston.createLogger({
     level: process.env.LOG_LEVEL ?? 'info',
     format: winston.format.json(),
-    defaultMeta: { service: 'github-bot' },
+    defaultMeta: { service },
   });
 
   logger.add(
     new winston.transports.Console({
-      format: winston.format.prettyPrint(),
+      format: cloudwatchLogsFormat,
     }),
   );
   return logger;

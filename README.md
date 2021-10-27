@@ -4,4 +4,5 @@
 
 ## LICENSE
 
-TODO: TBD
+Licensed under [MIT](./LICENSE) and [UNLICENSE](./UNLICENSE).
+We're happy being attributed but not required.

@@ -18,7 +18,7 @@ import { generalEntrySchema } from '../../type/cmd';
 
 const handler: Handler = async (event: unknown, context) => {
   const env = requireEnvVars();
-  const logger = createLambdaLogger();
+  const logger = createLambdaLogger('on-any');
 
   const handlerCtx: HandlerBasicContext = {
     env,

@@ -44,8 +44,8 @@ export interface CommentHint {
 }
 
 export interface CommentBody {
-  main: (string | boolean | null | undefined)[];
-  hints?: (CommentHint | boolean | null | undefined)[];
+  main: (string | boolean | number | null | undefined)[];
+  hints?: (CommentHint | boolean | number | null | undefined)[];
 }
 
 export interface UpdateResult<Entry = Record<never, never>, CommentValues = undefined> {

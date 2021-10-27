@@ -35,8 +35,6 @@ export class VioletEnvStack extends TerraformStack {
 
   private readonly prefix = `violet-e-${this.options.envEnv.NAMESPACE}-${this.options.section[0]}`;
 
-  private readonly tags = genTags(null, this.options.envEnv.NAMESPACE, this.options.section);
-
   readonly nullProvider = new NullProvider(this, 'nullProvider', {});
 
   readonly random = new RandomProvider(this, 'random', {});
@@ -44,7 +42,9 @@ export class VioletEnvStack extends TerraformStack {
   readonly aws = new AwsProvider(this, 'aws', {
     region: this.options.region,
     profile: this.options.sharedEnv.AWS_PROFILE,
-    defaultTags: this.tags,
+    defaultTags: {
+      tags: genTags(null, this.options.envEnv.NAMESPACE, this.options.section),
+    },
   });
 
   private readonly suffix = new RandomString(this, 'suffix', {
@@ -84,12 +84,14 @@ export class VioletEnvStack extends TerraformStack {
     vpcId: this.vpc.id,
   });
 
-  readonly igw6 = new VPC.EgressOnlyInternetGateway(this, 'igw6', {
-    vpcId: this.vpc.id,
-  });
-
   readonly apiRepo = new ECR.DataAwsEcrRepository(this, 'apiRepo', {
     name: this.options.envEnv.API_ECR_NAME,
+  });
+
+  readonly apiImage = new ECR.DataAwsEcrImage(this, 'apiImage', {
+    repositoryName: this.apiRepo.name,
+    // TODO(hardcoded)
+    imageDigest: 'sha256:f1d2e5b9cd89b0e2a4eaccbe03210722e19b1ee6e06067c1a8803fc74d5283fa',
   });
 
   readonly zone = new Route53.DataAwsRoute53Zone(this, 'zone', {
@@ -139,7 +141,7 @@ export class VioletEnvStack extends TerraformStack {
   readonly publicRouteIgw6 = new VPC.Route(this, `publicRouteIgw6`, {
     routeTableId: this.publicRouteTable.id,
     destinationIpv6CidrBlock: '::/0',
-    egressOnlyGatewayId: this.igw6.id,
+    gatewayId: this.igw.id,
   });
 
   readonly privateSubnets = this.privateSubnetCidrs.map(
@@ -252,9 +254,6 @@ export class VioletEnvStack extends TerraformStack {
     // TODO(cost): for prod: lifecycle
     bucket: `${this.prefix}-${this.suffix.result}`,
     forceDestroy: true,
-    tagsAll: {
-      ...this.tags,
-    },
   });
 
   readonly apiTask = new ApiTask(this, 'apiTask', {

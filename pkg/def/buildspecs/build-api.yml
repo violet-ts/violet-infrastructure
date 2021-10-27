@@ -58,8 +58,6 @@ phases:
       - cd main
       -   echo "!output=rev=$(git rev-parse HEAD)"
       - cd ..
-      - echo "!output=imageSize=$(docker images "$IMAGE_REPO_NAME:$IMAGE_TAG" --format '{{ .Size }}')"
-      - echo "!output=imageDigest=$(docker images "$IMAGE_REPO_NAME:$IMAGE_TAG" --no-trunc --format '{{ .ID }}')"
       - echo "!output=imageTag=$IMAGE_TAG"
       - echo "!output=imageRepoName=$IMAGE_REPO_NAME"
       - echo ==== finished ====
