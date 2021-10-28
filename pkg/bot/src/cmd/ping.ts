@@ -16,7 +16,7 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
   entrySchema,
   main(_ctx, args) {
     return {
-      save: false,
+      status: 'success',
       entry: {},
       values: { args },
     };

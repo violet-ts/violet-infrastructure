@@ -30,7 +30,7 @@ export const generalEntrySchema = z.object({
 export type GeneralEntry = z.infer<typeof generalEntrySchema>;
 
 type ReplyCmdMainResult<Entry = Record<never, never>, CommentValues = undefined> = {
-  save: boolean;
+  status: CmdStatus;
   entry: Entry;
   values: CommentValues;
 };
@@ -49,6 +49,7 @@ export interface CommentBody {
 }
 
 export interface UpdateResult<Entry = Record<never, never>, CommentValues = undefined> {
+  status: CmdStatus;
   entry: Entry;
   values: CommentValues;
 }
@@ -69,3 +70,5 @@ export type ReplyCmd<Entry = { _keyForTypeCheck: string }, CommentValues = unkno
     ctx: BasicContext,
   ) => UpdateResult<Entry, CommentValues> | Promise<UpdateResult<Entry, CommentValues>>;
 };
+
+export type CmdStatus = 'undone' | 'success' | 'failure';

@@ -79,7 +79,7 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
     };
 
     return {
-      save: true,
+      status: 'undone',
       entry,
       values,
     };
@@ -161,7 +161,7 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
       const ecr = new ECR();
       let nextToken: string | undefined;
       do {
-        // eslint-disable-next-line no-await-in-loop
+        // eslint-disable-next-line no-await-in-loop -- sequential
         const page = await ecr
           .describeImages({
             repositoryName: builtInfo.imageRepoName,
@@ -190,6 +190,7 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
     };
 
     return {
+      status: ({ SUCCEEDED: 'success', FAILED: 'failure' } as const)[last.buildStatus] ?? 'undone',
       entry,
       values,
     };

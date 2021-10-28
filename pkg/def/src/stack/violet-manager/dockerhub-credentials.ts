@@ -1,5 +1,5 @@
 import type { CodeBuild } from '@cdktf/provider-aws';
-import { SecretsManager } from '@cdktf/provider-aws';
+import { SecretsManager, IAM } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import type { VioletManagerStack } from '.';
@@ -59,4 +59,20 @@ export class DockerHubCredentials extends Resource {
       },
     ];
   }
+
+  readonly policyDocument = new IAM.DataAwsIamPolicyDocument(this, 'policyDocument', {
+    version: '2012-10-17',
+    statement: [
+      {
+        effect: 'Allow',
+        resources: [this.credentials.arn],
+        actions: ['secretsmanager:GetSecretValue'],
+      },
+    ],
+  });
+
+  readonly policy = new IAM.IamPolicy(this, 'policy', {
+    namePrefix: this.options.prefix,
+    policy: this.policyDocument.json,
+  });
 }

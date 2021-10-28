@@ -80,7 +80,9 @@ const processRun = async (run: Command, octokit: Octokit, env: Env, payload: Iss
     commentPayload: payload,
     logger,
   };
-  const { save, entry, values } = await cmd.main(ctx, args);
+  const { status, entry, values } = await cmd.main(ctx, args);
+  logger.info('Command main process done.', { status, entry, values });
+
   const uuid = uuidv4();
   const date = new Date();
   const generalEntry: GeneralEntry = {
@@ -109,7 +111,7 @@ const processRun = async (run: Command, octokit: Octokit, env: Env, payload: Iss
   logger.info('Comment created', createdComment);
   fullEntry.commentId = createdComment.data.id;
 
-  if (save) {
+  if (status === 'undone') {
     logger.info('Saving result...');
     const db = new DynamoDB();
     await db

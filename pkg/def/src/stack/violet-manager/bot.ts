@@ -1,6 +1,5 @@
 import * as path from 'path';
-import type { SSM } from '@cdktf/provider-aws';
-import { APIGatewayV2, DynamoDB, IAM, LambdaFunction, S3, SNS } from '@cdktf/provider-aws';
+import { SSM, APIGatewayV2, DynamoDB, IAM, LambdaFunction, S3, SNS, CloudWatch } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
@@ -8,14 +7,14 @@ import * as z from 'zod';
 import type { VioletManagerStack } from '.';
 import type { ApiBuild } from './build-api';
 import { ensurePath } from '../../util/ensure-path';
-import { botBuildDir } from './values';
+import { botBuildDir, botEnv } from './values';
 
 export interface BotApiOptions {
   devApiBuild: ApiBuild;
-  ssmBotPrefix: string;
-  botParameters: SSM.SsmParameter[];
+  ssmPrefix: string;
   tagsAll?: Record<string, string>;
   prefix: string;
+  logsPrefix: string;
 }
 export class Bot extends Resource {
   constructor(public parent: VioletManagerStack, name: string, public options: BotApiOptions, config?: ResourceConfig) {
@@ -27,6 +26,28 @@ export class Bot extends Resource {
     lower: true,
     upper: false,
     special: false,
+  });
+
+  readonly parameters = botEnv.map(
+    ([key, value]) =>
+      new SSM.SsmParameter(this, `parameters-${key}`, {
+        name: `${this.options.ssmPrefix}/${key}`,
+        value,
+        type: 'SecureString',
+
+        tagsAll: {
+          ...this.options.tagsAll,
+        },
+      }),
+  );
+
+  readonly accessLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'accessLogGroup', {
+    name: `${this.options.logsPrefix}/access`,
+    retentionInDays: 3,
+
+    tagsAll: {
+      ...this.options.tagsAll,
+    },
   });
 
   // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
@@ -137,15 +158,13 @@ export class Bot extends Resource {
       {
         effect: 'Allow',
         actions: ['logs:FilterLogEvents'],
-        resources: [
-          `arn:aws:logs:${this.parent.options.region}:${this.parent.options.sharedEnv.AWS_ACCOUNT_ID}:log-group:/aws/codebuild/${this.options.devApiBuild.build.name}:*`,
-        ],
+        resources: [`${this.options.devApiBuild.buildLogGroup.arn}:*`],
       },
       // TODO(security): restrict
       {
         effect: 'Allow',
         actions: ['ssm:GetParameter', 'ssm:GetParameters'],
-        resources: this.options.botParameters.map((p) => p.arn),
+        resources: this.parameters.map((p) => p.arn),
       },
     ],
   });
@@ -216,7 +235,7 @@ export class Bot extends Resource {
 
   readonly lambdaEnvs = {
     variables: {
-      SSM_PREFIX: this.options.ssmBotPrefix,
+      SSM_PREFIX: this.options.ssmPrefix,
       API_BUILD_PROJECT_NAME: this.options.devApiBuild.build.name,
       TABLE_NAME: this.table.name,
     },
@@ -224,6 +243,7 @@ export class Bot extends Resource {
 
   // Main Lambda function triggered by GitHub webhooks
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function
+  // TODO(logging): retention
   readonly lambda = new LambdaFunction.LambdaFunction(this, 'lambda', {
     functionName: `${this.options.prefix}-github-bot-${this.suffix.result}`,
     s3Bucket: this.lambdaS3.bucket,
@@ -240,6 +260,7 @@ export class Bot extends Resource {
     },
   });
 
+  // TODO(logging): retention
   readonly onAnyFunction = new LambdaFunction.LambdaFunction(this, 'onAnyFunction', {
     functionName: `${this.options.prefix}-on-any-${this.suffix.result}`,
     s3Bucket: this.lambdaS3.bucket,
@@ -305,14 +326,22 @@ export class Bot extends Resource {
     apiId: this.api.id,
     name: '$default',
     autoDeploy: true,
+    accessLogSettings: {
+      destinationArn: this.accessLogGroup.arn,
+      format: JSON.stringify({
+        requestId: '$context.requestId',
+        ip: '$context.identity.sourceIp',
+        requestTime: '$context.requestTime',
+        httpMethod: '$context.httpMethod',
+        routeKey: '$context.routeKey',
+        status: '$context.status',
+        protocol: '$context.protocol',
+        responseLength: '$context.responseLength',
+      }),
+    },
 
     tagsAll: {
       ...this.options.tagsAll,
     },
-    // TODO(logging)
-    // accessLogSettings:[{
-    //   destinationArn : aws_cloudwatch_log_group.api_gateway_sample.arn,
-    //   format          : JSON.stringify({ "requestId" : "$context.requestId", "ip" : "$context.identity.sourceIp", "requestTime" : "$context.requestTime", "httpMethod" : "$context.httpMethod", "routeKey" : "$context.routeKey", "status" : "$context.status", "protocol" : "$context.protocol", "responseLength" : "$context.responseLength" }),
-    // }]
   });
 }

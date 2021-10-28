@@ -5,6 +5,7 @@
 
 import type { Handler } from 'aws-lambda';
 import { toTemporalInstant } from '@js-temporal/polyfill';
+import { DynamoDB } from 'aws-sdk';
 import { cmds } from '../../app/cmds';
 import { createOctokit } from '../../app/github-app';
 import { handlers } from '../../app/handlers';
@@ -65,7 +66,8 @@ const handler: Handler = async (event: unknown, context) => {
     logger,
   };
 
-  const { entry, values } = await cmd.update(cmd.entrySchema.and(generalEntrySchema).parse(oldEntry), cmdCtx);
+  const { status, entry, values } = await cmd.update(cmd.entrySchema.and(generalEntrySchema).parse(oldEntry), cmdCtx);
+  logger.debug('Command update processed.', { status, entry, values });
   const date = new Date();
   const newEntry = {
     ...oldEntry,
@@ -79,10 +81,23 @@ const handler: Handler = async (event: unknown, context) => {
     commentIssueNumber: oldEntry.commentIssueNumber,
     commentId: oldEntry.commentId,
     lastUpdate: toTemporalInstant.call(date).epochSeconds,
-    ttl: toTemporalInstant.call(date).add({ hours: 24 * 7 }).epochSeconds,
   };
-  logger.info('New entry computed.', { newEntry });
+  logger.debug('New entry computed.', { newEntry });
   const full = constructFullComment(cmd, newEntry, values, cmdCtx);
+
+  if (status !== 'undone') {
+    const db = new DynamoDB();
+    await db
+      .deleteItem({
+        TableName: env.TABLE_NAME,
+        Key: {
+          uuid: {
+            S: newEntry.uuid,
+          },
+        },
+      })
+      .promise();
+  }
 
   await octokit.issues.updateComment({
     owner: newEntry.callerName,

@@ -2,7 +2,6 @@
   "name": "violet-infrastructure-definitions",
   "version": "1.0.0",
   "private": true,
-  "license": "TODO",
   "scripts": {
     "_:cdktf:env": "cd ./state/env && cdktf --app \"pnpm run --silent compile --filter=./pkg -w && node ../../build/env.js\"",
     "_:cdktf:manager": "cd ./state/manager && cdktf --app \"pnpm run --silent compile --filter=./pkg -w && node ../../build/manager.js\"",
@@ -26,13 +25,14 @@
   },
   "devDependencies": {
     "@cdktf/provider-aws": "^2.0.13",
-    "@cdktf/provider-null": "^0.2.8",
+    "@cdktf/provider-null": "^0.2.25",
     "@cdktf/provider-random": "^0.0.5",
     "cdktf": "0.7.0",
     "cdktf-cli": "^0.7.0",
     "constructs": "^10.0.5",
     "dotenv": "^10.0.0",
-    "zod": "^3.11.2"
+    "violet-infrastructure-shared": "workspace:*",
+    "zod": "^3.11.6"
   },
   "engines": {
     "node": ">=12",

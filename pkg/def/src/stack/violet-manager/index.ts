@@ -1,4 +1,4 @@
-import { AwsProvider, ECR, ResourceGroups, SSM } from '@cdktf/provider-aws';
+import { AwsProvider, ECR, ResourceGroups } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
 import { TerraformOutput, TerraformStack } from 'cdktf';
@@ -9,7 +9,7 @@ import { Bot } from './bot';
 import { ApiBuild } from './build-api';
 import { DockerHubCredentials } from './dockerhub-credentials';
 import { EnvDeploy } from './env-deploy';
-import { botEnv, genTags } from './values';
+import { genTags } from './values';
 
 export interface VioletManagerOptions {
   region: string;
@@ -45,6 +45,8 @@ export class VioletManagerStack extends TerraformStack {
     upper: false,
     special: false,
   });
+
+  readonly logsPrefix = `/violet/${this.suffix.result}`;
 
   // Violet プロジェクトすべてのリソース
   readonly allResources = new ResourceGroups.ResourcegroupsGroup(this, 'allResources', {
@@ -100,20 +102,6 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly ssmPrefix = `/${PROJECT_NAME}-${this.suffix.result}`;
 
-  readonly ssmBotPrefix = `${this.ssmPrefix}/bot`;
-
-  readonly botParameters = botEnv.map(
-    ([key, value]) =>
-      new SSM.SsmParameter(this, `botParameters-${key}`, {
-        name: `${this.ssmBotPrefix}/${key}`,
-        value,
-        type: 'SecureString',
-        tagsAll: {
-          ...genTags(null),
-        },
-      }),
-  );
-
   // === ECR Repositories ===
   // https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_Repository.html
   // 管理方針:
@@ -144,6 +132,7 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly devApiBuild = new ApiBuild(this, 'devApiBuild', {
     prefix: 'violet-dev-api-build',
+    logsPrefix: `${this.logsPrefix}/dev-api-build`,
     ecr: this.apiDevRepo,
 
     tagsAll: {
@@ -153,6 +142,7 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly devEnvDeploy = new EnvDeploy(this, 'devEnvDeploy', {
     prefix: 'violet-dev-env-deploy',
+    logsPrefix: `${this.logsPrefix}/dev-env-deploy`,
 
     tagsAll: {
       ...genTags(null, 'development'),
@@ -162,8 +152,8 @@ export class VioletManagerStack extends TerraformStack {
   readonly bot = new Bot(this, 'bot', {
     prefix: 'violet-bot',
     devApiBuild: this.devApiBuild,
-    ssmBotPrefix: this.ssmBotPrefix,
-    botParameters: this.botParameters,
+    ssmPrefix: `${this.ssmPrefix}/bot`,
+    logsPrefix: `${this.logsPrefix}/bot`,
 
     tagsAll: {
       ...genTags(null),
@@ -179,7 +169,7 @@ export class VioletManagerStack extends TerraformStack {
    */
   readonly botEnvFile = new TerraformOutput(this, 'botEnvFile', {
     value: [
-      `SSM_PREFIX=${this.ssmBotPrefix}`,
+      `SSM_PREFIX=${this.bot.options.ssmPrefix}`,
       `API_BUILD_PROJECT_NAME=${this.devApiBuild.build.name}`,
       `TABLE_NAME=${this.bot.table.name}`,
     ]

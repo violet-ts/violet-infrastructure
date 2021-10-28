@@ -14,7 +14,7 @@ const help: ReplyCmd<Entry> = {
   entrySchema,
   main(_ctx, _args) {
     return {
-      save: false,
+      status: 'success',
       entry: {},
       values: undefined,
     };

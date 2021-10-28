@@ -1,5 +1,5 @@
 import type { ECR } from '@cdktf/provider-aws';
-import { S3, SNS, IAM, CodeBuild, CodeStar } from '@cdktf/provider-aws';
+import { CloudWatch, S3, SNS, IAM, CodeBuild, CodeStar } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import * as z from 'zod';
 import { Resource } from '@cdktf/provider-null';
@@ -13,6 +13,7 @@ export interface ApiBuildOptions {
   ecr: ECR.EcrRepository;
   tagsAll: Record<string, string>;
   prefix: string;
+  logsPrefix: string;
 }
 
 /**
@@ -55,42 +56,47 @@ export class ApiBuild extends Resource {
     },
   });
 
+  readonly roleAssumeDocument = new IAM.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
+    version: '2012-10-17',
+    statement: [
+      {
+        effect: 'Allow',
+        principals: [
+          {
+            type: 'Service',
+            identifiers: ['codebuild.amazonaws.com'],
+          },
+        ],
+        actions: ['sts:AssumeRole'],
+      },
+    ],
+  });
+
   readonly role = new IAM.IamRole(this, 'role', {
     name: `${this.options.prefix}-${this.suffix.result}`,
-    assumeRolePolicy: JSON.stringify({
-      Version: '2012-10-17',
-      Statement: [
-        {
-          Effect: 'Allow',
-          Principal: {
-            Service: 'codebuild.amazonaws.com',
-          },
-          Action: 'sts:AssumeRole',
-        },
-      ],
-    }),
+    assumeRolePolicy: this.roleAssumeDocument.json,
 
     tagsAll: {
       ...this.options.tagsAll,
     },
   });
 
-  readonly dockerHubRolePolicy =
+  readonly dockerHubPolicyAttach =
     this.parent.dockerHubCredentials &&
-    new IAM.IamRolePolicy(this, 'dockerHubRolePolicy', {
-      name: `${this.options.prefix}-dockerhub-${this.suffix.result}`,
-      role: z.string().parse(this.role.name),
-      policy: JSON.stringify({
-        Version: '2012-10-17',
-        Statement: [
-          {
-            Effect: 'Allow',
-            Resource: [this.parent.dockerHubCredentials.credentials.arn],
-            Action: ['secretsmanager:GetSecretValue'],
-          },
-        ],
-      }),
+    new IAM.IamPolicyAttachment(this, 'dockerHubPolicyAttach', {
+      name: `${this.options.prefix}-${this.suffix.result}`,
+      policyArn: this.parent.dockerHubCredentials.policy.arn,
+      roles: [this.role.id],
     });
+
+  readonly buildLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'buildLogGroup', {
+    name: `${this.options.logsPrefix}/build`,
+    retentionInDays: 3,
+
+    tagsAll: {
+      ...this.options.tagsAll,
+    },
+  });
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codebuild_project
   // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
@@ -145,48 +151,53 @@ export class ApiBuild extends Resource {
       location: this.cachename,
       // location: this.cache.arn,
     },
+    logsConfig: {
+      cloudwatchLogs: {
+        groupName: this.buildLogGroup.name,
+      },
+    },
 
-    // TODO(logging)
     tagsAll: {
       ...this.options.tagsAll,
     },
   });
 
+  readonly policyDocument = new IAM.DataAwsIamPolicyDocument(this, 'policyDocument', {
+    version: '2012-10-17',
+    statement: [
+      {
+        effect: 'Allow',
+        resources: [`${this.buildLogGroup.arn}:*`],
+        actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
+      },
+      {
+        effect: 'Allow',
+        resources: [this.cache.arn, `${this.cache.arn}/*`],
+        actions: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
+      },
+      {
+        effect: 'Allow',
+        actions: ['ecr:GetAuthorizationToken'],
+        resources: ['*'],
+      },
+      {
+        effect: 'Allow',
+        resources: [this.options.ecr.arn],
+        actions: [
+          'ecr:BatchCheckLayerAvailability',
+          'ecr:CompleteLayerUpload',
+          'ecr:InitiateLayerUpload',
+          'ecr:PutImage',
+          'ecr:UploadLayerPart',
+        ],
+      },
+    ],
+  });
+
   readonly rolePolicy = new IAM.IamRolePolicy(this, 'rolePolicy', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     role: z.string().parse(this.role.name),
-    policy: JSON.stringify({
-      Version: '2012-10-17',
-      Statement: [
-        // TODO(security): restrict
-        {
-          Effect: 'Allow',
-          Resource: ['*'],
-          Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
-        },
-        {
-          Effect: 'Allow',
-          Resource: [this.cache.arn, `${this.cache.arn}/*`],
-          Action: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
-        },
-        {
-          Action: ['ecr:GetAuthorizationToken'],
-          Resource: ['*'],
-          Effect: 'Allow',
-        },
-        {
-          Action: [
-            'ecr:BatchCheckLayerAvailability',
-            'ecr:CompleteLayerUpload',
-            'ecr:InitiateLayerUpload',
-            'ecr:PutImage',
-            'ecr:UploadLayerPart',
-          ],
-          Resource: [this.options.ecr.arn],
-          Effect: 'Allow',
-        },
-      ],
-    }),
+    policy: this.policyDocument.json,
   });
 
   readonly topic = new SNS.SnsTopic(this, 'topic', {

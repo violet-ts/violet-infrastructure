@@ -1,16 +1,18 @@
-import { SNS, IAM, CodeBuild, CodeStar, S3 } from '@cdktf/provider-aws';
+import { SNS, IAM, CodeBuild, CodeStar, S3, CloudWatch } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
 import * as path from 'path';
 import * as z from 'zod';
+import type { DefSideEnvEnv } from 'violet-infrastructure-shared/lib/deploy-env';
 import type { VioletManagerStack } from '.';
 import { ensurePath } from '../../util/ensure-path';
 import { defRootDir } from './values';
 
-export interface ApiBuildOptions {
+export interface EnvDeployOptions {
   tagsAll: Record<string, string>;
   prefix: string;
+  logsPrefix: string;
 }
 
 /**
@@ -20,7 +22,7 @@ export class EnvDeploy extends Resource {
   constructor(
     public parent: VioletManagerStack,
     name: string,
-    public options: ApiBuildOptions,
+    public options: EnvDeployOptions,
     config?: ResourceConfig,
   ) {
     super(parent, name, config);
@@ -57,20 +59,35 @@ export class EnvDeploy extends Resource {
     },
   });
 
+  readonly buildLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'buildLogGroup', {
+    name: `${this.options.logsPrefix}/build`,
+    retentionInDays: 3,
+
+    tagsAll: {
+      ...this.options.tagsAll,
+    },
+  });
+
+  readonly roleAssumeDocument = new IAM.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
+    version: '2012-10-17',
+    statement: [
+      {
+        effect: 'Allow',
+        principals: [
+          {
+            type: 'Service',
+            identifiers: ['codebuild.amazonaws.com'],
+          },
+        ],
+        actions: ['sts:AssumeRole'],
+      },
+    ],
+  });
+
   readonly role = new IAM.IamRole(this, 'role', {
     name: `${this.options.prefix}-${this.suffix.result}`,
-    assumeRolePolicy: JSON.stringify({
-      Version: '2012-10-17',
-      Statement: [
-        {
-          Effect: 'Allow',
-          Principal: {
-            Service: 'codebuild.amazonaws.com',
-          },
-          Action: 'sts:AssumeRole',
-        },
-      ],
-    }),
+    assumeRolePolicy: this.roleAssumeDocument.json,
+
     tagsAll: {
       ...this.options.tagsAll,
     },
@@ -110,6 +127,11 @@ export class EnvDeploy extends Resource {
           name: 'GIT_FETCH_INFRA',
           value: 'main',
         },
+        ...envEnvToCodeBuildEnv({
+          CIDR_NUM: '0',
+          API_REPO_NAME: this.parent.apiDevRepo.name,
+          MYSQL_PARAM_JSON: '/main/data/my.cnf.json',
+        }),
         // S3BACKEND_PREFIX
       ],
     },
@@ -129,40 +151,45 @@ export class EnvDeploy extends Resource {
       location: this.cachename,
       // location: this.cache.arn,
     },
+    logsConfig: {
+      cloudwatchLogs: {
+        groupName: this.buildLogGroup.name,
+      },
+    },
 
-    // TODO(logging)
     tagsAll: {
       ...this.options.tagsAll,
     },
+  });
+
+  readonly rolePolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'rolePolicyDocument', {
+    version: '2012-10-17',
+    statement: [
+      {
+        effect: 'Allow',
+        resources: [`${this.buildLogGroup.arn}:*`],
+        actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
+      },
+      {
+        // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
+        effect: 'Allow',
+        resources: [this.cache.arn, `${this.cache.arn}/*`],
+        actions: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
+      },
+      {
+        // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
+        effect: 'Allow',
+        resources: [this.tfstate.arn, `${this.tfstate.arn}/*`],
+        actions: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
+      },
+    ],
   });
 
   // NOTE(security): dev 環境の policy で誰でも任意コード実行と考えて設計する
   readonly rolePolicy = new IAM.IamRolePolicy(this, 'rolePolicy', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     role: z.string().parse(this.role.name),
-    policy: JSON.stringify({
-      Version: '2012-10-17',
-      Statement: [
-        // TODO(security): restrict
-        {
-          Effect: 'Allow',
-          Resource: ['*'],
-          Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
-        },
-        {
-          // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
-          Effect: 'Allow',
-          Resource: [this.cache.arn, `${this.cache.arn}/*`],
-          Action: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
-        },
-        {
-          // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
-          Effect: 'Allow',
-          Resource: [this.tfstate.arn, `${this.tfstate.arn}/*`],
-          Action: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
-        },
-      ],
-    }),
+    policy: this.rolePolicyDocument.json,
   });
 
   readonly topic = new SNS.SnsTopic(this, 'topic', {
@@ -210,9 +237,16 @@ export class EnvDeploy extends Resource {
         address: this.topic.arn,
       },
     ],
+    // TODO(logging): fail
 
     tagsAll: {
       ...this.options.tagsAll,
     },
   });
 }
+
+const envEnvToCodeBuildEnv = (envEnv: DefSideEnvEnv): Array<{ name: string; value: string }> => {
+  return Object.entries(envEnv).map(([name, value]) => {
+    return { name, value };
+  });
+};

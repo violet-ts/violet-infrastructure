@@ -1,3 +1,5 @@
+import type { EnvEnv } from 'violet-infrastructure-shared/lib/deploy-env';
+
 const requireEnv = <NAME extends string>(name: NAME): { [name in NAME]: string } => {
   const value = process.env[name] as string | undefined;
   if (typeof value !== 'string') throw new TypeError(`${name} is not string`);
@@ -56,22 +58,18 @@ export const requireProdEnvVars = (): ProdEnv => {
   };
 };
 
-export interface EnvEnv {
-  MYSQL_PARAM_JSON: string;
-  NAMESPACE: string;
-  CIDR_NUM: string;
-  API_ECR_NAME: string;
-}
 export const requireEnvEnvVars = (): EnvEnv => {
   const { MYSQL_PARAM_JSON } = requireEnv('MYSQL_PARAM_JSON');
   const { NAMESPACE } = requireEnv('NAMESPACE');
   const { CIDR_NUM } = requireEnv('CIDR_NUM');
-  const { API_ECR_NAME } = requireEnv('API_ECR_NAME');
+  const { API_REPO_NAME } = requireEnv('API_REPO_NAME');
+  const { API_REPO_SHA } = requireEnv('API_REPO_SHA');
   if (!/[a-z][a-z0-9]*/.test(NAMESPACE)) throw new Error(`env NAMESPACE="${NAMESPACE}" is bad`);
   return {
     MYSQL_PARAM_JSON,
     NAMESPACE,
     CIDR_NUM,
-    API_ECR_NAME,
+    API_REPO_NAME,
+    API_REPO_SHA,
   };
 };

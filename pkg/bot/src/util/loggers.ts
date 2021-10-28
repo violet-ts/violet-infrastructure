@@ -7,7 +7,7 @@ export const cloudwatchLogsFormat = winston.format.printf(({ message, level, met
 
 export const createLambdaLogger = (service: string): Logger => {
   const logger = winston.createLogger({
-    level: process.env.LOG_LEVEL ?? 'info',
+    level: 'debug',
     format: winston.format.json(),
     defaultMeta: { service },
   });

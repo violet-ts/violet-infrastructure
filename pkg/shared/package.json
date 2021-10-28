@@ -1,0 +1,17 @@
+{
+  "name": "violet-infrastructure-shared",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "run-s test:tsc",
+    "test-watch": "run-p test-watch:*",
+    "test-watch:tsc": "tsc --noEmit --watch",
+    "test:tsc": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=12",
+    "npm": "use pnpm",
+    "pnpm": ">=6",
+    "yarn": "use pnpm"
+  }
+}

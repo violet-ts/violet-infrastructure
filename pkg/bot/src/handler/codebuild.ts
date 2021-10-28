@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { CallbackHandler } from '../type/handler';
 import { tryParseJSON } from '../util/try-parse-json';
-import { queryOne } from './util/db';
+import { scanOne } from './util/db';
 
 const snsEventSchema = z.object({
   Records: z.tuple([
@@ -33,7 +33,7 @@ const handler: CallbackHandler = {
     const messageRaw = snsEvent.Records[0].Sns.Message;
     const messageUnknown = tryParseJSON(messageRaw);
     const message = codeBuildMessageSchema.parse(messageUnknown);
-    return queryOne(
+    return scanOne(
       {
         TableName: ctx.env.TABLE_NAME,
         FilterExpression: 'buildArn = :arn',

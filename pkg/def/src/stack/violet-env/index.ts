@@ -3,7 +3,8 @@ import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
 import { TerraformOutput, TerraformStack } from 'cdktf';
 import type { Construct } from 'constructs';
-import type { EnvEnv, SharedEnv } from '../../app/env-vars';
+import type { EnvEnv } from 'violet-infrastructure-shared/lib/deploy-env';
+import type { SharedEnv } from '../../app/env-vars';
 import { PROJECT_NAME } from '../../const';
 import type { Section } from '../types';
 import { ApiTask } from './api-task';
@@ -85,13 +86,13 @@ export class VioletEnvStack extends TerraformStack {
   });
 
   readonly apiRepo = new ECR.DataAwsEcrRepository(this, 'apiRepo', {
-    name: this.options.envEnv.API_ECR_NAME,
+    name: this.options.envEnv.API_REPO_NAME,
   });
 
   readonly apiImage = new ECR.DataAwsEcrImage(this, 'apiImage', {
     repositoryName: this.apiRepo.name,
     // TODO(hardcoded)
-    imageDigest: 'sha256:f1d2e5b9cd89b0e2a4eaccbe03210722e19b1ee6e06067c1a8803fc74d5283fa',
+    imageDigest: this.options.envEnv.API_REPO_SHA,
   });
 
   readonly zone = new Route53.DataAwsRoute53Zone(this, 'zone', {

@@ -2,7 +2,8 @@ import { DynamoDB } from 'aws-sdk';
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import type { Logger } from 'winston';
 
-export const queryOne = async (scan: DynamoDB.ScanInput, logger: Logger): Promise<unknown> => {
+// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Scan.html
+export const scanOne = async (scan: DynamoDB.ScanInput, logger: Logger): Promise<unknown> => {
   const db = new DynamoDB();
   const items = await db.scan(scan).promise();
   if (items.Count !== 1) {
