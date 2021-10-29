@@ -31,7 +31,7 @@ export const constructFullComment = (
     hints: [
       ...(commentBodyStruct.hints ?? []),
       {
-        title: '詳細',
+        title: 'メタ情報',
         body: {
           main: [`- 最終更新: ${renderTimestamp(Temporal.Instant.fromEpochSeconds(entry.lastUpdate))}`],
         },
@@ -78,6 +78,7 @@ const processRun = async (run: Command, octokit: Octokit, env: Env, payload: Iss
     env,
     originalArgs: run.args,
     commentPayload: payload,
+    namespace: `${payload.repository.owner.login.toLowerCase()}-pr-${payload.issue.number}`,
     logger,
   };
   const { status, entry, values } = await cmd.main(ctx, args);
@@ -158,7 +159,7 @@ export const createWebhooks = (
       logger.info('comment created', payload.comment.user);
       if (payload.comment.user.type !== 'User') return;
       // TODO(hardcoded)
-      if (!['LumaKernel', 'solufa'].includes(payload.comment.user.login)) return;
+      if (!['LumaKernel', 'solufa', 'maihrs55', 'shuheiest', 'naoya502'].includes(payload.comment.user.login)) return;
       logger.info('Authentication success.');
 
       const octokit = await createOctokit(env, secrets);

@@ -1,0 +1,16 @@
+{
+  "language": "typescript",
+  "app": "echo ERROR: you should specify app explicitly. && exit 1",
+  "projectId": "d381bb8d-31d7-4ea1-adf8-ec1e585eee60",
+  "terraformProviders": [
+    "random",
+    "hashicorp/null@ ~>3.1.0"
+  ],
+  "terraformModules": [
+    "cloudposse/acm-request-certificate/aws@ ~>0.15.1"
+  ],
+  "context": {
+    "excludeStackIdFromLogicalIds": "true",
+    "allowSepCharsInLogicalIds": "true"
+  }
+}

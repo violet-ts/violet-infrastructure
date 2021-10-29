@@ -11,6 +11,7 @@ export type BasicContext = {
 };
 
 export type CommandContext = {
+  namespace: string;
   originalArgs: string[];
   commentPayload: IssueCommentEvent;
 } & BasicContext;

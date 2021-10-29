@@ -25,6 +25,8 @@ const runBuildMain = async (): Promise<void> => {
     format: 'cjs',
     // NOTE: Lambda の node14.x ランタイムを使用
     target: 'node14',
+    minify: true,
+    sourcemap: 'inline',
     bundle: true,
     outdir: buildDir,
     entryPoints: lambdaPaths,

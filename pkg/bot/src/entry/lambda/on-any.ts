@@ -8,10 +8,10 @@ import { toTemporalInstant } from '@js-temporal/polyfill';
 import { DynamoDB } from 'aws-sdk';
 import { cmds } from '../../app/cmds';
 import { createOctokit } from '../../app/github-app';
-import { handlers } from '../../app/handlers';
+import { matchers } from '../../app/matchers';
 import { constructFullComment } from '../../app/webhooks';
 import type { BasicContext as CommandBasicContext } from '../../type/cmd';
-import type { BasicContext as HandlerBasicContext } from '../../type/handler';
+import type { MatcherBasicContext } from '../../type/matcher';
 import { requireEnvVars } from '../../app/env-vars';
 import { createLambdaLogger } from '../../util/loggers';
 import { requireSecrets } from '../../app/secrets';
@@ -21,14 +21,14 @@ const handler: Handler = async (event: unknown, context) => {
   const env = requireEnvVars();
   const logger = createLambdaLogger('on-any');
 
-  const handlerCtx: HandlerBasicContext = {
+  const handlerCtx: MatcherBasicContext = {
     env,
     logger,
   };
 
   const oldEntry = await (async () => {
     // eslint-disable-next-line no-restricted-syntax
-    for (const handler of handlers) {
+    for (const handler of matchers) {
       try {
         // eslint-disable-next-line no-await-in-loop
         const entry = await handler.handle(handlerCtx, event, context);
