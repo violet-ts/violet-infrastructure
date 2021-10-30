@@ -6,8 +6,6 @@ cdktf.out/
 cdktf.log
 .pnpm-debug.log*
 
-/pkg/*/lib/**/*.js
-
 *terraform.*.tfstate*
 .terraform/
 tsconfig.tsbuildinfo
