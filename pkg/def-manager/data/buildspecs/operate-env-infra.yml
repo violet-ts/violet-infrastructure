@@ -1,0 +1,59 @@
+version: 0.2
+
+env:
+  variables:
+    TERRAFORM_VERSION: "1.0.9"
+    PNPM_VERSION: "6"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 14
+    commands:
+      - echo ==== tool versions ====
+      - aws --version
+      - git --version
+      - echo ==== install terraform ====
+      - curl "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o terraform.zip
+      - unzip terraform.zip
+      - install terraform /usr/local/bin
+      - rm terraform.zip terraform
+      - terraform -version
+      - echo ==== install pnpm ====
+      - npm i -g "pnpm@${PNPM_VERSION}"
+      - pnpm --version
+      - echo ==== info ====
+      - pwd
+      - whoami
+      - echo ==== finished ====
+  pre_build:
+    commands:
+      - echo ==== git clone main repository ====
+      - mkdir main || true
+      - cd main
+      - git init || true
+      - git reset --hard HEAD || true
+      - git remote remove origin || true
+      - git remote add origin "$GIT_URL"
+      - git fetch origin "$GIT_FETCH"
+      - git checkout FETCH_HEAD
+      - echo ==== pnpm store status ====
+      - pnpm store status || true
+      - echo ==== pnpm install ====
+      - pnpm install --recursive --frozen-lockfile --prefer-offline
+      - echo ==== finished ====
+  build:
+    commands:
+      - echo ==== terraform operation ====
+      - pnpm exec --dir ./pkg/shared ts-node -T ./scripts/operate.ts
+      - echo ==== finished ====
+  post_build:
+    commands:
+      - echo ==== output ====
+      - echo "!output=rev=$(git rev-parse HEAD)"
+      - echo ==== finished ====
+
+cache:
+  paths:
+    - "main/.git/**/*"
+    - "/root/.pnpm-store/**/*"

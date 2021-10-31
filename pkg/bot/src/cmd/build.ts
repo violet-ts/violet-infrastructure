@@ -1,33 +1,51 @@
-import { CodeBuild, ECR } from 'aws-sdk';
+import { CodeBuild } from 'aws-sdk';
 import type { Temporal } from '@js-temporal/polyfill';
 import { toTemporalInstant } from '@js-temporal/polyfill';
 import { z } from 'zod';
+import { dynamicBuildCodeBuildEnv } from '@self/shared/lib/build-env';
 import type { ReplyCmd } from '../type/cmd';
 import { renderTimestamp, renderDuration, renderBytes } from '../util/comment-render';
-import { setupAws } from '../util/hint';
-import { collectLogsOutput } from '../util/logs-output';
+import { renderECRImageDigest } from '../util/comment-render/aws';
+import { hintHowToPullDocker } from '../util/hint';
+import { collectLogsOutput } from '../util/aws/logs-output';
+import { getImageDetailByTag } from '../util/aws/ecr';
+import { renderGitHubPRCommit } from '../util/comment-render/github';
+
+// TODO(hardcoded)
+const imageRegion = 'ap-northeast-1';
 
 const entrySchema = z.object({
   prNumber: z.number(),
   buildId: z.string(),
   buildArn: z.string(),
+  imageTag: z.string(),
+  imageRepoName: z.string(),
 });
 export type Entry = z.infer<typeof entrySchema>;
 
-const builtInfoSchema = z.object({
+const outputBuiltInfoSchema = z.object({
   rev: z.string(),
-  imageTag: z.string(),
-  imageRepoName: z.string(),
-  timeRange: z.string(),
 });
-export type BuiltInfo = z.infer<typeof builtInfoSchema>;
+export type OutputBuiltInfo = z.infer<typeof outputBuiltInfoSchema>;
+
+export type BuiltInfo = OutputBuiltInfo & {
+  timeRange: string;
+};
+
+const imageDetailSchema = z.object({
+  imageRegion: z.string(),
+  imageRepoName: z.string(),
+  imageDigest: z.string(),
+  imageSizeInBytes: z.number(),
+});
+export type ImageDetail = z.infer<typeof imageDetailSchema>;
 
 export interface CommentValues {
   buildStatus: string;
   statusChangedAt: Temporal.Instant;
   deepLogLink?: string | null;
   builtInfo?: BuiltInfo | null;
-  imageDetail?: ECR.ImageDetail | null;
+  imageDetail?: ImageDetail | null;
 }
 
 const cmd: ReplyCmd<Entry, CommentValues> = {
@@ -39,23 +57,16 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
   async main(ctx, _args) {
     const { number: prNumber } = ctx.commentPayload.issue;
     const codeBuild = new CodeBuild();
+    const imageTag = ctx.namespace;
     const r = await codeBuild
       .startBuild({
         projectName: ctx.env.API_BUILD_PROJECT_NAME,
         environmentVariablesOverride: [
-          {
-            name: 'GIT_URL',
-            // TODO(hardcoded)
-            value: 'https://github.com/LumaKernel/violet.git',
-          },
-          {
-            name: 'GIT_FETCH',
-            value: `refs/pull/${prNumber}/head`,
-          },
-          {
-            name: 'IMAGE_TAG',
-            value: `pr${prNumber}`,
-          },
+          ...dynamicBuildCodeBuildEnv({
+            GIT_URL: ctx.commentPayload.repository.git_url,
+            GIT_FETCH: `refs/pull/${prNumber}/head`,
+            IMAGE_TAG: imageTag,
+          }),
         ],
       })
       .promise();
@@ -71,6 +82,8 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
       prNumber,
       buildId: build.id,
       buildArn: build.arn,
+      imageTag,
+      imageRepoName: ctx.env.API_REPO_NAME,
     };
 
     const values: CommentValues = {
@@ -85,39 +98,34 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
     };
   },
   constructComment(entry, values, ctx) {
-    // TODO(hardcoded)
-    const region = 'ap-northeast-1';
-    const buildUrl = `https://${region}.console.aws.amazon.com/codesuite/codebuild/projects/${
-      ctx.env.API_BUILD_PROJECT_NAME
-    }/build/${encodeURIComponent(entry.buildId)}/?region=${region}`;
     const { builtInfo, imageDetail } = values;
+    const buildUrl = `https://${imageRegion}.console.aws.amazon.com/codesuite/codebuild/projects/${
+      ctx.env.API_BUILD_PROJECT_NAME
+    }/build/${encodeURIComponent(entry.buildId)}/`;
     return {
       main: [
         `- ビルドID: [${entry.buildId}](${buildUrl})`,
         `- ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
-        builtInfo && `- イメージタグ: \`${builtInfo.imageTag}\``,
-        imageDetail && `- イメージダイジェスト: \`${imageDetail.imageDigest}\``,
-        imageDetail?.imageSizeInBytes && `- イメージサイズ: ${renderBytes(imageDetail.imageSizeInBytes)}`,
+        builtInfo && `- イメージタグ: \`${entry.imageTag}\``,
+        builtInfo && imageDetail && `- イメージダイジェスト: ${renderECRImageDigest({ ...imageDetail, ...builtInfo })}`,
+        imageDetail && `- イメージサイズ: ${renderBytes(imageDetail.imageSizeInBytes)}`,
         builtInfo &&
-          `- 使用コミット: [${builtInfo.rev.slice(0, 6)}](https://github.com/LumaKernel/violet/pull/${
-            entry.prNumber
-          }/commits/${builtInfo.rev})`,
+          `- 使用コミット: ${renderGitHubPRCommit({
+            rev: builtInfo.rev,
+            prNumber: entry.prNumber,
+            owner: 'LumaKernel',
+            repo: 'violet',
+          })}`,
         builtInfo && `- ビルド時間: ${builtInfo.timeRange}`,
-        values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch)](${values.deepLogLink})`,
+        values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
       ],
       hints: [
         builtInfo &&
           imageDetail && {
             title: 'Docker イメージの取得方法',
-            body: {
-              main: [
-                '```bash',
-                ...setupAws,
-                `aws ecr get-login-password --profile "$AWS_PROFILE" --region ${region} | docker login --username AWS --password-stdin "https://\${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com"`,
-                `docker pull "\${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com/${builtInfo.imageRepoName}:${imageDetail.imageDigest}"`,
-                '```',
-              ],
-            },
+            body: hintHowToPullDocker({
+              ...imageDetail,
+            }),
           },
       ],
     };
@@ -152,34 +160,23 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
         toTemporalInstant.call(firstStartTime).until(toTemporalInstant.call(lastEndTime ?? lastStartTime)),
       );
 
-      return builtInfoSchema.parse({
-        ...p,
+      const builtInfo: BuiltInfo = {
+        ...outputBuiltInfoSchema.parse(p),
         timeRange,
-      });
-    };
-    const getImageDetail = async (builtInfo: BuiltInfo): Promise<ECR.ImageDetail | null> => {
-      const ecr = new ECR();
-      let nextToken: string | undefined;
-      do {
-        // eslint-disable-next-line no-await-in-loop -- sequential
-        const page = await ecr
-          .describeImages({
-            repositoryName: builtInfo.imageRepoName,
-            filter: { tagStatus: 'TAGGED' },
-          })
-          .promise();
-        nextToken = page.nextToken;
-        if (page.imageDetails == null) throw new Error('imageDetails is undefined');
-        const found = page.imageDetails.find((imageDetail) => imageDetail.imageTags?.includes(builtInfo.imageTag));
-        if (found != null) return found;
-      } while (typeof nextToken === 'string');
-      return null;
+      };
+      return builtInfo;
     };
 
     ctx.logger.info('Get last status.', { buildStatus: last.buildStatus });
     const builtInfo = last.buildStatus === 'SUCCEEDED' ? await computeBuiltInfo() : null;
     ctx.logger.info('Built info.', { builtInfo });
-    const imageDetail = builtInfo && (await getImageDetail(builtInfo));
+    const imageDetail =
+      builtInfo &&
+      (await getImageDetailByTag({
+        imageRegion,
+        ...entry,
+        ...builtInfo,
+      }));
 
     const values: CommentValues = {
       buildStatus: last.buildStatus,

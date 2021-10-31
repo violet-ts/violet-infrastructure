@@ -1,14 +1,15 @@
 // GitHub の Bot の webhook 先として登録する用
+import 'source-map-support/register';
 
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
-import { createWebhooks } from '../../app/webhooks';
-import { requireEnvVars } from '../../app/env-vars';
-import { createLambdaLogger } from '../../util/loggers';
-import { requireSecrets } from '../../app/secrets';
+import { createWebhooks } from '@self/bot/src/app/webhooks';
+import { createLambdaLogger } from '@self/bot/src/util/loggers';
+import { requireSecrets } from '@self/bot/src/app/secrets';
+import { computedBotEnvSchema } from '@self/shared/lib/bot-env';
 
 const handler: APIGatewayProxyHandlerV2 = async (event, _context) => {
   const logger = createLambdaLogger('github-bot');
-  const env = requireEnvVars();
+  const env = computedBotEnvSchema.parse(process.env);
   const secrets = await requireSecrets(env);
   const { body } = event;
   if (typeof body !== 'string') throw new Error('no body found');

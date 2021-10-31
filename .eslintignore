@@ -3,12 +3,7 @@ build/
 
 cdktf.out/
 cdktf.*.out/
-cdktf.log
-.pnpm-debug.log*
 
-*terraform.*.tfstate*
 .terraform/
-tsconfig.tsbuildinfo
 
-.state/
 .gen/

@@ -1,8 +1,15 @@
 import * as winston from 'winston';
 import type { Logger } from 'winston';
+import stringify from 'safe-stable-stringify';
 
-export const cloudwatchLogsFormat = winston.format.printf(({ message, level, meta }) => {
-  return `${level}: ${message} ${JSON.stringify(meta)}`;
+const replacer = (_key: string, value: unknown): unknown => {
+  if (value instanceof Buffer) return value.toString('base64');
+  if (typeof value === 'bigint') return value.toString();
+  return value;
+};
+
+export const cloudwatchLogsFormat = winston.format.printf((info) => {
+  return `${info.level}: ${info.message} ${stringify(info, replacer)}`;
 });
 
 export const createLambdaLogger = (service: string): Logger => {
@@ -14,6 +21,7 @@ export const createLambdaLogger = (service: string): Logger => {
 
   logger.add(
     new winston.transports.Console({
+      level: 'debug',
       format: cloudwatchLogsFormat,
     }),
   );

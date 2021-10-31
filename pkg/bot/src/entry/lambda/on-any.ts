@@ -2,33 +2,34 @@
 // event から対象コメントの uuid を特定し、更新をする。
 // コメントは uuid さえ特定すれば他の情報を一切必要とせずに更新できるようにしている。
 // そのため、uuid を特定する材料さえ見つければ良い。
+import 'source-map-support/register';
 
 import type { Handler } from 'aws-lambda';
 import { toTemporalInstant } from '@js-temporal/polyfill';
 import { DynamoDB } from 'aws-sdk';
-import { cmds } from '../../app/cmds';
-import { createOctokit } from '../../app/github-app';
-import { handlers } from '../../app/handlers';
-import { constructFullComment } from '../../app/webhooks';
-import type { BasicContext as CommandBasicContext } from '../../type/cmd';
-import type { BasicContext as HandlerBasicContext } from '../../type/handler';
-import { requireEnvVars } from '../../app/env-vars';
-import { createLambdaLogger } from '../../util/loggers';
-import { requireSecrets } from '../../app/secrets';
-import { generalEntrySchema } from '../../type/cmd';
+import { cmds } from '@self/bot/src/app/cmds';
+import { createOctokit } from '@self/bot/src/app/github-app';
+import { matchers } from '@self/bot/src/app/matchers';
+import { constructFullComment } from '@self/bot/src/app/webhooks';
+import type { BasicContext as CommandBasicContext } from '@self/bot/src/type/cmd';
+import type { MatcherBasicContext } from '@self/bot/src/type/matcher';
+import { computedBotEnvSchema } from '@self/shared/lib/bot-env';
+import { createLambdaLogger } from '@self/bot/src/util/loggers';
+import { requireSecrets } from '@self/bot/src/app/secrets';
+import { generalEntrySchema } from '@self/bot/src/type/cmd';
 
 const handler: Handler = async (event: unknown, context) => {
-  const env = requireEnvVars();
+  const env = computedBotEnvSchema.parse(process.env);
   const logger = createLambdaLogger('on-any');
 
-  const handlerCtx: HandlerBasicContext = {
+  const handlerCtx: MatcherBasicContext = {
     env,
     logger,
   };
 
   const oldEntry = await (async () => {
     // eslint-disable-next-line no-restricted-syntax
-    for (const handler of handlers) {
+    for (const handler of matchers) {
       try {
         // eslint-disable-next-line no-await-in-loop
         const entry = await handler.handle(handlerCtx, event, context);
