@@ -3,7 +3,7 @@ import * as http from 'http';
 import * as winston from 'winston';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
-import { requireEnvVars } from '../app/env-vars';
+import { computedBotEnvSchema } from '@self/shared/lib/bot-env';
 import { createWebhooks } from '../app/webhooks';
 import { configureAws } from '../app/aws';
 import { requireSecrets } from '../app/secrets';
@@ -11,10 +11,10 @@ import { requireSecrets } from '../app/secrets';
 const main = async () => {
   dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-  const port = process.env.PORT || 8000;
-  const env = requireEnvVars();
+  const port = Number.parseInt(process.env.PORT || '8000', 10);
+  const env = computedBotEnvSchema.parse(process.env);
 
-  configureAws(env);
+  configureAws();
 
   const logger = winston.createLogger({
     level: process.env.LOG_LEVEL ?? 'info',

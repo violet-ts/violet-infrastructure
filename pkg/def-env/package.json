@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "_:cdktf": "cdktf --app \"ts-node -T ./src/entry.ts\"",
+    "_:cdktf": "cdktf --app \"pnpm run --filter=../bot compile && ts-node -T ./src/entry.ts\"",
     "cdktf:deploy": "pnpm run _:cdktf -- deploy",
     "cdktf:destroy": "pnpm run _:cdktf -- destroy",
     "cdktf:get": "cdktf get",
@@ -17,7 +17,7 @@
     "test:tsc": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=12",
+    "node": ">=14",
     "npm": "use pnpm",
     "pnpm": ">=6",
     "yarn": "use pnpm"

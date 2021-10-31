@@ -4,10 +4,12 @@ import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
 import * as path from 'path';
 import * as z from 'zod';
-import { defSideCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
+import type { ComputedOpEnv } from '@self/shared/lib/operate-env/op-env';
+import { computedOpCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import type { VioletManagerStack } from '.';
 import { dataDir } from './values';
+import { DevNetwork } from './dev-network';
 
 export interface EnvDeployOptions {
   tagsAll: Record<string, string>;
@@ -18,7 +20,7 @@ export interface EnvDeployOptions {
 /**
  * 一つの環境を terraform で deploy/destroy するための CodeBuild Project とその関連
  */
-export class EnvDeploy extends Resource {
+export class OperateEnv extends Resource {
   constructor(
     public parent: VioletManagerStack,
     name: string,
@@ -36,7 +38,8 @@ export class EnvDeploy extends Resource {
   });
 
   // TODO
-  cachename = `${this.options.prefix}-cache`;
+  // TODO: https://github.com/hashicorp/terraform-provider-aws/issues/13587
+  readonly cachename = `${this.options.prefix}-cache`;
 
   // TODO(cost): lifecycle
   readonly cache = new S3.S3Bucket(this, 'cache', {
@@ -60,7 +63,7 @@ export class EnvDeploy extends Resource {
   });
 
   readonly buildLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'buildLogGroup', {
-    name: `${this.options.logsPrefix}/build`,
+    namePrefix: `${this.options.logsPrefix}/build`,
     retentionInDays: 3,
 
     tagsAll: {
@@ -93,6 +96,28 @@ export class EnvDeploy extends Resource {
     },
   });
 
+  readonly devNetwork = new DevNetwork(this, 'devNetwork', {
+    prefix: `${this.options.prefix}-net`,
+    cidrNum: this.parent.options.managerEnv.CIDR_NUM,
+  });
+
+  readonly computedOpEnv: ComputedOpEnv = {
+    API_REPO_NAME: this.parent.apiDevRepo.name,
+    AWS_ACCOUNT_ID: this.parent.options.sharedEnv.AWS_ACCOUNT_ID,
+    S3BACKEND_REGION: this.tfstate.region,
+    S3BACKEND_BUCKET: z.string().parse(this.tfstate.bucket),
+    NETWORK_VPC_ID: this.devNetwork.vpc.id,
+    NETWORK_DB_SG_ID: this.devNetwork.dbSg.id,
+    NETWORK_LB_SG_ID: this.devNetwork.lbSg.id,
+    NETWORK_SVC_SG_ID: this.devNetwork.serviceSg.id,
+    NETWORK_PRIV_ID0: this.devNetwork.privateSubnets[0].id,
+    NETWORK_PRIV_ID1: this.devNetwork.privateSubnets[1].id,
+    NETWORK_PRIV_ID2: this.devNetwork.privateSubnets[2].id,
+    NETWORK_PUB_ID0: this.devNetwork.publicSubnets[0].id,
+    NETWORK_PUB_ID1: this.devNetwork.publicSubnets[1].id,
+    NETWORK_PUB_ID2: this.devNetwork.publicSubnets[2].id,
+  };
+
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codebuild_project
   // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
   readonly build = new CodeBuild.CodebuildProject(this, 'build', {
@@ -106,33 +131,7 @@ export class EnvDeploy extends Resource {
       image: 'aws/codebuild/standard:5.0',
       imagePullCredentialsType: 'CODEBUILD',
       privilegedMode: true,
-      environmentVariable: [
-        {
-          name: 'AWS_ACCOUNT_ID',
-          value: this.parent.options.sharedEnv.AWS_ACCOUNT_ID,
-        },
-        {
-          name: 'S3BACKEND_REGION',
-          value: this.tfstate.region,
-        },
-        {
-          name: 'S3BACKEND_BUCKET',
-          value: z.string().parse(this.tfstate.bucket),
-        },
-        {
-          name: 'GIT_URL_INFRA',
-          value: 'https://github.com/violet-ts/violet-infrastructure.git',
-        },
-        {
-          name: 'GIT_FETCH_INFRA',
-          value: 'main',
-        },
-        ...defSideCodeBuildEnv({
-          CIDR_NUM: '0',
-          API_REPO_NAME: this.parent.apiDevRepo.name,
-        }),
-        // S3BACKEND_PREFIX
-      ],
+      environmentVariable: [...computedOpCodeBuildEnv(this.computedOpEnv)],
     },
     source: {
       type: 'NO_SOURCE',
@@ -159,6 +158,8 @@ export class EnvDeploy extends Resource {
     tagsAll: {
       ...this.options.tagsAll,
     },
+
+    dependsOn: [this.cache],
   });
 
   readonly rolePolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'rolePolicyDocument', {

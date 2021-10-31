@@ -1,11 +1,12 @@
 import type { ECR } from '@cdktf/provider-aws';
-import { CloudWatch, S3, SNS, IAM, CodeBuild, CodeStar } from '@cdktf/provider-aws';
+import { S3, CloudWatch, SNS, IAM, CodeBuild, CodeStar } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import * as z from 'zod';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
 import * as path from 'path';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
+import { computedBuildCodeBuildEnv } from '@self/shared/lib/build-env';
 import type { VioletManagerStack } from '.';
 import { dataDir } from './values';
 
@@ -90,7 +91,7 @@ export class ApiBuild extends Resource {
     });
 
   readonly buildLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'buildLogGroup', {
-    name: `${this.options.logsPrefix}/build`,
+    namePrefix: `${this.options.logsPrefix}/build`,
     retentionInDays: 3,
 
     tagsAll: {
@@ -113,26 +114,10 @@ export class ApiBuild extends Resource {
       privilegedMode: true,
       environmentVariable: [
         ...(this.parent.dockerHubCredentials?.codeBuildEnvironmentVariables ?? []),
-        {
-          name: 'IMAGE_REPO_NAME',
-          value: this.options.ecr.name,
-        },
-        {
-          name: 'AWS_ACCOUNT_ID',
-          value: this.parent.options.sharedEnv.AWS_ACCOUNT_ID,
-        },
-        {
-          name: 'GIT_URL',
-          // TODO(hardcoded)
-          value: 'https://github.com/LumaKernel/violet.git',
-        },
-        {
-          name: 'GIT_FETCH',
-          value: 'master',
-        },
-        // GIT_URL
-        // GIT_FETCH
-        // IMAGE_TAG
+        ...computedBuildCodeBuildEnv({
+          IMAGE_REPO_NAME: this.options.ecr.name,
+          AWS_ACCOUNT_ID: this.parent.options.sharedEnv.AWS_ACCOUNT_ID,
+        }),
       ],
     },
     source: {
@@ -160,6 +145,8 @@ export class ApiBuild extends Resource {
     tagsAll: {
       ...this.options.tagsAll,
     },
+
+    dependsOn: [this.cache],
   });
 
   readonly policyDocument = new IAM.DataAwsIamPolicyDocument(this, 'policyDocument', {

@@ -13,8 +13,8 @@ export interface MysqlDbOptions {
   tagsAll?: Record<string, string>;
   /** e.g. rds:production-2015-06-26-06-05 */
   snapshotIdentifier?: string;
-  vpcSecurityGroups: VPC.SecurityGroup[];
-  subnets: VPC.Subnet[];
+  vpcSecurityGroups: VPC.DataAwsSecurityGroup[];
+  subnets: VPC.DataAwsSubnet[];
 }
 
 export class MysqlDb extends Resource {
@@ -56,7 +56,7 @@ export class MysqlDb extends Resource {
 
     tagsAll: {
       ...this.options.tagsAll,
-      Name: `Violet MySQL ${this.parent.options.envEnv.NAMESPACE} ${this.parent.options.section}`,
+      Name: `Violet MySQL ${this.parent.options.dynamicOpEnv.NAMESPACE} ${this.parent.options.section}`,
     },
   });
 
@@ -102,7 +102,7 @@ export class MysqlDb extends Resource {
 
     tagsAll: {
       ...this.options.tagsAll,
-      Name: `Violet MySQL in ${this.parent.options.envEnv.NAMESPACE}`,
+      Name: `Violet MySQL in ${this.parent.options.dynamicOpEnv.NAMESPACE}`,
     },
   });
 

@@ -2,7 +2,7 @@ import { CodeBuild } from 'aws-sdk';
 import type { Temporal } from '@js-temporal/polyfill';
 import { toTemporalInstant } from '@js-temporal/polyfill';
 import { z } from 'zod';
-import { botSideCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
+import { dynamicOpCodeBuildEnv, scriptOpCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
 import type { BuiltInfo } from '@self/shared/lib/operate-env/built-info';
 import { outputBuiltInfoSchema } from '@self/shared/lib/operate-env/built-info';
 import type { ReplyCmd } from '../type/cmd';
@@ -51,8 +51,10 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
       .startBuild({
         projectName: ctx.env.API_BUILD_PROJECT_NAME,
         environmentVariablesOverride: [
-          ...botSideCodeBuildEnv({
+          ...scriptOpCodeBuildEnv({
             OPERATION: 'deploy',
+          }),
+          ...dynamicOpCodeBuildEnv({
             NAMESPACE: ctx.namespace,
             API_REPO_SHA: apiImageDetail.imageDigest,
           }),
@@ -89,7 +91,7 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
     // TODO(hardcoded)
     const region = 'ap-northeast-1';
     const buildUrl = `https://${region}.console.aws.amazon.com/codesuite/codebuild/projects/${
-      ctx.env.ENV_DEPLOY_PROJECT_NAME
+      ctx.env.OPERATE_ENV_PROJECT_NAME
     }/build/${encodeURIComponent(entry.buildId)}/?region=${region}`;
     const { builtInfo } = values;
     return {

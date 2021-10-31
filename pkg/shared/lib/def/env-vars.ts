@@ -1,5 +1,3 @@
-import type { OpEnv, ScriptOpEnv } from '@self/shared/lib/operate-env/op-env';
-import { scriptOpEnvSchema, opEnvSchema } from '@self/shared/lib/operate-env/op-env';
 import { z } from 'zod';
 import { requireEnv } from '@self/shared/lib/util/env';
 
@@ -22,7 +20,7 @@ export const requireSharedEnvVars = (): SharedEnv => {
   const { AWS_PROFILE, DOCKERHUB_USER, DOCKERHUB_PASS } = process.env;
   const { AWS_ACCOUNT_ID } = requireEnv('AWS_ACCOUNT_ID');
   if ((typeof DOCKERHUB_USER !== 'string') !== (typeof DOCKERHUB_PASS !== 'string'))
-    throw new Error('both DOCKERHUB_USER and DOCKERHUB_PASS should exist or absent');
+    throw new Error('both DOCKERHUB_USER and DOCKERHUB_PASS should either exist or be absent');
   const DOCKERHUB =
     typeof DOCKERHUB_USER === 'string' && typeof DOCKERHUB_PASS === 'string'
       ? { USER: DOCKERHUB_USER, PASS: DOCKERHUB_PASS }
@@ -37,16 +35,7 @@ export const requireSharedEnvVars = (): SharedEnv => {
   };
 };
 
-export const managerEnvSchema = z.object({});
+export const managerEnvSchema = z.object({
+  CIDR_NUM: z.string().regex(/[0-9]+/),
+});
 export type ManagerEnv = z.infer<typeof managerEnvSchema>;
-export const requireManagerEnvVars = (): ManagerEnv => {
-  return managerEnvSchema.parse(process.env);
-};
-
-export const requireOpEnvVars = (): OpEnv => {
-  return opEnvSchema.parse(process.env);
-};
-
-export const requireScriptOpEnvVars = (): ScriptOpEnv => {
-  return scriptOpEnvSchema.parse(process.env);
-};

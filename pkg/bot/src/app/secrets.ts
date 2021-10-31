@@ -1,22 +1,22 @@
 import { SSM } from 'aws-sdk';
-import type { Env } from './env-vars';
+import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot-env';
+import { botSecretsSchema } from '@self/shared/lib/bot-env';
 
-const keys = ['BOT_INSTALLATION_ID', 'BOT_APP_ID', 'WEBHOOKS_SECRET', 'BOT_PRIVATE_KEY'] as const;
-export type SecretKeys = typeof keys[number];
-export type Secrets = Record<SecretKeys, string>;
+const keys = Object.keys(botSecretsSchema.shape);
+type SecretKeys = keyof BotSecrets;
 
-export const requireSecrets = async (env: Env): Promise<Secrets> => {
+export const requireSecrets = async (computedBot: ComputedBotEnv): Promise<BotSecrets> => {
   const ssm = new SSM();
   const r = await ssm
     .getParameters({
-      Names: keys.map((key) => `${env.SSM_PREFIX}/${key}`),
+      Names: keys.map((key) => `${computedBot.SSM_PREFIX}/${key}`),
       WithDecryption: true,
     })
     .promise();
 
   const parameters = r.Parameters ?? [];
 
-  const secrets: Secrets = Object.fromEntries(
+  const secrets: BotSecrets = Object.fromEntries(
     parameters
       .map((p) => {
         if (typeof p.Name !== 'string') throw new Error(`name not found`);
@@ -25,8 +25,7 @@ export const requireSecrets = async (env: Env): Promise<Secrets> => {
         return [key, p.Value];
       })
       .filter((entry): entry is [SecretKeys, string] => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-explicit-any
-        return (keys as any).includes(entry[0]);
+        return keys.includes(entry[0]);
       }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ) as any;

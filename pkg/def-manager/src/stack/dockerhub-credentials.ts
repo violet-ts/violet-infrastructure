@@ -10,7 +10,6 @@ export interface DockerHubCredentialsOptions {
   prefix: string;
   tagsAll: Record<string, string>;
 }
-
 export class DockerHubCredentials extends Resource {
   constructor(
     parent: VioletManagerStack,

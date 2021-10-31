@@ -1,14 +1,14 @@
-import { AwsProvider, ECR, ResourceGroups } from '@cdktf/provider-aws';
+import { AwsProvider, ECR, ResourceGroups, Route53 } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
-import { TerraformOutput, TerraformStack } from 'cdktf';
+import { TerraformOutput, TerraformStack, TerraformHclModule } from 'cdktf';
 import type { Construct } from 'constructs';
 import { PROJECT_NAME } from '@self/shared/lib/const';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import { Bot } from './bot';
 import { ApiBuild } from './build-api';
 import { DockerHubCredentials } from './dockerhub-credentials';
-import { EnvDeploy } from './env-deploy';
+import { OperateEnv } from './operate-env';
 import { genTags } from './values';
 
 export interface VioletManagerOptions {
@@ -139,7 +139,7 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly devEnvDeploy = new EnvDeploy(this, 'devEnvDeploy', {
+  readonly operateEnv = new OperateEnv(this, 'devEnvDeploy', {
     prefix: 'violet-dev-env-deploy',
     logsPrefix: `${this.logsPrefix}/dev-env-deploy`,
 
@@ -167,12 +167,29 @@ export class VioletManagerStack extends TerraformStack {
    * ローカルで bot をサーブする場合は、 <project>/pkg/bot/.env.local に追記する
    */
   readonly botEnvFile = new TerraformOutput(this, 'botEnvFile', {
-    value: [
-      `SSM_PREFIX=${this.bot.options.ssmPrefix}`,
-      `API_BUILD_PROJECT_NAME=${this.devApiBuild.build.name}`,
-      `TABLE_NAME=${this.bot.table.name}`,
-    ]
-      .map((e) => `${e}\n`)
-      .join(''),
+    value: Object.entries(this.bot.computedBotEnv)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n'),
+  });
+
+  readonly opEnvFile = new TerraformOutput(this, 'opEnvFile', {
+    value: Object.entries(this.operateEnv.computedOpEnv)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n'),
+  });
+
+  readonly previewZone = new Route53.DataAwsRoute53Zone(this, 'previewZone', {
+    zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
+  });
+
+  readonly previewZoneCertificate = new TerraformHclModule(this, 'previewZoneCertificate', {
+    source: 'cloudposse/acm-request-certificate/aws',
+    version: '~>0.15.1',
+    variables: {
+      domain_name: this.previewZone.name,
+      process_domain_validation_options: true,
+      ttl: '5',
+      subject_alternative_names: [`*.${this.previewZone.name}`],
+    },
   });
 }

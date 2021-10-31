@@ -1,9 +1,9 @@
 import type { Context as LambdaContext } from 'aws-lambda';
 import type { Logger } from 'winston';
-import type { Env } from '../app/env-vars';
+import type { ComputedBotEnv } from '@self/shared/lib/bot-env';
 
 export type MatcherBasicContext = {
-  env: Env;
+  env: ComputedBotEnv;
   logger: Logger;
 };
 

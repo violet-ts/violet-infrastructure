@@ -2,6 +2,7 @@ import { CodeBuild } from 'aws-sdk';
 import type { Temporal } from '@js-temporal/polyfill';
 import { toTemporalInstant } from '@js-temporal/polyfill';
 import { z } from 'zod';
+import { dynamicBuildCodeBuildEnv } from '@self/shared/lib/build-env';
 import type { ReplyCmd } from '../type/cmd';
 import { renderTimestamp, renderDuration, renderBytes } from '../util/comment-render';
 import { renderECRImageDigest } from '../util/comment-render/aws';
@@ -17,17 +18,19 @@ const entrySchema = z.object({
   prNumber: z.number(),
   buildId: z.string(),
   buildArn: z.string(),
+  imageTag: z.string(),
+  imageRepoName: z.string(),
 });
 export type Entry = z.infer<typeof entrySchema>;
 
-const builtInfoSchema = z.object({
+const outputBuiltInfoSchema = z.object({
   rev: z.string(),
-  imageTag: z.string(),
-  imageRepoName: z.string(),
-  imageDigest: z.string(),
-  timeRange: z.string(),
 });
-export type BuiltInfo = z.infer<typeof builtInfoSchema>;
+export type OutputBuiltInfo = z.infer<typeof outputBuiltInfoSchema>;
+
+export type BuiltInfo = OutputBuiltInfo & {
+  timeRange: string;
+};
 
 const imageDetailSchema = z.object({
   imageRegion: z.string(),
@@ -54,22 +57,16 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
   async main(ctx, _args) {
     const { number: prNumber } = ctx.commentPayload.issue;
     const codeBuild = new CodeBuild();
+    const imageTag = ctx.namespace;
     const r = await codeBuild
       .startBuild({
         projectName: ctx.env.API_BUILD_PROJECT_NAME,
         environmentVariablesOverride: [
-          {
-            name: 'GIT_URL',
-            value: ctx.commentPayload.repository.git_url,
-          },
-          {
-            name: 'GIT_FETCH',
-            value: `refs/pull/${prNumber}/head`,
-          },
-          {
-            name: 'IMAGE_TAG',
-            value: ctx.namespace,
-          },
+          ...dynamicBuildCodeBuildEnv({
+            GIT_URL: ctx.commentPayload.repository.git_url,
+            GIT_FETCH: `refs/pull/${prNumber}/head`,
+            IMAGE_TAG: imageTag,
+          }),
         ],
       })
       .promise();
@@ -85,6 +82,8 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
       prNumber,
       buildId: build.id,
       buildArn: build.arn,
+      imageTag,
+      imageRepoName: ctx.env.API_REPO_NAME,
     };
 
     const values: CommentValues = {
@@ -107,7 +106,7 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
       main: [
         `- ビルドID: [${entry.buildId}](${buildUrl})`,
         `- ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
-        builtInfo && `- イメージタグ: \`${builtInfo.imageTag}\``,
+        builtInfo && `- イメージタグ: \`${entry.imageTag}\``,
         builtInfo && imageDetail && `- イメージダイジェスト: ${renderECRImageDigest({ ...imageDetail, ...builtInfo })}`,
         imageDetail && `- イメージサイズ: ${renderBytes(imageDetail.imageSizeInBytes)}`,
         builtInfo &&
@@ -161,16 +160,23 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
         toTemporalInstant.call(firstStartTime).until(toTemporalInstant.call(lastEndTime ?? lastStartTime)),
       );
 
-      return builtInfoSchema.parse({
-        ...p,
+      const builtInfo: BuiltInfo = {
+        ...outputBuiltInfoSchema.parse(p),
         timeRange,
-      });
+      };
+      return builtInfo;
     };
 
     ctx.logger.info('Get last status.', { buildStatus: last.buildStatus });
     const builtInfo = last.buildStatus === 'SUCCEEDED' ? await computeBuiltInfo() : null;
     ctx.logger.info('Built info.', { builtInfo });
-    const imageDetail = builtInfo && (await getImageDetailByTag({ imageRegion, ...builtInfo }));
+    const imageDetail =
+      builtInfo &&
+      (await getImageDetailByTag({
+        imageRegion,
+        ...entry,
+        ...builtInfo,
+      }));
 
     const values: CommentValues = {
       buildStatus: last.buildStatus,

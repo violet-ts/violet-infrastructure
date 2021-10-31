@@ -31,6 +31,7 @@ importers:
       npm-run-all: ^4.1.5
       prettier: ^2.4.1
       promise-queue: ^2.2.5
+      source-map-support: ^0.5.20
       ts-jest: ^27.0.7
       ts-node: ^10.4.0
       typescript: ^4.4.4
@@ -63,6 +64,7 @@ importers:
       npm-run-all: 4.1.5
       prettier: 2.4.1
       promise-queue: 2.2.5
+      source-map-support: 0.5.20
       ts-jest: 27.0.7_2c4ca6574207836d1023f54689cc81ac
       ts-node: 10.4.0_0cb88d80cb04d25b21fa3ec194608c65
       typescript: 4.4.4
@@ -85,6 +87,7 @@ importers:
       chokidar: ^3.5.2
       dotenv: ^10.0.0
       pretty-bytes: ^5.6.0
+      safe-stable-stringify: ^2.1.0
       ts-expect: ^1.3.0
       uuid: ^8.3.2
       winston: ^3.3.3
@@ -105,6 +108,7 @@ importers:
       chokidar: 3.5.2
       dotenv: 10.0.0
       pretty-bytes: 5.6.0
+      safe-stable-stringify: 2.1.0
       ts-expect: 1.3.0
       uuid: 8.3.2
       winston: 3.3.3
@@ -117,7 +121,10 @@ importers:
     specifiers: {}
 
   pkg/shared:
-    specifiers: {}
+    specifiers:
+      ballvalve: ^3.1.3
+    devDependencies:
+      ballvalve: 3.1.3
 
 packages:
 
@@ -2871,6 +2878,11 @@ packages:
 
   /balanced-match/1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
+    dev: true
+
+  /ballvalve/3.1.3:
+    resolution: {integrity: sha512-vocu0QFNsDiE7MkXJ2YzDUo+3ReP8uAkrkdiMSSHEzrbNYKavWcCiEQTH7ovSKHq7KZ5HxW/TXMYT6kz5Gg+HQ==}
+    engines: {node: '>=8.5.0'}
     dev: true
 
   /base64-js/1.5.1:
@@ -7303,6 +7315,11 @@ packages:
 
   /safe-stable-stringify/1.1.1:
     resolution: {integrity: sha512-ERq4hUjKDbJfE4+XtZLFPCDi8Vb1JqaxAPTxWFLBx8XcAlf9Bda/ZJdVezs/NAfsMQScyIlUMx+Yeu7P7rx5jw==}
+    dev: true
+
+  /safe-stable-stringify/2.1.0:
+    resolution: {integrity: sha512-8rWsPbOWwjfPZf8Ef/KEGc8Pr/ChM41r2cqX8KtM8kpNc59XRV3He/gr7qxBsOB5G32/ZzaOXHs7C5Yg2jeAYQ==}
+    engines: {node: '>=10'}
     dev: true
 
   /safer-buffer/2.1.2:

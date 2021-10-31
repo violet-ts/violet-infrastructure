@@ -1,4 +1,4 @@
-import { ECS, ELB, ACM, Route53, IAM, VPC, CloudWatch } from '@cdktf/provider-aws';
+import { ECS, ELB, Route53, IAM, VPC, CloudWatch } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
@@ -27,84 +27,17 @@ export class ApiTask extends Resource {
     special: false,
   });
 
-  readonly subdomain = `api-${this.parent.options.envEnv.NAMESPACE}`;
-
-  readonly certificate = new ACM.AcmCertificate(this, 'certificate', {
-    domainName: `${this.subdomain}.${this.parent.zone.name}`,
-    validationMethod: 'DNS',
-  });
-
-  // TODO: Use https://github.com/azavea/terraform-aws-acm-certificate instead.
-  readonly validationRecords = (() => {
-    const tmp = new Route53.Route53Record(this, 'validationRecords', {
-      allowOverwrite: true,
-      name: `\${each.value.name}`,
-      records: [`\${each.value.record}`],
-      ttl: 60,
-      type: `\${each.value.type}`,
-      zoneId: z.string().parse(this.parent.zone.zoneId),
-    });
-    // TODO(blocked): https://github.com/hashicorp/terraform-cdk/issues/42
-    tmp.addOverride(
-      'for_each',
-      [
-        `\${{`,
-        `  for dvo in ${this.certificate.fqn}.domain_validation_options : dvo.domain_name => {`,
-        `    name   = dvo.resource_record_name`,
-        `    record = dvo.resource_record_value`,
-        `    type   = dvo.resource_record_type`,
-        `  }`,
-        `}}`,
-      ].join('\n'),
-    );
-    return tmp;
-  })();
-
-  readonly certificateValidation = (() => {
-    const tmp = new ACM.AcmCertificateValidation(this, 'certificateValidation', {
-      certificateArn: this.certificate.arn,
-    });
-    // TODO(blocked): https://github.com/hashicorp/terraform-cdk/issues/42
-    tmp.addOverride('validation_record_fqdns', `\${[for record in ${this.validationRecords.fqn} : record.fqdn]}`);
-    return tmp;
-  })();
+  readonly subdomain = `api-${this.parent.options.dynamicOpEnv.NAMESPACE}`;
 
   // TODO(service): prod availavility
-  readonly subnets = [this.parent.publicSubnets[0], this.parent.publicSubnets[1]];
-
-  readonly lbSg = new VPC.SecurityGroup(this, 'lbSg', {
-    name: `${this.options.prefix}-lb-${this.suffix.result}`,
-    vpcId: this.parent.vpc.id,
-    // TODO(security): restrict
-    egress: [
-      {
-        fromPort: 0,
-        toPort: 0,
-        protocol: '-1',
-        cidrBlocks: ['0.0.0.0/0'],
-        ipv6CidrBlocks: ['::/0'],
-      },
-    ],
-    ingress: [
-      {
-        fromPort: 0,
-        toPort: 0,
-        protocol: '-1',
-        cidrBlocks: ['0.0.0.0/0'],
-        ipv6CidrBlocks: ['::/0'],
-      },
-    ],
-    tagsAll: {
-      ...this.options.tagsAll,
-    },
-  });
+  readonly subnets = [this.parent.network.publicSubnets[0], this.parent.network.publicSubnets[1]];
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb
   readonly alb = new ELB.Alb(this, 'alb', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     internal: false,
     loadBalancerType: 'application',
-    securityGroups: [this.lbSg.id],
+    securityGroups: [this.parent.network.lbSg.id],
     ipAddressType: 'dualstack',
 
     subnets: this.subnets.map((subnet) => subnet.id),
@@ -112,14 +45,6 @@ export class ApiTask extends Resource {
     tagsAll: {
       ...this.options.tagsAll,
     },
-
-    dependsOn: [
-      // NOTE(depends): wait certificate validation
-      this.certificateValidation,
-      // NOTE(depends): wait IGW setup
-      this.parent.publicRouteIgw,
-      this.parent.publicRouteIgw6,
-    ],
   });
 
   readonly albEnis = new VPC.DataAwsNetworkInterfaces(this, 'albEnis', {
@@ -136,7 +61,7 @@ export class ApiTask extends Resource {
     port: 80,
     targetType: 'ip',
     protocol: 'HTTP',
-    vpcId: this.parent.vpc.id,
+    vpcId: this.parent.network.vpc.id,
     // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-health-checks.html
     healthCheck: {
       port: '80',
@@ -160,7 +85,7 @@ export class ApiTask extends Resource {
     port: 443,
     protocol: 'HTTPS',
     sslPolicy: 'ELBSecurityPolicy-2016-08',
-    certificateArn: this.certificate.arn,
+    certificateArn: this.parent.certificate.arn,
 
     defaultAction: [
       {
@@ -348,50 +273,14 @@ export class ApiTask extends Resource {
     records: [this.alb.dnsName],
   });
 
-  readonly serviceSg = new VPC.SecurityGroup(this, 'serviceSg', {
-    name: `${this.options.prefix}-svc-${this.suffix.result}`,
-    vpcId: this.parent.vpc.id,
-    // TODO(security): restrict
-    egress: [
-      {
-        fromPort: 0,
-        toPort: 0,
-        protocol: '-1',
-        cidrBlocks: ['0.0.0.0/0'],
-        ipv6CidrBlocks: ['::/0'],
-      },
-    ],
-    ingress: [
-      {
-        fromPort: 0,
-        toPort: 0,
-        protocol: '-1',
-        cidrBlocks: ['0.0.0.0/0'],
-        ipv6CidrBlocks: ['::/0'],
-      },
-    ],
-    // ingress: [
-    //   {
-    //     fromPort: 80,
-    //     toPort: 80,
-    //     protocol: 'tcp',
-    //     securityGroups: [this.lbSg.id],
-    //   },
-    // ],
-
-    tagsAll: {
-      ...this.options.tagsAll,
-    },
-  });
-
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_Service.html
   readonly service = new ECS.EcsService(this, 'service', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     propagateTags: 'SERVICE',
     networkConfiguration: {
-      subnets: this.parent.publicSubnets.map((subnet) => subnet.id),
-      securityGroups: [this.serviceSg.id],
+      subnets: this.parent.network.publicSubnets.map((subnet) => subnet.id),
+      securityGroups: [this.parent.network.serviceSg.id],
       // TODO(security): prod: NAT
       assignPublicIp: true,
     },

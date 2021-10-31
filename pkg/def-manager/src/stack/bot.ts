@@ -5,6 +5,7 @@ import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
 import * as z from 'zod';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
+import type { ComputedBotEnv } from '@self/shared/lib/bot-env';
 import type { VioletManagerStack } from '.';
 import type { ApiBuild } from './build-api';
 import { botBuildDir, botEnv } from './values';
@@ -233,12 +234,12 @@ export class Bot extends Resource {
     },
   });
 
-  readonly lambdaEnvs = {
-    variables: {
-      SSM_PREFIX: this.options.ssmPrefix,
-      API_BUILD_PROJECT_NAME: this.options.devApiBuild.build.name,
-      TABLE_NAME: this.table.name,
-    },
+  readonly computedBotEnv: ComputedBotEnv = {
+    SSM_PREFIX: this.options.ssmPrefix,
+    TABLE_NAME: this.table.name,
+    API_REPO_NAME: this.parent.apiDevRepo.name,
+    API_BUILD_PROJECT_NAME: this.options.devApiBuild.build.name,
+    OPERATE_ENV_PROJECT_NAME: this.parent.operateEnv.build.name,
   };
 
   // Main Lambda function triggered by GitHub webhooks
@@ -250,7 +251,9 @@ export class Bot extends Resource {
     s3Key: this.githubBotZip.key,
     role: this.role.arn,
     memorySize: 256,
-    environment: this.lambdaEnvs,
+    environment: {
+      variables: this.computedBotEnv,
+    },
     timeout: 20,
     handler: 'github-bot.handler',
     runtime: 'nodejs14.x',
@@ -267,7 +270,9 @@ export class Bot extends Resource {
     s3Key: this.onAnyZip.key,
     role: this.role.arn,
     memorySize: 256,
-    environment: this.lambdaEnvs,
+    environment: {
+      variables: this.computedBotEnv,
+    },
     timeout: 20,
     handler: 'on-any.handler',
     runtime: 'nodejs14.x',

@@ -6,9 +6,7 @@
     "random",
     "hashicorp/null@ ~>3.1.0"
   ],
-  "terraformModules": [
-    "cloudposse/acm-request-certificate/aws@ ~>0.15.1"
-  ],
+  "terraformModules": [],
   "context": {
     "excludeStackIdFromLogicalIds": "true",
     "allowSepCharsInLogicalIds": "true"

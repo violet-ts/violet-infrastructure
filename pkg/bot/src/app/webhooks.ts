@@ -6,14 +6,13 @@ import { Webhooks } from '@octokit/webhooks';
 import type { IssueCommentEvent } from '@octokit/webhooks-types';
 import type { Octokit } from '@octokit/rest';
 import { v4 as uuidv4 } from 'uuid';
+import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot-env';
 import type { Command } from '../util/parse-comment';
 import { embedDirective, parseComment } from '../util/parse-comment';
 import { createOctokit } from './github-app';
 import { cmds } from './cmds';
-import type { Env } from './env-vars';
 import type { BasicContext, CommandContext, GeneralEntry, ReplyCmd } from '../type/cmd';
 import { renderCommentBody, renderTimestamp } from '../util/comment-render';
-import type { Secrets } from './secrets';
 
 // TODO(hardcoded)
 const botPrefix = '/';
@@ -43,7 +42,13 @@ export const constructFullComment = (
   return full;
 };
 
-const processRun = async (run: Command, octokit: Octokit, env: Env, payload: IssueCommentEvent, logger: Logger) => {
+const processRun = async (
+  run: Command,
+  octokit: Octokit,
+  env: ComputedBotEnv,
+  payload: IssueCommentEvent,
+  logger: Logger,
+) => {
   logger.info('Trying to run', run.args);
   const [cmdName, ...args] = run.args;
   const cmd = cmds.find((cmd) => cmd.name === cmdName);
@@ -126,8 +131,8 @@ const processRun = async (run: Command, octokit: Octokit, env: Env, payload: Iss
 
 // Webhook doc: https://docs.github.com/en/developers/webhooks-and-events/webhooks/about-webhooks
 export const createWebhooks = (
-  env: Env,
-  secrets: Secrets,
+  env: ComputedBotEnv,
+  secrets: BotSecrets,
   logger: Logger,
 ): { webhooks: Webhooks; onAllDone: () => Promise<void> } => {
   const webhooks = new Webhooks({
