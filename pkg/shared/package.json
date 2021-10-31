@@ -3,8 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "compile": "ts-node -T ./scripts/build.ts",
-    "compile-watch": "ts-node -T ./scripts/build.ts --watch",
     "test": "run-s test:tsc",
     "test-watch": "run-p test-watch:*",
     "test-watch:tsc": "tsc --noEmit --watch",
