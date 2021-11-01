@@ -154,7 +154,7 @@ export class Bot extends Resource {
           'ecr:ListImages',
           'ecr:ListTagsForResource',
         ],
-        resources: [this.parent.apiDevRepo.arn],
+        resources: this.builds.map(([_name, build]) => build.options.repo.arn),
       },
       {
         effect: 'Allow',
@@ -235,6 +235,7 @@ export class Bot extends Resource {
   });
 
   readonly computedBotEnv: ComputedBotEnv = {
+    PREVIEW_DOMAIN: z.string().parse(this.parent.previewZone.name),
     SSM_PREFIX: this.options.ssmPrefix,
     TABLE_NAME: this.table.name,
     API_REPO_NAME: this.parent.apiDevRepo.name,

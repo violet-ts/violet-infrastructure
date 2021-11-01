@@ -16,6 +16,7 @@ export const dynamicBuildEnvSchema = z.object({
   IMAGE_REPO_NAME: z.string(),
   IMAGE_TAG: z.string(),
   BUILD_DOCKERFILE: z.string(),
+  DOCKER_BUILD_ARGS: z.string(),
 });
 
 export type DynamicBuildEnv = z.infer<typeof dynamicBuildEnvSchema>;

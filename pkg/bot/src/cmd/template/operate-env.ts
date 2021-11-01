@@ -2,14 +2,16 @@ import { CodeBuild } from 'aws-sdk';
 import type { Temporal } from '@js-temporal/polyfill';
 import { toTemporalInstant } from '@js-temporal/polyfill';
 import { z } from 'zod';
-import { dynamicBuildCodeBuildEnv } from '@self/shared/lib/build-env';
+import type { ScriptOpEnv } from '@self/shared/lib/operate-env/op-env';
+import { dynamicOpCodeBuildEnv, scriptOpCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
+import type { BuiltInfo } from '@self/shared/lib/operate-env/built-info';
+import { outputBuiltInfoSchema } from '@self/shared/lib/operate-env/built-info';
 import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
-import { renderTimestamp, renderDuration, renderBytes } from '@self/bot/src/util/comment-render';
-import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
-import { hintHowToPullDocker } from '@self/bot/src/util/hint';
+import { renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
 import { collectLogsOutput } from '@self/bot/src/util/aws/logs-output';
+import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
-import { renderGitHubPRCommit } from '@self/bot/src/util/comment-render/github';
+import { renderGitHubCommit } from '@self/bot/src/util/comment-render/github';
 import type { ComputedBotEnv } from '@self/shared/lib/bot-env';
 
 // TODO(hardcoded)
@@ -19,66 +21,57 @@ const entrySchema = z.object({
   prNumber: z.number(),
   buildId: z.string(),
   buildArn: z.string(),
-  imageTag: z.string(),
-  imageRepoName: z.string(),
+  apiImageDigest: z.string(),
 });
 export type Entry = z.infer<typeof entrySchema>;
-
-const outputBuiltInfoSchema = z.object({
-  rev: z.string(),
-});
-export type OutputBuiltInfo = z.infer<typeof outputBuiltInfoSchema>;
-
-export type BuiltInfo = OutputBuiltInfo & {
-  timeRange: string;
-};
-
-const imageDetailSchema = z.object({
-  imageRegion: z.string(),
-  imageRepoName: z.string(),
-  imageDigest: z.string(),
-  imageSizeInBytes: z.number(),
-});
-export type ImageDetail = z.infer<typeof imageDetailSchema>;
 
 export interface CommentValues {
   buildStatus: string;
   statusChangedAt: Temporal.Instant;
   deepLogLink?: string | null;
   builtInfo?: BuiltInfo | null;
-  imageDetail?: ImageDetail | null;
 }
 
 interface CreateParams {
-  imageRepoName: string;
-  buildDockerfile: string;
-  projectName: string;
-  dockerBuildArgs: string;
+  operation: ScriptOpEnv['OPERATION'];
 }
 
 const createCmd = (
   st: ReplyCmdStatic,
-  paramsGetter: (env: ComputedBotEnv, namespace: string) => CreateParams,
+  paramsGetter: (env: ComputedBotEnv) => CreateParams,
 ): ReplyCmd<Entry, CommentValues> => {
   const cmd: ReplyCmd<Entry, CommentValues> = {
     ...st,
     entrySchema,
     async main(ctx, _args) {
       const { number: prNumber } = ctx.commentPayload.issue;
+
+      const apiImageDetail = await getImageDetailByTag({
+        imageRegion,
+        imageRepoName: ctx.env.API_REPO_NAME,
+        imageTag: ctx.namespace,
+      });
+      if (!apiImageDetail) throw new Error('Image for API not found.');
+
+      const webImageDetail = await getImageDetailByTag({
+        imageRegion,
+        imageRepoName: ctx.env.WEB_REPO_NAME,
+        imageTag: ctx.namespace,
+      });
+      if (!webImageDetail) throw new Error('Image for WEB not found.');
+
       const codeBuild = new CodeBuild();
-      const imageTag = ctx.namespace;
-      const params = paramsGetter(ctx.env, ctx.namespace);
       const r = await codeBuild
         .startBuild({
-          projectName: params.projectName,
+          projectName: ctx.env.API_BUILD_PROJECT_NAME,
           environmentVariablesOverride: [
-            ...dynamicBuildCodeBuildEnv({
-              GIT_URL: ctx.commentPayload.repository.git_url,
-              GIT_FETCH: `refs/pull/${prNumber}/head`,
-              IMAGE_REPO_NAME: params.imageRepoName,
-              IMAGE_TAG: imageTag,
-              BUILD_DOCKERFILE: params.buildDockerfile,
-              DOCKER_BUILD_ARGS: params.dockerBuildArgs,
+            ...scriptOpCodeBuildEnv({
+              OPERATION: paramsGetter(ctx.env).operation,
+            }),
+            ...dynamicOpCodeBuildEnv({
+              NAMESPACE: ctx.namespace,
+              API_REPO_SHA: apiImageDetail.imageDigest,
+              WEB_REPO_SHA: webImageDetail.imageDigest,
             }),
           ],
         })
@@ -95,8 +88,7 @@ const createCmd = (
         prNumber,
         buildId: build.id,
         buildArn: build.arn,
-        imageTag,
-        imageRepoName: params.imageRepoName,
+        apiImageDigest: apiImageDetail.imageDigest,
       };
 
       const values: CommentValues = {
@@ -111,38 +103,39 @@ const createCmd = (
       };
     },
     constructComment(entry, values, ctx) {
-      const params = paramsGetter(ctx.env, entry.namespace);
-      const { builtInfo, imageDetail } = values;
-      const buildUrl = `https://${imageRegion}.console.aws.amazon.com/codesuite/codebuild/projects/${
-        params.projectName
-      }/build/${encodeURIComponent(entry.buildId)}/`;
+      // TODO(hardcoded)
+      const region = 'ap-northeast-1';
+      const buildUrl = `https://${region}.console.aws.amazon.com/codesuite/codebuild/projects/${
+        ctx.env.OPERATE_ENV_PROJECT_NAME
+      }/build/${encodeURIComponent(entry.buildId)}/?region=${region}`;
+      const { builtInfo } = values;
       return {
         main: [
           `- ビルドID: [${entry.buildId}](${buildUrl})`,
           `- ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
-          builtInfo && `- イメージタグ: \`${entry.imageTag}\``,
           builtInfo &&
-            imageDetail &&
-            `- イメージダイジェスト: ${renderECRImageDigest({ ...imageDetail, ...builtInfo })}`,
-          imageDetail && `- イメージサイズ: ${renderBytes(imageDetail.imageSizeInBytes)}`,
-          builtInfo &&
-            `- 使用コミット: ${renderGitHubPRCommit({
-              rev: builtInfo.rev,
-              prNumber: entry.prNumber,
-              owner: entry.commentOwner,
-              repo: entry.commentRepo,
+            `- 使用した API イメージダイジェスト: ${renderECRImageDigest({
+              imageRegion,
+              imageDigest: entry.apiImageDigest,
+              imageRepoName: ctx.env.API_REPO_NAME,
             })}`,
           builtInfo && `- ビルド時間: ${builtInfo.timeRange}`,
           values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
         ],
         hints: [
-          builtInfo &&
-            imageDetail && {
-              title: 'Docker イメージの取得方法',
-              body: hintHowToPullDocker({
-                ...imageDetail,
-              }),
+          {
+            title: '詳細',
+            body: {
+              main: [
+                builtInfo &&
+                  `- 使用したインフラ定義バージョン: ${renderGitHubCommit({
+                    owner: 'violet-ts',
+                    repo: 'violet-infrastructure',
+                    rev: builtInfo.rev,
+                  })}`,
+              ],
             },
+          },
         ],
       };
     },
@@ -166,41 +159,33 @@ const createCmd = (
       if (lastStartTime == null) throw new TypeError('CodeBuild last startTime is not found');
 
       const computeBuiltInfo = async (): Promise<BuiltInfo | null> => {
-        ctx.logger.info('Checking cloudwatch logs.', { logs: last.logs });
+        ctx.logger.info('checking cloudwatch logs', { logs: last.logs });
         const { logs } = last;
         if (logs == null) return null;
         if (logs.groupName == null) return null;
         if (logs.streamName == null) return null;
-        const output = await collectLogsOutput(logs.groupName, [logs.streamName]);
+        const p = await collectLogsOutput(logs.groupName, [logs.streamName]);
         const timeRange = renderDuration(
           toTemporalInstant.call(firstStartTime).until(toTemporalInstant.call(lastEndTime ?? lastStartTime)),
         );
-        ctx.logger.info('Output collected from logs.', { output });
 
-        const builtInfo: BuiltInfo = {
-          ...outputBuiltInfoSchema.parse(output),
+        return {
+          ...outputBuiltInfoSchema.parse({
+            ...p,
+          }),
           timeRange,
         };
-        return builtInfo;
       };
 
       ctx.logger.info('Get last status.', { buildStatus: last.buildStatus });
       const builtInfo = last.buildStatus === 'SUCCEEDED' ? await computeBuiltInfo() : null;
       ctx.logger.info('Built info.', { builtInfo });
-      const imageDetail =
-        builtInfo &&
-        (await getImageDetailByTag({
-          imageRegion,
-          ...entry,
-          ...builtInfo,
-        }));
 
       const values: CommentValues = {
         buildStatus: last.buildStatus,
         statusChangedAt: toTemporalInstant.call(lastEndTime ?? lastStartTime),
         deepLogLink: last.logs?.deepLink,
         builtInfo,
-        imageDetail,
       };
 
       return {

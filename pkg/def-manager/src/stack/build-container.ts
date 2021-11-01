@@ -11,7 +11,7 @@ import type { VioletManagerStack } from '.';
 import { dataDir } from './values';
 
 export interface ContainerBuildOptions {
-  ecr: ECR.EcrRepository;
+  repo: ECR.EcrRepository;
   tagsAll: Record<string, string>;
   prefix: string;
   logsPrefix: string;
@@ -168,7 +168,7 @@ export class ContainerBuild extends Resource {
       },
       {
         effect: 'Allow',
-        resources: [this.options.ecr.arn],
+        resources: [this.options.repo.arn],
         actions: [
           'ecr:BatchCheckLayerAvailability',
           'ecr:CompleteLayerUpload',

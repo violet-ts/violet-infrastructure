@@ -1,4 +1,4 @@
-import { AwsProvider, ResourceGroups, S3, Route53, ECS, ECR, ACM } from '@cdktf/provider-aws';
+import { AwsProvider, ResourceGroups, S3, Route53, ECS, ECR, ACM, IAM } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
 import { TerraformOutput, TerraformStack } from 'cdktf';
@@ -8,6 +8,7 @@ import type { SharedEnv } from '@self/shared/lib/def/env-vars';
 import { PROJECT_NAME } from '@self/shared/lib/const';
 import type { Section } from '@self/shared/lib/def/types';
 import { z } from 'zod';
+import type { OpOutput } from '@self/shared/lib/operate-env/output';
 import { HTTPTask } from './http-task';
 import { MysqlDb } from './mysql';
 import { genTags } from './values';
@@ -72,7 +73,7 @@ export class VioletEnvStack extends TerraformStack {
     name: this.options.computedOpEnv.WEB_REPO_NAME,
   });
 
-  readonly webImage = new ECR.DataAwsEcrImage(this, 'apiImage', {
+  readonly webImage = new ECR.DataAwsEcrImage(this, 'webImage', {
     repositoryName: this.webRepo.name,
     // TODO(hardcoded)
     imageDigest: this.options.dynamicOpEnv.WEB_REPO_SHA,
@@ -150,6 +151,25 @@ export class VioletEnvStack extends TerraformStack {
 
     repo: this.apiRepo,
     image: this.apiImage,
+    healthcheckPath: '/healthz',
+
+    env: {
+      API_BASE_PATH: '',
+      // TODO(security): SecretsManager 使いたい
+      DATABASE_URL: z.string().parse(this.dbURL.value),
+      S3_BUCKET: z.string().parse(this.s3.bucket),
+      S3_REGION: this.s3.region,
+    },
+  });
+
+  readonly operateEnvRole = new IAM.DataAwsIamRoles(this, 'operateEnvRole', {
+    nameRegex: this.options.computedOpEnv.OPERATE_ENV_ROLE_NAME,
+  });
+
+  readonly allowRunApiTaskRolePolicy = new IAM.IamRolePolicy(this, 'allowRunApiTaskRolePolicy', {
+    name: `${this.prefix}-${this.suffix.result}`,
+    role: z.string().parse(this.operateEnvRole.names[0]),
+    policy: this.apiTask.allowRunTaskPolicyDoc.json,
   });
 
   readonly webTask = new HTTPTask(this, 'webTask', {
@@ -159,5 +179,21 @@ export class VioletEnvStack extends TerraformStack {
 
     repo: this.webRepo,
     image: this.webImage,
+    healthcheckPath: '/',
+
+    env: {
+      API_BASE_PATH: '',
+      API_ORIGIN: z.string().parse(this.apiTask.url),
+    },
   });
+
+  readonly opOutput: OpOutput = {
+    apiTaskDefinitionArn: this.apiTask.definition.arn,
+    apiURL: this.apiTask.url,
+    webURL: this.webTask.url,
+  };
+
+  readonly opOutputs = Object.entries(this.opOutput).map(
+    ([key, value]) => new TerraformOutput(this, `opOutputs-${key}`, { value }),
+  );
 }

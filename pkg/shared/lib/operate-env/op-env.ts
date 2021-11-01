@@ -11,9 +11,13 @@ export const scriptOpEnvSchema = z.object({
     z.literal('recreate'),
     z.literal('destroy'),
     z.literal('status'),
-    z.literal('db/recreate'),
-    z.literal('db/take-snapshot'),
-    z.literal('db/recreate-from'),
+    z.literal('db/recreate'), // TODO: wip
+    z.literal('db/take-snapshot'), // TODO: wip
+    z.literal('db/recreate-from'), // TODO: wip
+    z.literal('prisma/migrate/deploy'),
+    z.literal('prisma/migrate/reset'),
+    z.literal('prisma/migrate/status'), // TODO: wip
+    z.literal('prisma/db/seed'),
   ]),
 });
 
@@ -52,6 +56,7 @@ export const computedOpEnvSchema = z.object({
   NETWORK_PUB_ID0: z.string(),
   NETWORK_PUB_ID1: z.string(),
   NETWORK_PUB_ID2: z.string(),
+  OPERATE_ENV_ROLE_NAME: z.string(),
 });
 
 export type ComputedOpEnv = z.infer<typeof computedOpEnvSchema>;

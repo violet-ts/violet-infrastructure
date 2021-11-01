@@ -101,6 +101,10 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly ssmPrefix = `/${PROJECT_NAME}-${this.suffix.result}`;
 
+  readonly previewZone = new Route53.DataAwsRoute53Zone(this, 'previewZone', {
+    zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
+  });
+
   // === ECR Repositories ===
   // https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_Repository.html
   // 管理方針:
@@ -152,7 +156,7 @@ export class VioletManagerStack extends TerraformStack {
   readonly apiBuild = new ContainerBuild(this, 'apiBuild', {
     prefix: 'violet-dev-api-build',
     logsPrefix: `${this.logsPrefix}/dev-api-build`,
-    ecr: this.apiDevRepo,
+    repo: this.apiDevRepo,
 
     tagsAll: {
       ...genTags(null, 'development'),
@@ -162,7 +166,7 @@ export class VioletManagerStack extends TerraformStack {
   readonly webBuild = new ContainerBuild(this, 'webBuild', {
     prefix: 'violet-dev-web-build',
     logsPrefix: `${this.logsPrefix}/dev-web-build`,
-    ecr: this.webDevRepo,
+    repo: this.webDevRepo,
 
     tagsAll: {
       ...genTags(null, 'development'),
@@ -205,10 +209,6 @@ export class VioletManagerStack extends TerraformStack {
     value: Object.entries(this.operateEnv.computedOpEnv)
       .map(([key, value]) => `${key}=${value}`)
       .join('\n'),
-  });
-
-  readonly previewZone = new Route53.DataAwsRoute53Zone(this, 'previewZone', {
-    zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
   });
 
   readonly previewZoneCertificate = new TerraformHclModule(this, 'previewZoneCertificate', {

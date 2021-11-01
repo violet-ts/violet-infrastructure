@@ -9,6 +9,7 @@ export const botSecretsSchema = z.object({
 export type BotSecrets = z.infer<typeof botSecretsSchema>;
 
 export const computedBotEnvSchema = z.object({
+  PREVIEW_DOMAIN: z.string(),
   TABLE_NAME: z.string(),
   SSM_PREFIX: z.string(),
   API_REPO_NAME: z.string(),

@@ -21,6 +21,8 @@ export interface HTTPTaskOptions {
 
   repo: ECR.DataAwsEcrRepository;
   image: ECR.DataAwsEcrImage;
+  healthcheckPath: string;
+  env: Record<string, string>;
 }
 
 export class HTTPTask extends Resource {
@@ -36,6 +38,10 @@ export class HTTPTask extends Resource {
   });
 
   readonly subdomain = `${this.options.name}-${this.parent.options.dynamicOpEnv.NAMESPACE}`;
+
+  readonly domain = `${this.subdomain}.${z.string().parse(this.parent.zone.name)}`;
+
+  readonly url = `https://${this.domain}`;
 
   // TODO(service): prod availavility
   readonly subnets = [this.parent.network.publicSubnets[0], this.parent.network.publicSubnets[1]];
@@ -75,7 +81,7 @@ export class HTTPTask extends Resource {
       port: '80',
       protocol: 'HTTP',
       enabled: true,
-      path: '/healthz',
+      path: this.options.healthcheckPath,
     },
 
     tagsAll: {
@@ -119,7 +125,7 @@ export class HTTPTask extends Resource {
         // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#redirect-actions
         type: 'redirect',
         redirect: {
-          protocol: 'https',
+          protocol: 'HTTPS',
           port: '443',
           host: '#{host}',
           path: '/#{path}',
@@ -249,29 +255,7 @@ export class HTTPTask extends Resource {
       {
         name: this.options.name,
         image: `${this.parent.options.sharedEnv.AWS_ACCOUNT_ID}.dkr.ecr.${this.parent.aws.region}.amazonaws.com/${this.options.image.repositoryName}@${this.options.image.imageDigest}`,
-        environment: [
-          {
-            name: 'BASE_PATH',
-            value: '',
-          },
-          {
-            // TODO: 多分 Cognito で使わない形にする
-            name: 'JWT_SECRET',
-            value: 'abcdefghijklmnopqrstuvwxy',
-          },
-          {
-            name: 'DATABASE_URL',
-            value: this.parent.dbURL.value,
-          },
-          {
-            name: 'S3_BUCKET',
-            value: this.parent.s3.bucket,
-          },
-          {
-            name: 'S3_REGION',
-            value: this.parent.s3.region,
-          },
-        ],
+        environment: Object.entries(this.options.env).map(([name, value]) => ({ name, value })),
         portMappings: [
           {
             containerPort: 80,
@@ -345,6 +329,27 @@ export class HTTPTask extends Resource {
       // NOTE(depends): Wait ALB Target registered to ALB.
       this.alb,
       this.httpsListener,
+    ],
+  });
+
+  readonly allowRunTaskPolicyDoc = new IAM.DataAwsIamPolicyDocument(this, 'allowRunTaskPolicyDoc', {
+    version: '2012-10-17',
+    statement: [
+      {
+        // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security_iam_id-based-policy-examples.html#IAM_run_policies
+        effect: 'Allow',
+        resources: [
+          `arn:aws:ecs:${this.parent.aws.region}:${this.parent.options.sharedEnv.AWS_ACCOUNT_ID}:task-definition/${this.definition.family}:*`,
+        ],
+        actions: ['ecs:RunTask'],
+        condition: [
+          {
+            test: 'ArnEquals',
+            variable: 'ecs:cluster',
+            values: [this.parent.cluster.arn],
+          },
+        ],
+      },
     ],
   });
 }
