@@ -40,6 +40,8 @@ export class Bot extends Resource {
       }),
   );
 
+  readonly builds = Object.entries({ ApiBuild: this.parent.apiBuild, WebBuild: this.parent.webBuild });
+
   readonly accessLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'accessLogGroup', {
     name: `${this.options.logsPrefix}/access`,
     retentionInDays: 3,
@@ -118,7 +120,7 @@ export class Bot extends Resource {
       },
       {
         effect: 'Allow',
-        resources: [this.parent.apiBuild.build.arn, this.parent.webBuild.build.arn],
+        resources: this.builds.map(([_name, build]) => build.build.arn),
         actions: ['codebuild:ListBuildsForProject', 'codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
       },
       {
@@ -157,7 +159,7 @@ export class Bot extends Resource {
       {
         effect: 'Allow',
         actions: ['logs:FilterLogEvents'],
-        resources: [`${this.parent.apiBuild.buildLogGroup.arn}:*`, `${this.parent.webBuild.buildLogGroup.arn}:*`],
+        resources: this.builds.map(([_name, build]) => `${build.buildLogGroup.arn}:*`),
       },
       // TODO(security): restrict
       {
@@ -290,19 +292,25 @@ export class Bot extends Resource {
     sourceArn: `${this.api.executionArn}/*/*/*`,
   });
 
-  readonly allowExecutionFromDevApiBuild = new LambdaFunction.LambdaPermission(this, 'allowExecutionFromDevApiBuild', {
-    statementId: 'AllowExecutionFromDevApiBuild',
-    action: 'lambda:InvokeFunction',
-    functionName: this.onAnyFunction.functionName,
-    principal: 'sns.amazonaws.com',
-    sourceArn: this.parent.webBuild.topic.arn,
-  });
+  readonly allowExecutionFromBuild = this.builds.map(
+    ([name, build]) =>
+      new LambdaFunction.LambdaPermission(this, `allowExecutionFromBuild-${name}`, {
+        statementId: `AllowExecutionFrom${name}`,
+        action: 'lambda:InvokeFunction',
+        functionName: this.onAnyFunction.functionName,
+        principal: 'sns.amazonaws.com',
+        sourceArn: build.topic.arn,
+      }),
+  );
 
-  readonly subscription = new SNS.SnsTopicSubscription(this, 'subscription', {
-    topicArn: this.parent.webBuild.topic.arn,
-    protocol: 'lambda',
-    endpoint: this.onAnyFunction.arn,
-  });
+  readonly subscription = this.builds.map(
+    ([name, build]) =>
+      new SNS.SnsTopicSubscription(this, `subscription-${name}`, {
+        topicArn: build.topic.arn,
+        protocol: 'lambda',
+        endpoint: this.onAnyFunction.arn,
+      }),
+  );
 
   readonly integ = new APIGatewayV2.Apigatewayv2Integration(this, 'integ', {
     apiId: this.api.id,
