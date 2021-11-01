@@ -8,7 +8,7 @@ import type { SharedEnv } from '@self/shared/lib/def/env-vars';
 import { PROJECT_NAME } from '@self/shared/lib/const';
 import type { Section } from '@self/shared/lib/def/types';
 import { z } from 'zod';
-import { ApiTask } from './api-task';
+import { HTTPTask } from './http-task';
 import { MysqlDb } from './mysql';
 import { genTags } from './values';
 import { DataNetwork } from './data-network';
@@ -66,6 +66,16 @@ export class VioletEnvStack extends TerraformStack {
     repositoryName: this.apiRepo.name,
     // TODO(hardcoded)
     imageDigest: this.options.dynamicOpEnv.API_REPO_SHA,
+  });
+
+  readonly webRepo = new ECR.DataAwsEcrRepository(this, 'webRepo', {
+    name: this.options.computedOpEnv.WEB_REPO_NAME,
+  });
+
+  readonly webImage = new ECR.DataAwsEcrImage(this, 'apiImage', {
+    repositoryName: this.webRepo.name,
+    // TODO(hardcoded)
+    imageDigest: this.options.dynamicOpEnv.WEB_REPO_SHA,
   });
 
   readonly zone = new Route53.DataAwsRoute53Zone(this, 'zone', {
@@ -133,8 +143,21 @@ export class VioletEnvStack extends TerraformStack {
     forceDestroy: true,
   });
 
-  readonly apiTask = new ApiTask(this, 'apiTask', {
+  readonly apiTask = new HTTPTask(this, 'apiTask', {
+    name: 'api',
     prefix: `${this.prefix}-api`,
     ipv6interfaceIdPrefix: 10,
+
+    repo: this.apiRepo,
+    image: this.apiImage,
+  });
+
+  readonly webTask = new HTTPTask(this, 'webTask', {
+    name: 'web',
+    prefix: `${this.prefix}-web`,
+    ipv6interfaceIdPrefix: 20,
+
+    repo: this.webRepo,
+    image: this.webImage,
   });
 }

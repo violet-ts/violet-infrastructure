@@ -24,8 +24,10 @@ export const scriptOpCodeBuildEnv = (env: ScriptOpEnv): CodeBuildEnv => toCodeBu
 // dynamic: 実行時にネームスペースごとに指定する
 export const dynamicOpEnvSchema = z.object({
   NAMESPACE: z.string().regex(/[a-z][a-z0-9]*/),
-  API_REPO_SHA: z.string(),
   S3BACKEND_PREFIX: z.optional(z.string()),
+
+  API_REPO_SHA: z.string(),
+  WEB_REPO_SHA: z.string(),
 });
 
 export type DynamicOpEnv = z.infer<typeof dynamicOpEnvSchema>;
@@ -35,6 +37,7 @@ export const dynamicOpCodeBuildEnv = (env: DynamicOpEnv): CodeBuildEnv => toCode
 // computed: Manager 環境を作ったときに自動で計算して固定して設定する
 export const computedOpEnvSchema = z.object({
   API_REPO_NAME: z.string(),
+  WEB_REPO_NAME: z.string(),
   AWS_ACCOUNT_ID: z.string(),
   S3BACKEND_REGION: z.string(),
   S3BACKEND_BUCKET: z.string(),

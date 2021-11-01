@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import build from '../cmd/build';
+import buildApi from '../cmd/build-api';
+import buildWeb from '../cmd/build-web';
 import ping from '../cmd/ping';
 import type { ReplyCmd } from '../type/cmd';
 
@@ -29,4 +30,4 @@ const help: ReplyCmd<Entry> = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const cmds: ReplyCmd[] = [build, help, ping] as any;
+export const cmds: ReplyCmd[] = [buildApi, buildWeb, help, ping] as any;

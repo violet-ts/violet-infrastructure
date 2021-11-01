@@ -1,3 +1,4 @@
+import type { ECR } from '@cdktf/provider-aws';
 import { ECS, ELB, Route53, IAM, VPC, CloudWatch } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
@@ -5,7 +6,11 @@ import { String as RandomString } from '@cdktf/provider-random';
 import * as z from 'zod';
 import type { VioletEnvStack } from '.';
 
-export interface ApiTaskOptions {
+export interface HTTPTaskOptions {
+  /**
+   * シンプルな短い名前
+   */
+  name: string;
   prefix: string;
   /**
    * Random fixed number.
@@ -13,10 +18,13 @@ export interface ApiTaskOptions {
    */
   ipv6interfaceIdPrefix: number;
   tagsAll?: Record<string, string>;
+
+  repo: ECR.DataAwsEcrRepository;
+  image: ECR.DataAwsEcrImage;
 }
 
-export class ApiTask extends Resource {
-  constructor(private parent: VioletEnvStack, name: string, public options: ApiTaskOptions, config?: ResourceConfig) {
+export class HTTPTask extends Resource {
+  constructor(private parent: VioletEnvStack, name: string, public options: HTTPTaskOptions, config?: ResourceConfig) {
     super(parent, name, config);
   }
 
@@ -27,7 +35,7 @@ export class ApiTask extends Resource {
     special: false,
   });
 
-  readonly subdomain = `api-${this.parent.options.dynamicOpEnv.NAMESPACE}`;
+  readonly subdomain = `${this.options.name}-${this.parent.options.dynamicOpEnv.NAMESPACE}`;
 
   // TODO(service): prod availavility
   readonly subnets = [this.parent.network.publicSubnets[0], this.parent.network.publicSubnets[1]];
@@ -80,7 +88,7 @@ export class ApiTask extends Resource {
     ],
   });
 
-  readonly albListener = new ELB.AlbListener(this, 'albListener', {
+  readonly httpsListener = new ELB.AlbListener(this, 'httpsListener', {
     loadBalancerArn: this.alb.arn,
     port: 443,
     protocol: 'HTTPS',
@@ -89,8 +97,35 @@ export class ApiTask extends Resource {
 
     defaultAction: [
       {
+        // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#forward-actions
         type: 'forward',
         targetGroupArn: this.backend.arn,
+      },
+    ],
+
+    tagsAll: {
+      ...this.options.tagsAll,
+    },
+  });
+
+  // HTTPS へのリダイレクト
+  readonly httpListener = new ELB.AlbListener(this, 'httpListener', {
+    loadBalancerArn: this.alb.arn,
+    port: 80,
+    protocol: 'HTTP',
+
+    defaultAction: [
+      {
+        // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#redirect-actions
+        type: 'redirect',
+        redirect: {
+          protocol: 'https',
+          port: '443',
+          host: '#{host}',
+          path: '/#{path}',
+          query: '#{query}',
+          statusCode: 'HTTP_301',
+        },
       },
     ],
 
@@ -141,7 +176,7 @@ export class ApiTask extends Resource {
         // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerregistry.html
         effect: 'Allow',
         actions: ['ecr:BatchCheckLayerAvailability', 'ecr:GetDownloadUrlForLayer', 'ecr:BatchGetImage'],
-        resources: [this.parent.apiRepo.arn],
+        resources: [this.options.repo.arn],
       },
     ],
   });
@@ -212,8 +247,8 @@ export class ApiTask extends Resource {
     // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#container_definitions
     containerDefinitions: JSON.stringify([
       {
-        name: 'api',
-        image: `${this.parent.options.sharedEnv.AWS_ACCOUNT_ID}.dkr.ecr.${this.parent.aws.region}.amazonaws.com/${this.parent.apiImage.repositoryName}@${this.parent.apiImage.imageDigest}`,
+        name: this.options.name,
+        image: `${this.parent.options.sharedEnv.AWS_ACCOUNT_ID}.dkr.ecr.${this.parent.aws.region}.amazonaws.com/${this.options.image.repositoryName}@${this.options.image.imageDigest}`,
         environment: [
           {
             name: 'BASE_PATH',
@@ -251,14 +286,14 @@ export class ApiTask extends Resource {
           options: {
             'awslogs-region': this.parent.aws.region,
             'awslogs-group': this.logGroup.name,
-            'awslogs-stream-prefix': 'api',
+            'awslogs-stream-prefix': this.options.name,
           },
         },
       },
     ]),
     cpu: '256',
     memory: '512',
-    family: 'api',
+    family: this.options.name,
 
     tagsAll: {
       ...this.options.tagsAll,
@@ -292,7 +327,7 @@ export class ApiTask extends Resource {
     taskDefinition: this.definition.arn,
     loadBalancer: [
       {
-        containerName: 'api',
+        containerName: this.options.name,
         containerPort: 80,
         targetGroupArn: this.backend.arn,
       },
@@ -309,7 +344,7 @@ export class ApiTask extends Resource {
     dependsOn: [
       // NOTE(depends): Wait ALB Target registered to ALB.
       this.alb,
-      this.albListener,
+      this.httpsListener,
     ],
   });
 }

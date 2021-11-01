@@ -7,11 +7,9 @@ import * as z from 'zod';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import type { ComputedBotEnv } from '@self/shared/lib/bot-env';
 import type { VioletManagerStack } from '.';
-import type { ApiBuild } from './build-api';
 import { botBuildDir, botEnv } from './values';
 
 export interface BotApiOptions {
-  devApiBuild: ApiBuild;
   ssmPrefix: string;
   tagsAll?: Record<string, string>;
   prefix: string;
@@ -120,7 +118,7 @@ export class Bot extends Resource {
       },
       {
         effect: 'Allow',
-        resources: [this.options.devApiBuild.build.arn],
+        resources: [this.parent.apiBuild.build.arn, this.parent.webBuild.build.arn],
         actions: ['codebuild:ListBuildsForProject', 'codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
       },
       {
@@ -159,7 +157,7 @@ export class Bot extends Resource {
       {
         effect: 'Allow',
         actions: ['logs:FilterLogEvents'],
-        resources: [`${this.options.devApiBuild.buildLogGroup.arn}:*`],
+        resources: [`${this.parent.apiBuild.buildLogGroup.arn}:*`, `${this.parent.webBuild.buildLogGroup.arn}:*`],
       },
       // TODO(security): restrict
       {
@@ -238,7 +236,9 @@ export class Bot extends Resource {
     SSM_PREFIX: this.options.ssmPrefix,
     TABLE_NAME: this.table.name,
     API_REPO_NAME: this.parent.apiDevRepo.name,
-    API_BUILD_PROJECT_NAME: this.options.devApiBuild.build.name,
+    WEB_REPO_NAME: this.parent.webDevRepo.name,
+    API_BUILD_PROJECT_NAME: this.parent.apiBuild.build.name,
+    WEB_BUILD_PROJECT_NAME: this.parent.webBuild.build.name,
     OPERATE_ENV_PROJECT_NAME: this.parent.operateEnv.build.name,
   };
 
@@ -295,11 +295,11 @@ export class Bot extends Resource {
     action: 'lambda:InvokeFunction',
     functionName: this.onAnyFunction.functionName,
     principal: 'sns.amazonaws.com',
-    sourceArn: this.options.devApiBuild.topic.arn,
+    sourceArn: this.parent.webBuild.topic.arn,
   });
 
   readonly subscription = new SNS.SnsTopicSubscription(this, 'subscription', {
-    topicArn: this.options.devApiBuild.topic.arn,
+    topicArn: this.parent.webBuild.topic.arn,
     protocol: 'lambda',
     endpoint: this.onAnyFunction.arn,
   });

@@ -32,7 +32,11 @@ export const constructFullComment = (
       {
         title: 'メタ情報',
         body: {
-          main: [`- 最終更新: ${renderTimestamp(Temporal.Instant.fromEpochSeconds(entry.lastUpdate))}`],
+          main: [
+            `- 最終更新: ${renderTimestamp(Temporal.Instant.fromEpochSeconds(entry.lastUpdate))}`,
+            `- ネームスペース: \`${entry.namespace}\``,
+            `- uuid: \`${entry.uuid}\``,
+          ],
         },
       },
     ],
@@ -78,12 +82,13 @@ const processRun = async (
     return;
   }
 
+  const namespace = `${payload.repository.owner.login.toLowerCase()}-pr-${payload.issue.number}`;
   const ctx: CommandContext = {
     octokit,
     env,
     originalArgs: run.args,
     commentPayload: payload,
-    namespace: `${payload.repository.owner.login.toLowerCase()}-pr-${payload.issue.number}`,
+    namespace,
     logger,
   };
   const { status, entry, values } = await cmd.main(ctx, args);
@@ -97,6 +102,7 @@ const processRun = async (
     name: cmd.name,
     callerId,
     callerName,
+    namespace,
     lastUpdate: toTemporalInstant.call(date).epochSeconds,
     commentOwner: payload.repository.owner.login,
     commentRepo: payload.repository.name,

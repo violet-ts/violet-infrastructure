@@ -46,6 +46,13 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
     });
     if (!apiImageDetail) throw new Error('Image for API not found.');
 
+    const webImageDetail = await getImageDetailByTag({
+      imageRegion,
+      imageRepoName: ctx.env.WEB_REPO_NAME,
+      imageTag: ctx.namespace,
+    });
+    if (!webImageDetail) throw new Error('Image for WEB not found.');
+
     const codeBuild = new CodeBuild();
     const r = await codeBuild
       .startBuild({
@@ -57,6 +64,7 @@ const cmd: ReplyCmd<Entry, CommentValues> = {
           ...dynamicOpCodeBuildEnv({
             NAMESPACE: ctx.namespace,
             API_REPO_SHA: apiImageDetail.imageDigest,
+            WEB_REPO_SHA: webImageDetail.imageDigest,
           }),
         ],
       })
