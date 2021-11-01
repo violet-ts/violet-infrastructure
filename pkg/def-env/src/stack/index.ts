@@ -162,13 +162,13 @@ export class VioletEnvStack extends TerraformStack {
     },
   });
 
-  readonly operateEnvRole = new IAM.DataAwsIamRoles(this, 'operateEnvRole', {
-    nameRegex: this.options.computedOpEnv.OPERATE_ENV_ROLE_NAME,
+  readonly operateEnvRole = new IAM.DataAwsIamRole(this, 'operateEnvRole', {
+    name: this.options.computedOpEnv.OPERATE_ENV_ROLE_NAME,
   });
 
   readonly allowRunApiTaskRolePolicy = new IAM.IamRolePolicy(this, 'allowRunApiTaskRolePolicy', {
     name: `${this.prefix}-${this.suffix.result}`,
-    role: z.string().parse(this.operateEnvRole.names[0]),
+    role: this.operateEnvRole.name,
     policy: this.apiTask.allowRunTaskPolicyDoc.json,
   });
 

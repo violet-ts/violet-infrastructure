@@ -77,7 +77,9 @@ const main = async () => {
     return res;
   };
 
-  const operate = async (tfcmd: string, tfargs: string[], tryCount: number): Promise<void> => {
+  const operate = async (tfCmd: string, tfArgs: string[], tryCount: number): Promise<void> => {
+    await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth']);
+    await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init']);
     let succeeded = false;
     for (let i = 0; i < tryCount && !succeeded; i += 1) {
       if (i > 0) {
@@ -87,7 +89,7 @@ const main = async () => {
       succeeded = true;
       try {
         console.log(`${i + 1}-th try...`);
-        await e('pnpm', ['--dir', './pkg/def-env', 'run', `cdktf:${tfcmd}`, '--', ...tfargs]);
+        await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', tfCmd, ...tfArgs]);
       } catch (err: unknown) {
         console.error(err);
         succeeded = false;
