@@ -34,6 +34,9 @@ export const dynamicOpEnvSchema = z.object({
 
   API_REPO_SHA: z.string(),
   WEB_REPO_SHA: z.string(),
+
+  GIT_URL: z.string(),
+  GIT_FETCH: z.string(),
 });
 
 export type DynamicOpEnv = z.infer<typeof dynamicOpEnvSchema>;

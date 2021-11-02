@@ -77,6 +77,8 @@ const createCmd = (
               NAMESPACE: ctx.namespace,
               API_REPO_SHA: apiImageDetail.imageDigest,
               WEB_REPO_SHA: webImageDetail.imageDigest,
+              GIT_URL: 'https://github.com/LumaKernel/violet.git',
+              GIT_FETCH: 'main',
             }),
           ],
         })
