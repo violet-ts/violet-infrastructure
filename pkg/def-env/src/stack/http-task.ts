@@ -336,17 +336,27 @@ export class HTTPTask extends Resource {
     version: '2012-10-17',
     statement: [
       {
-        // TODO(security): 強すぎる。ただし実行されるコードは信頼されたコードのみだが
+        // TODO(security): 強すぎる。 https://github.com/violet-ts/violet-infrastructure/issues/20
         effect: 'Allow',
         resources: ['*'],
         actions: [
           'cloudwatch:*',
-          'codebuild:*',
-          'codestar:*',
-          'dynamodb:*',
+          'logs:*',
           'ec2:*',
           'ecr:*',
+          'rds:*',
+          'application-autoscaling:*',
+
           'ecs:*',
+          'events:*',
+          'servicediscovery:*',
+          'elasticloadbalancing:*',
+          'elasticfilesystem:*',
+          'appmesh:*',
+          'autoscaling:*',
+          'cloudformation:*',
+          'codedeploy:*',
+
           'iam:*',
           'lambda:*',
           'resourcegroups:*',
@@ -355,8 +365,63 @@ export class HTTPTask extends Resource {
           'secretsmanager:*',
           'sns:*',
           'ssm:*',
+
+          // ACM readonly
+          'acm:DescribeCertificate',
+          'acm:ListCertificates',
+          'acm:GetCertificate',
+          'acm:ListTagsForCertificate',
+          'acm:GetAccountConfiguration',
         ],
       },
+
+      // CodeBuild Readonly
+      {
+        actions: [
+          'codebuild:BatchGet*',
+          'codebuild:GetResourcePolicy',
+          'codebuild:List*',
+          'codebuild:DescribeTestCases',
+          'codebuild:DescribeCodeCoverages',
+          'codecommit:GetBranch',
+          'codecommit:GetCommit',
+          'codecommit:GetRepository',
+          'cloudwatch:GetMetricStatistics',
+          'events:DescribeRule',
+          'events:ListTargetsByRule',
+          'events:ListRuleNamesByTarget',
+          'logs:GetLogEvents',
+        ],
+        effect: 'Allow',
+        resources: ['*'],
+      },
+      {
+        effect: 'Allow',
+        actions: ['codestar-connections:ListConnections', 'codestar-connections:GetConnection'],
+        resources: ['arn:aws:codestar-connections:*:*:connection/*'],
+      },
+      {
+        effect: 'Allow',
+        actions: ['codestar-notifications:DescribeNotificationRule'],
+        resources: ['*'],
+        condition: [
+          {
+            test: 'StringLike',
+            variable: 'codestar-notifications:NotificationsForResource',
+            values: ['arn:aws:codebuild:*'],
+          },
+        ],
+      },
+      {
+        effect: 'Allow',
+        actions: [
+          'codestar-notifications:ListNotificationRules',
+          'codestar-notifications:ListEventTypes',
+          'codestar-notifications:ListTargets',
+        ],
+        resources: ['*'],
+      },
+
       {
         // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security_iam_id-based-policy-examples.html#IAM_run_policies
         effect: 'Allow',
