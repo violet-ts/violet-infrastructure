@@ -300,7 +300,7 @@ export class HTTPTask extends Resource {
     networkConfiguration: {
       subnets: this.parent.network.publicSubnets.map((subnet) => subnet.id),
       securityGroups: [this.parent.network.serviceSg.id],
-      // TODO(security): prod: NAT
+      // TODO(security): NAT
       assignPublicIp: true,
     },
     cluster: this.parent.cluster.id,

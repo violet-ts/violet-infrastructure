@@ -135,6 +135,11 @@ export class Bot extends Resource {
       },
       {
         effect: 'Allow',
+        resources: [this.parent.operateEnv.build.arn],
+        actions: ['codebuild:ListBuildsForProject', 'codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
+      },
+      {
+        effect: 'Allow',
         actions: [
           `dynamodb:PutItem`,
           `dynamodb:BatchPutItem`,
