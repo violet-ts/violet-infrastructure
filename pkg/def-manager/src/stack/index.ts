@@ -173,9 +173,9 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly operateEnv = new OperateEnv(this, 'devEnvDeploy', {
-    prefix: 'violet-dev-env-deploy',
-    logsPrefix: `${this.logsPrefix}/dev-env-deploy`,
+  readonly operateEnv = new OperateEnv(this, 'operateEnv', {
+    prefix: 'violet-dev-openv',
+    logsPrefix: `${this.logsPrefix}/dev-openv`,
 
     tagsAll: {
       ...genTags(null, 'development'),

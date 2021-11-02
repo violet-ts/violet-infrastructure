@@ -336,28 +336,6 @@ export class HTTPTask extends Resource {
     version: '2012-10-17',
     statement: [
       {
-        // TODO(security): 強すぎる。ただし実行されるコードは信頼されたコードのみだが
-        effect: 'Allow',
-        resources: ['*'],
-        actions: [
-          'cloudwatch:*',
-          'codebuild:*',
-          'codestar:*',
-          'dynamodb:*',
-          'ec2:*',
-          'ecr:*',
-          'ecs:*',
-          'iam:*',
-          'lambda:*',
-          'resourcegroups:*',
-          'route53:*',
-          's3:*',
-          'secretsmanager:*',
-          'sns:*',
-          'ssm:*',
-        ],
-      },
-      {
         // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security_iam_id-based-policy-examples.html#IAM_run_policies
         effect: 'Allow',
         resources: [
