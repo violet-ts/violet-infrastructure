@@ -73,7 +73,7 @@ const createCmd = (
           projectName: params.projectName,
           environmentVariablesOverride: [
             ...dynamicBuildCodeBuildEnv({
-              GIT_URL: ctx.commentPayload.repository.git_url,
+              GIT_URL: ctx.commentPayload.repository.clone_url,
               GIT_FETCH: `refs/pull/${prNumber}/head`,
               IMAGE_REPO_NAME: params.imageRepoName,
               IMAGE_TAG: imageTag,
