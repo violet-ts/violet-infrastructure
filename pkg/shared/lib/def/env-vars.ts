@@ -19,7 +19,6 @@ export const extractDockerHubCred = (from: Record<string, string | undefined>): 
 
 export const sharedEnvSchema = z.object({
   AWS_ACCOUNT_ID: z.string(),
-  AWS_PROFILE: z.optional(z.string()),
   /** 事前に作成した AWS Route53 Zone */
   PREVIEW_ZONE_ID: z.string(),
   INFRA_GIT_URL: z.string(),
