@@ -7,8 +7,10 @@ export const opTfOutputSchema = z.object({
   apiTaskDefinitionArn: z.string(),
   apiURL: z.string(),
   webURL: z.string(),
-  ecsClusterRegion: z.string(),
+  envRegion: z.string(),
   ecsClusterName: z.string(),
+  apiTaskLogGroupName: z.string(),
+  webTaskLogGroupName: z.string(),
 });
 
 export type OpTfOutput = z.infer<typeof opTfOutputSchema>;

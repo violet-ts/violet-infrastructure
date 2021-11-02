@@ -40,7 +40,16 @@ export class Bot extends Resource {
       }),
   );
 
-  readonly builds = Object.entries({ ApiBuild: this.parent.apiBuild, WebBuild: this.parent.webBuild });
+  readonly builds = Object.entries({
+    ApiBuild: this.parent.apiBuild,
+    WebBuild: this.parent.webBuild,
+    OperateEnv: this.parent.operateEnv,
+  });
+
+  readonly repos = Object.entries({
+    Api: this.parent.apiBuild.options.repo,
+    Web: this.parent.webBuild.options.repo,
+  });
 
   readonly accessLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'accessLogGroup', {
     name: `${this.options.logsPrefix}/access`,
@@ -135,11 +144,6 @@ export class Bot extends Resource {
       },
       {
         effect: 'Allow',
-        resources: [this.parent.operateEnv.build.arn],
-        actions: ['codebuild:ListBuildsForProject', 'codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
-      },
-      {
-        effect: 'Allow',
         actions: [
           `dynamodb:PutItem`,
           `dynamodb:BatchPutItem`,
@@ -169,7 +173,7 @@ export class Bot extends Resource {
           'ecr:ListImages',
           'ecr:ListTagsForResource',
         ],
-        resources: this.builds.map(([_name, build]) => build.options.repo.arn),
+        resources: this.repos.map(([_name, repo]) => repo.arn),
       },
       {
         effect: 'Allow',

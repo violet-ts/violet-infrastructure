@@ -1,13 +1,16 @@
 import { spawn } from 'child_process';
-import type { GeneralBuildOutput, TfBuildOutput } from '@self/shared/lib/operate-env/build-output';
+import type { GeneralBuildOutput, RunTaskBuildOutput, TfBuildOutput } from '@self/shared/lib/operate-env/build-output';
+import { tfBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
 import { initEnv } from '@self/shared/lib/def/util/init-env';
 import { asyncIter } from 'ballvalve';
 import { PassThrough } from 'stream';
 import { ECS, DynamoDB } from 'aws-sdk';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import { configureAws } from '@self/bot/src/app/aws';
+import { z } from 'zod';
 import { scriptOpEnvSchema, computedOpEnvSchema } from '../lib/operate-env/op-env';
-import type { OpTfOutput } from '../lib/operate-env/output';
+
+// TODO(logging): CloudWatch Logs
 
 const main = async () => {
   initEnv();
@@ -71,102 +74,116 @@ const main = async () => {
         .then((b) => `${Buffer.concat(b).toString('utf-8')}\n`),
     ]);
     await prom;
-    if (proc.exitCode !== 0) throw new Error(`exit with ${proc.exitCode}`);
+    if (proc.exitCode !== 0) {
+      console.error({ stdout, stderr });
+      throw new Error(`exit with ${proc.exitCode}`);
+    }
     return { stdout, stderr };
   };
 
-  const tfOutput = async <T extends keyof OpTfOutput>(name: T): Promise<Record<T, string>> => {
-    const output = {
-      [name]: (
-        await e(
-          'terraform',
-          ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'output', '-raw', `opOutputs-${name}`],
-          true,
-        )
-      ).stdout.trim(),
-    };
-    return output as any;
+  const tfOutput = async (name: string): Promise<string> => {
+    const output = (
+      await e(
+        'terraform',
+        ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'output', '-raw', `opOutputs-${name}`],
+        true,
+      )
+    ).stdout.trim();
+    return output;
   };
 
+  const tfBuildOutput = tfBuildOutputSchema.shape.tfBuildOutput
+    .unwrap()
+    .parse(
+      Object.fromEntries(
+        await Promise.all(
+          Object.keys(tfBuildOutputSchema.shape.tfBuildOutput.unwrap().shape).map(async (key) => [
+            key,
+            await tfOutput(key),
+          ]),
+        ),
+      ),
+    );
+
   const apiTaskRun = async (prismaArgs: string[]) => {
-    const { ecsClusterRegion } = await tfOutput('ecsClusterRegion');
-    const { ecsClusterName } = await tfOutput('ecsClusterName');
-    const { apiTaskDefinitionArn } = await tfOutput('apiTaskDefinitionArn');
-    const ecs = new ECS({ region: ecsClusterRegion });
+    const ecs = new ECS({ region: tfBuildOutput.envRegion });
     // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_RunTask.html
-    const res = await ecs
-      .runTask({
-        cluster: ecsClusterName,
-        networkConfiguration: {
-          awsvpcConfiguration: {
-            subnets: [computedOpEnv.NETWORK_PUB_ID0, computedOpEnv.NETWORK_PUB_ID1, computedOpEnv.NETWORK_PUB_ID2],
-            securityGroups: [computedOpEnv.NETWORK_SVC_SG_ID],
-            // // TODO(security): NAT
-            // assignPublicIp: true,
-            assignPublicIp: 'ENABLED',
-          },
-        },
-        taskDefinition: apiTaskDefinitionArn,
-        propagateTags: 'TASK_DEFINITION',
-        launchType: 'FARGATE',
-        overrides: {
-          containerOverrides: [
-            {
-              name: 'api',
-              command: ['pnpm', '--dir=./packages/api', 'exec', 'prisma', ...prismaArgs],
-              cpu: 256,
-              memory: 512,
+    const task = await (async () => {
+      const res = await ecs
+        .runTask({
+          cluster: tfBuildOutput.ecsClusterName,
+          networkConfiguration: {
+            awsvpcConfiguration: {
+              subnets: [computedOpEnv.NETWORK_PUB_ID0, computedOpEnv.NETWORK_PUB_ID1, computedOpEnv.NETWORK_PUB_ID2],
+              securityGroups: [computedOpEnv.NETWORK_SVC_SG_ID],
+              // // TODO(security): NAT
+              assignPublicIp: 'ENABLED',
             },
-          ],
-        },
-      })
-      .promise();
-    console.log(res);
-    return res;
+          },
+          taskDefinition: tfBuildOutput.apiTaskDefinitionArn,
+          propagateTags: 'TASK_DEFINITION',
+          launchType: 'FARGATE',
+          overrides: {
+            containerOverrides: [
+              {
+                name: 'api',
+                command: ['pnpm', '--dir=./packages/api', 'exec', 'prisma', ...prismaArgs],
+                cpu: 256,
+                memory: 512,
+              },
+            ],
+          },
+        })
+        .promise();
+      console.log(res);
+      const task = res.tasks?.[0];
+      if (task == null) throw new Error('run task not found');
+      return task;
+    })();
+
+    await updateTable<RunTaskBuildOutput>({
+      runTaskBuildOutput: {
+        taskArn: z.string().parse(task.taskArn),
+      },
+    });
+
+    return task;
   };
 
   const operate = async (tfCmd: string, tfArgs: string[], minTryCount: number, maxTryCount: number): Promise<void> => {
     await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth'], false);
     await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init'], false);
-    let succeeded = false;
     let success = 0;
     let failure = 0;
-    for (let i = 0; i < minTryCount || (i < maxTryCount && !succeeded); i += 1) {
+    for (let i = 0; success < minTryCount || i < maxTryCount; i += 1) {
       if (i > 0) {
         console.log('sleeping 10 seconds...');
         await delay(10000);
       }
-      succeeded = true;
       try {
         console.log(`${i + 1}-th run... (success=${success}, failure=${failure})`);
         await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', tfCmd, ...tfArgs], false);
         success += 1;
       } catch (err: unknown) {
         console.error(err);
-        succeeded = false;
         failure += 1;
       }
     }
 
     console.log(`Run finished. (success=${success}, failure=${failure})`);
 
-    if (!succeeded) {
-      throw new Error('failed');
+    if (success < minTryCount) {
+      throw new Error('run failed');
     }
 
     await updateTable<TfBuildOutput>({
-      tfBuildOutput: {
-        ...(await tfOutput('apiURL')),
-        ...(await tfOutput('webURL')),
-        ...(await tfOutput('ecsClusterRegion')),
-        ...(await tfOutput('ecsClusterName')),
-      },
+      tfBuildOutput,
     });
   };
 
   switch (scriptOpEnv.OPERATION) {
     case 'deploy': {
-      await operate('apply', ['--auto-approve'], 2, 2);
+      await operate('apply', ['--auto-approve'], 2, 3);
       break;
     }
     case 'destroy': {
