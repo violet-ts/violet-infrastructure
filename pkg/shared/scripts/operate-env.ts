@@ -81,6 +81,12 @@ const main = async () => {
     return { stdout, stderr };
   };
 
+  await updateTable<GeneralBuildOutput>({
+    generalBuildOutput: {
+      rev: (await e('git', ['rev-parse', 'HEAD'], false)).stdout.trim(),
+    },
+  });
+
   const tfOutput = async (name: string): Promise<string> => {
     const output = (
       await e(
@@ -229,12 +235,6 @@ const main = async () => {
       throw new Error(`not implemented: "${scriptOpEnv.OPERATION}"`);
     }
   }
-
-  await updateTable<GeneralBuildOutput>({
-    generalBuildOutput: {
-      rev: (await e('git', ['rev-parse', 'HEAD'], false)).stdout.trim(),
-    },
-  });
 
   console.log(`Table: ${entryURL}`);
 };
