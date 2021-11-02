@@ -2,6 +2,10 @@ import { z } from 'zod';
 import buildApi from '../cmd/build-api';
 import buildWeb from '../cmd/build-web';
 import ping from '../cmd/ping';
+import previewStart from '../cmd/preview-start';
+import previewStatus from '../cmd/preview-status';
+import previewRecreate from '../cmd/preview-recreate';
+import previewForceDestroy from '../cmd/preview-force-destroy';
 import type { ReplyCmd } from '../type/cmd';
 
 const entrySchema = z.object({});
@@ -29,5 +33,14 @@ const help: ReplyCmd<Entry> = {
   },
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const cmds: ReplyCmd[] = [buildApi, buildWeb, help, ping] as any;
+export const cmds: ReplyCmd[] = [
+  ping,
+  help,
+  buildApi,
+  buildWeb,
+  previewStart,
+  previewStatus,
+  previewRecreate,
+  previewForceDestroy,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+] as any;
