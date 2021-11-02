@@ -35,7 +35,7 @@ const handler: CallbackMatcher = {
     const message = codeBuildMessageSchema.parse(messageUnknown);
     return scanOne(
       {
-        TableName: ctx.env.TABLE_NAME,
+        TableName: ctx.env.BOT_TABLE_NAME,
         FilterExpression: 'buildArn = :arn',
         ExpressionAttributeValues: { ':arn': { S: message.detail['build-id'] } },
       },

@@ -4,11 +4,10 @@ import { toTemporalInstant } from '@js-temporal/polyfill';
 import { z } from 'zod';
 import type { ScriptOpEnv } from '@self/shared/lib/operate-env/op-env';
 import { dynamicOpCodeBuildEnv, scriptOpCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
-import type { BuiltInfo } from '@self/shared/lib/operate-env/built-info';
-import { outputBuiltInfoSchema } from '@self/shared/lib/operate-env/built-info';
+import type { BuiltInfo } from '@self/shared/lib/operate-env/build-output';
+import { tfBuildOutputSchema, generalBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
 import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
 import { renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
-import { collectLogsOutput } from '@self/bot/src/util/aws/logs-output';
 import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
 import { renderGitHubCommit } from '@self/bot/src/util/comment-render/github';
@@ -17,12 +16,15 @@ import type { ComputedBotEnv } from '@self/shared/lib/bot-env';
 // TODO(hardcoded)
 const imageRegion = 'ap-northeast-1';
 
-const entrySchema = z.object({
-  prNumber: z.number(),
-  buildId: z.string(),
-  buildArn: z.string(),
-  apiImageDigest: z.string(),
-});
+const entrySchema = z
+  .object({
+    prNumber: z.number(),
+    buildId: z.string(),
+    buildArn: z.string(),
+    apiImageDigest: z.string(),
+  })
+  .merge(tfBuildOutputSchema)
+  .merge(generalBuildOutputSchema);
 export type Entry = z.infer<typeof entrySchema>;
 
 export interface CommentValues {
@@ -43,7 +45,7 @@ const createCmd = (
   const cmd: ReplyCmd<Entry, CommentValues> = {
     ...st,
     entrySchema,
-    async main(ctx, _args) {
+    async main(ctx, _args, generalEntry) {
       const { number: prNumber } = ctx.commentPayload.issue;
 
       const apiImageDetail = await getImageDetailByTag({
@@ -66,6 +68,8 @@ const createCmd = (
           projectName: ctx.env.API_BUILD_PROJECT_NAME,
           environmentVariablesOverride: [
             ...scriptOpCodeBuildEnv({
+              BOT_TABLE_NAME: ctx.env.BOT_TABLE_NAME,
+              ENTRY_UUID: generalEntry.uuid,
               OPERATION: paramsGetter(ctx.env).operation,
             }),
             ...dynamicOpCodeBuildEnv({
@@ -120,6 +124,9 @@ const createCmd = (
               imageRepoName: ctx.env.API_REPO_NAME,
             })}`,
           builtInfo && `- ビルド時間: ${builtInfo.timeRange}`,
+          ...(entry.tfBuildOutput
+            ? [`- api: ${entry.tfBuildOutput.apiURL}`, `- web: ${entry.tfBuildOutput.webURL}`]
+            : []),
           values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
         ],
         hints: [
@@ -127,11 +134,11 @@ const createCmd = (
             title: '詳細',
             body: {
               main: [
-                builtInfo &&
+                entry.generalBuildOutput &&
                   `- 使用したインフラ定義バージョン: ${renderGitHubCommit({
                     owner: 'violet-ts',
                     repo: 'violet-infrastructure',
-                    rev: builtInfo.rev,
+                    rev: entry.generalBuildOutput.rev,
                   })}`,
               ],
             },
@@ -159,20 +166,11 @@ const createCmd = (
       if (lastStartTime == null) throw new TypeError('CodeBuild last startTime is not found');
 
       const computeBuiltInfo = async (): Promise<BuiltInfo | null> => {
-        ctx.logger.info('checking cloudwatch logs', { logs: last.logs });
-        const { logs } = last;
-        if (logs == null) return null;
-        if (logs.groupName == null) return null;
-        if (logs.streamName == null) return null;
-        const p = await collectLogsOutput(logs.groupName, [logs.streamName]);
         const timeRange = renderDuration(
           toTemporalInstant.call(firstStartTime).until(toTemporalInstant.call(lastEndTime ?? lastStartTime)),
         );
 
         return {
-          ...outputBuiltInfoSchema.parse({
-            ...p,
-          }),
           timeRange,
         };
       };

@@ -90,7 +90,7 @@ const handler: Handler = async (event: unknown, context) => {
     const db = new DynamoDB();
     await db
       .deleteItem({
-        TableName: env.TABLE_NAME,
+        TableName: env.BOT_TABLE_NAME,
         Key: {
           uuid: {
             S: newEntry.uuid,

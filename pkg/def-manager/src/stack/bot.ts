@@ -72,6 +72,16 @@ export class Bot extends Resource {
     },
   });
 
+  // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item
+  // ローカルでのスクリプト実行時のダミー用
+  readonly dummyItem = new DynamoDB.DynamodbTableItem(this, 'dummyItem', {
+    tableName: this.table.name,
+    hashKey: this.table.hashKey,
+    item: JSON.stringify({
+      [this.table.hashKey]: { S: 'dummy' },
+    }),
+  });
+
   readonly roleAssumeDocument = new IAM.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
     version: '2012-10-17',
     statement: [
@@ -237,7 +247,7 @@ export class Bot extends Resource {
   readonly computedBotEnv: ComputedBotEnv = {
     PREVIEW_DOMAIN: z.string().parse(this.parent.previewZone.name),
     SSM_PREFIX: this.options.ssmPrefix,
-    TABLE_NAME: this.table.name,
+    BOT_TABLE_NAME: this.table.name,
     API_REPO_NAME: this.parent.apiDevRepo.name,
     WEB_REPO_NAME: this.parent.webDevRepo.name,
     API_BUILD_PROJECT_NAME: this.parent.apiBuild.build.name,

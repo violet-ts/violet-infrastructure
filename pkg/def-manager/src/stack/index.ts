@@ -206,7 +206,10 @@ export class VioletManagerStack extends TerraformStack {
   });
 
   readonly opEnvFile = new TerraformOutput(this, 'opEnvFile', {
-    value: Object.entries(this.operateEnv.computedOpEnv)
+    value: Object.entries({
+      ...this.operateEnv.computedOpEnv,
+      BOT_TABLE_NAME: this.bot.table.name,
+    })
       .map(([key, value]) => `${key}=${value}`)
       .join('\n'),
   });
