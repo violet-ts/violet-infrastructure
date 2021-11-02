@@ -6,7 +6,7 @@ import { PassThrough } from 'stream';
 import { ECS, DynamoDB } from 'aws-sdk';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import { configureAws } from '@self/bot/src/app/aws';
-import { scriptOpEnvSchema } from '../lib/operate-env/op-env';
+import { scriptOpEnvSchema, computedOpEnvSchema } from '../lib/operate-env/op-env';
 import type { OpTfOutput } from '../lib/operate-env/output';
 
 const main = async () => {
@@ -16,6 +16,8 @@ const main = async () => {
   configureAws();
 
   const scriptOpEnv = scriptOpEnvSchema.parse(process.env);
+  const computedOpEnv = computedOpEnvSchema.parse(process.env);
+
   // TODO(hardcoded)
   const botTableRegion = 'ap-northeast-1';
   const entryURL = `https://${botTableRegion}.console.aws.amazon.com/dynamodbv2/home#item-explorer?autoScanAttribute=null&initialTagKey=&table=${scriptOpEnv.BOT_TABLE_NAME}`;
@@ -46,7 +48,7 @@ const main = async () => {
       .promise();
   };
 
-  const e = async (file: string, args: string[]): Promise<{ stdout: string; stderr: string }> => {
+  const e = async (file: string, args: string[], silent: boolean): Promise<{ stdout: string; stderr: string }> => {
     console.log(`Running ${[file, ...args].map((a) => JSON.stringify(a)).join(' ')}`);
     const proc = spawn(file, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -56,15 +58,17 @@ const main = async () => {
         resolve();
       }),
     );
-    proc.stdout.pipe(new PassThrough()).pipe(process.stdout);
-    proc.stderr.pipe(new PassThrough()).pipe(process.stderr);
+    if (!silent) {
+      proc.stdout.pipe(new PassThrough()).pipe(process.stdout);
+      proc.stderr.pipe(new PassThrough()).pipe(process.stderr);
+    }
     const [stdout, stderr] = await Promise.all([
       asyncIter<Buffer>(proc.stdout)
         .collect()
-        .then((b) => Buffer.concat(b).toString('utf-8')),
+        .then((b) => `${Buffer.concat(b).toString('utf-8')}\n`),
       asyncIter<Buffer>(proc.stderr)
         .collect()
-        .then((b) => Buffer.concat(b).toString('utf-8')),
+        .then((b) => `${Buffer.concat(b).toString('utf-8')}\n`),
     ]);
     await prom;
     if (proc.exitCode !== 0) throw new Error(`exit with ${proc.exitCode}`);
@@ -74,24 +78,36 @@ const main = async () => {
   const tfOutput = async <T extends keyof OpTfOutput>(name: T): Promise<Record<T, string>> => {
     const output = {
       [name]: (
-        await e('terraform', [
-          '-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra',
-          'output',
-          '-raw',
-          `opOutputs-${name}`,
-        ])
+        await e(
+          'terraform',
+          ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'output', '-raw', `opOutputs-${name}`],
+          true,
+        )
       ).stdout.trim(),
     };
     return output as any;
   };
 
   const apiTaskRun = async (prismaArgs: string[]) => {
+    const { ecsClusterRegion } = await tfOutput('ecsClusterRegion');
+    const { ecsClusterName } = await tfOutput('ecsClusterName');
     const { apiTaskDefinitionArn } = await tfOutput('apiTaskDefinitionArn');
-    const ecs = new ECS();
+    const ecs = new ECS({ region: ecsClusterRegion });
+    // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_RunTask.html
     const res = await ecs
       .runTask({
+        cluster: ecsClusterName,
+        networkConfiguration: {
+          awsvpcConfiguration: {
+            subnets: [computedOpEnv.NETWORK_PUB_ID0, computedOpEnv.NETWORK_PUB_ID1, computedOpEnv.NETWORK_PUB_ID2],
+            securityGroups: [computedOpEnv.NETWORK_SVC_SG_ID],
+            // // TODO(security): NAT
+            // assignPublicIp: true,
+            assignPublicIp: 'ENABLED',
+          },
+        },
         taskDefinition: apiTaskDefinitionArn,
-        propagateTags: 'TASK_DEFINITION',
+        propagateTags: 'SERVICE',
         launchType: 'FARGATE',
         overrides: {
           containerOverrides: [
@@ -109,8 +125,8 @@ const main = async () => {
   };
 
   const operate = async (tfCmd: string, tfArgs: string[], minTryCount: number, maxTryCount: number): Promise<void> => {
-    await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth']);
-    await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init']);
+    await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth'], false);
+    await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init'], false);
     let succeeded = false;
     let success = 0;
     let failure = 0;
@@ -122,7 +138,7 @@ const main = async () => {
       succeeded = true;
       try {
         console.log(`${i + 1}-th run... (success=${success}, failure=${failure})`);
-        await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', tfCmd, ...tfArgs]);
+        await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', tfCmd, ...tfArgs], false);
         success += 1;
       } catch (err: unknown) {
         console.error(err);
@@ -184,7 +200,7 @@ const main = async () => {
 
   await updateTable<GeneralBuildOutput>({
     generalBuildOutput: {
-      rev: (await e('git', ['rev-parse', 'HEAD'])).stdout.trim(),
+      rev: (await e('git', ['rev-parse', 'HEAD'], false)).stdout.trim(),
     },
   });
 
