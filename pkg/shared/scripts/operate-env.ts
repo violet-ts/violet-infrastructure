@@ -165,7 +165,7 @@ const main = async () => {
     let success = 0;
     let failure = 0;
     let lastFailed = false;
-    for (let i = 0; success < minTryCount || i < maxTryCount; i += 1) {
+    for (let i = 0; success < minTryCount && i < maxTryCount; i += 1) {
       if (i > 0) {
         if (lastFailed) {
           console.log('sleeping 10 seconds...');
