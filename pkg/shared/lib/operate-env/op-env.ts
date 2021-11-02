@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sharedEnvSchema } from '../def/env-vars';
 import type { CodeBuildEnv } from '../util/aws-cdk';
 import { toCodeBuildEnv } from '../util/aws-cdk';
 
@@ -44,27 +45,26 @@ export type DynamicOpEnv = z.infer<typeof dynamicOpEnvSchema>;
 export const dynamicOpCodeBuildEnv = (env: DynamicOpEnv): CodeBuildEnv => toCodeBuildEnv<DynamicOpEnv>(env);
 
 // computed: Manager 環境を作ったときに自動で計算して固定して設定する
-export const computedOpEnvSchema = z.object({
-  INFRA_GIT_URL: z.string(),
-  INFRA_GIT_FETCH: z.string(),
-  API_REPO_NAME: z.string(),
-  WEB_REPO_NAME: z.string(),
-  AWS_ACCOUNT_ID: z.string(),
-  S3BACKEND_REGION: z.string(),
-  S3BACKEND_BUCKET: z.string(),
-  S3BACKEND_PREFIX: z.optional(z.string()),
-  NETWORK_VPC_ID: z.string(),
-  NETWORK_DB_SG_ID: z.string(),
-  NETWORK_LB_SG_ID: z.string(),
-  NETWORK_SVC_SG_ID: z.string(),
-  NETWORK_PRIV_ID0: z.string(),
-  NETWORK_PRIV_ID1: z.string(),
-  NETWORK_PRIV_ID2: z.string(),
-  NETWORK_PUB_ID0: z.string(),
-  NETWORK_PUB_ID1: z.string(),
-  NETWORK_PUB_ID2: z.string(),
-  OPERATE_ENV_ROLE_NAME: z.string(),
-});
+export const computedOpEnvSchema = z
+  .object({
+    API_REPO_NAME: z.string(),
+    WEB_REPO_NAME: z.string(),
+    S3BACKEND_REGION: z.string(),
+    S3BACKEND_BUCKET: z.string(),
+    S3BACKEND_PREFIX: z.optional(z.string()),
+    NETWORK_VPC_ID: z.string(),
+    NETWORK_DB_SG_ID: z.string(),
+    NETWORK_LB_SG_ID: z.string(),
+    NETWORK_SVC_SG_ID: z.string(),
+    NETWORK_PRIV_ID0: z.string(),
+    NETWORK_PRIV_ID1: z.string(),
+    NETWORK_PRIV_ID2: z.string(),
+    NETWORK_PUB_ID0: z.string(),
+    NETWORK_PUB_ID1: z.string(),
+    NETWORK_PUB_ID2: z.string(),
+    OPERATE_ENV_ROLE_NAME: z.string(),
+  })
+  .merge(sharedEnvSchema);
 
 export type ComputedOpEnv = z.infer<typeof computedOpEnvSchema>;
 

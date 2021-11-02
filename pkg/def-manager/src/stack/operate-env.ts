@@ -102,6 +102,7 @@ export class OperateEnv extends Resource {
   });
 
   readonly computedOpEnv: ComputedOpEnv = {
+    ...this.parent.options.sharedEnv,
     INFRA_GIT_URL: this.parent.options.sharedEnv.INFRA_GIT_URL,
     INFRA_GIT_FETCH: this.parent.options.sharedEnv.INFRA_GIT_FETCH,
     API_REPO_NAME: this.parent.apiDevRepo.name,
