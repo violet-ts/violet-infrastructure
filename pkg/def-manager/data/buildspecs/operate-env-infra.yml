@@ -52,7 +52,7 @@ phases:
   build:
     commands:
       - echo ==== terraform operation ====
-      - pnpm exec --dir ./pkg/shared ts-node -T ./scripts/operate.ts
+      - pnpm exec ts-node -T ./pkg/shared/scripts/operate-env.ts
       - echo ==== finished ====
   post_build:
     commands:
