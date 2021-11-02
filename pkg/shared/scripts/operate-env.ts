@@ -75,7 +75,7 @@ const main = async () => {
     ]);
     await prom;
     if (proc.exitCode !== 0) {
-      console.error({ stdout, stderr });
+      if (silent) console.error({ stdout, stderr });
       throw new Error(`exit with ${proc.exitCode}`);
     }
     return { stdout, stderr };
@@ -92,20 +92,23 @@ const main = async () => {
     return output;
   };
 
-  const tfBuildOutput = tfBuildOutputSchema.shape.tfBuildOutput
-    .unwrap()
-    .parse(
-      Object.fromEntries(
-        await Promise.all(
-          Object.keys(tfBuildOutputSchema.shape.tfBuildOutput.unwrap().shape).map(async (key) => [
-            key,
-            await tfOutput(key),
-          ]),
+  const getTfBuildOutput = async () =>
+    tfBuildOutputSchema.shape.tfBuildOutput
+      .unwrap()
+      .parse(
+        Object.fromEntries(
+          await Promise.all(
+            Object.keys(tfBuildOutputSchema.shape.tfBuildOutput.unwrap().shape).map(async (key) => [
+              key,
+              await tfOutput(key),
+            ]),
+          ),
         ),
-      ),
-    );
+      );
 
   const apiTaskRun = async (prismaArgs: string[]) => {
+    const tfBuildOutput = await getTfBuildOutput();
+
     const ecs = new ECS({ region: tfBuildOutput.envRegion });
     // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_RunTask.html
     const task = await (async () => {
@@ -175,6 +178,8 @@ const main = async () => {
     if (success < minTryCount) {
       throw new Error('run failed');
     }
+
+    const tfBuildOutput = await getTfBuildOutput();
 
     await updateTable<TfBuildOutput>({
       tfBuildOutput,
