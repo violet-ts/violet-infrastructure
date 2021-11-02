@@ -4,7 +4,7 @@ import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
 import { TerraformOutput, TerraformStack, TerraformHclModule } from 'cdktf';
 import type { Construct } from 'constructs';
 import { PROJECT_NAME } from '@self/shared/lib/const';
-import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
+import type { DockerHubCred, ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import { Bot } from './bot';
 import { ContainerBuild } from './build-container';
 import { DockerHubCredentials } from './dockerhub-credentials';
@@ -15,6 +15,8 @@ export interface VioletManagerOptions {
   region: string;
   sharedEnv: SharedEnv;
   managerEnv: ManagerEnv;
+
+  dockerHubCred?: DockerHubCred | undefined;
 }
 
 export class VioletManagerStack extends TerraformStack {
@@ -86,18 +88,16 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly dockerHubCredentials = (() => {
-    const { DOCKERHUB } = this.options.sharedEnv;
-    if (DOCKERHUB == null) return null;
-    return new DockerHubCredentials(this, 'dockerHubCredentials', {
-      DOCKERHUB,
+  readonly dockerHubCredentials =
+    this.options.dockerHubCred &&
+    new DockerHubCredentials(this, 'dockerHubCredentials', {
+      dockerHubCred: this.options.dockerHubCred,
       prefix: 'violet',
 
       tagsAll: {
         ...genTags(null),
       },
     });
-  })();
 
   readonly ssmPrefix = `/${PROJECT_NAME}-${this.suffix.result}`;
 

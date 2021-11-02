@@ -2,11 +2,11 @@ import type { CodeBuild } from '@cdktf/provider-aws';
 import { SecretsManager, IAM } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import type { SharedEnv } from '@self/shared/lib/def/env-vars';
+import type { DockerHubCred } from '@self/shared/lib/def/env-vars';
 import type { VioletManagerStack } from '.';
 
 export interface DockerHubCredentialsOptions {
-  DOCKERHUB: Required<SharedEnv>['DOCKERHUB'];
+  dockerHubCred: DockerHubCred;
   prefix: string;
   tagsAll: Record<string, string>;
 }
@@ -39,8 +39,8 @@ export class DockerHubCredentials extends Resource {
   readonly credentialsValue = new SecretsManager.SecretsmanagerSecretVersion(this, 'usernameValue', {
     secretId: this.credentials.id,
     secretString: JSON.stringify({
-      [this.USER_KEY]: this.options.DOCKERHUB.USER,
-      [this.PASS_KEY]: this.options.DOCKERHUB.PASS,
+      [this.USER_KEY]: this.options.dockerHubCred.USER,
+      [this.PASS_KEY]: this.options.dockerHubCred.PASS,
     }),
   });
 
