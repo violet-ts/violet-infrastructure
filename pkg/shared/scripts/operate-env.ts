@@ -141,6 +141,8 @@ const main = async () => {
       tfBuildOutput: {
         ...(await tfOutput('apiURL')),
         ...(await tfOutput('webURL')),
+        ...(await tfOutput('ecsClusterRegion')),
+        ...(await tfOutput('ecsClusterName')),
       },
     });
   };

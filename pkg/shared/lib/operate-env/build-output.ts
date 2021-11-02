@@ -14,6 +14,8 @@ export const tfBuildOutputSchema = z.object({
     z.object({
       apiURL: z.string(),
       webURL: z.string(),
+      ecsClusterRegion: z.string(),
+      ecsClusterName: z.string(),
     }),
   ),
 });

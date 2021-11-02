@@ -21,6 +21,7 @@ const entrySchema = z
     prNumber: z.number(),
     buildId: z.string(),
     buildArn: z.string(),
+    webImageDigest: z.string(),
     apiImageDigest: z.string(),
   })
   .merge(tfBuildOutputSchema)
@@ -65,7 +66,7 @@ const createCmd = (
       const codeBuild = new CodeBuild();
       const r = await codeBuild
         .startBuild({
-          projectName: ctx.env.API_BUILD_PROJECT_NAME,
+          projectName: ctx.env.OPERATE_ENV_PROJECT_NAME,
           environmentVariablesOverride: [
             ...scriptOpCodeBuildEnv({
               BOT_TABLE_NAME: ctx.env.BOT_TABLE_NAME,
@@ -92,6 +93,7 @@ const createCmd = (
         prNumber,
         buildId: build.id,
         buildArn: build.arn,
+        webImageDigest: webImageDetail.imageDigest,
         apiImageDigest: apiImageDetail.imageDigest,
       };
 
@@ -117,15 +119,23 @@ const createCmd = (
         main: [
           `- ビルドID: [${entry.buildId}](${buildUrl})`,
           `- ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
-          builtInfo &&
-            `- 使用した API イメージダイジェスト: ${renderECRImageDigest({
-              imageRegion,
-              imageDigest: entry.apiImageDigest,
-              imageRepoName: ctx.env.API_REPO_NAME,
-            })}`,
+          `- 使用した Web イメージダイジェスト: ${renderECRImageDigest({
+            imageRegion,
+            imageDigest: entry.webImageDigest,
+            imageRepoName: ctx.env.WEB_REPO_NAME,
+          })}`,
+          `- 使用した API イメージダイジェスト: ${renderECRImageDigest({
+            imageRegion,
+            imageDigest: entry.apiImageDigest,
+            imageRepoName: ctx.env.API_REPO_NAME,
+          })}`,
           builtInfo && `- ビルド時間: ${builtInfo.timeRange}`,
           ...(entry.tfBuildOutput
-            ? [`- api: ${entry.tfBuildOutput.apiURL}`, `- web: ${entry.tfBuildOutput.webURL}`]
+            ? [
+                `- api: ${entry.tfBuildOutput.apiURL}`,
+                `- web: ${entry.tfBuildOutput.webURL}`,
+                `- [ECS Cluster](https://${entry.tfBuildOutput.ecsClusterRegion}.console.aws.amazon.com/ecs/home#/clusters/${entry.tfBuildOutput.ecsClusterName}/services)`,
+              ]
             : []),
           values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
         ],
