@@ -69,9 +69,9 @@ const createCmd = (
           projectName: ctx.env.OPERATE_ENV_PROJECT_NAME,
           environmentVariablesOverride: [
             ...scriptOpCodeBuildEnv({
+              OPERATION: paramsGetter(ctx.env).operation,
               BOT_TABLE_NAME: ctx.env.BOT_TABLE_NAME,
               ENTRY_UUID: generalEntry.uuid,
-              OPERATION: paramsGetter(ctx.env).operation,
             }),
             ...dynamicOpCodeBuildEnv({
               NAMESPACE: ctx.namespace,
