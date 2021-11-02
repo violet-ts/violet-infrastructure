@@ -107,7 +107,7 @@ const main = async () => {
           },
         },
         taskDefinition: apiTaskDefinitionArn,
-        propagateTags: 'SERVICE',
+        propagateTags: 'TASK_DEFINITION',
         launchType: 'FARGATE',
         overrides: {
           containerOverrides: [
@@ -121,6 +121,7 @@ const main = async () => {
         },
       })
       .promise();
+    console.log(res);
     return res;
   };
 
