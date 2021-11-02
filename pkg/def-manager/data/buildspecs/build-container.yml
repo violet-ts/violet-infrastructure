@@ -27,6 +27,7 @@ phases:
       - cd main
       - git init || true
       - git reset --hard HEAD || true
+      - git clean -xdf || true
       - git remote remove origin || true
       - git remote add origin "$GIT_URL"
       - git fetch origin "$GIT_FETCH"

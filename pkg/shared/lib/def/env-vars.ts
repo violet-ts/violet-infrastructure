@@ -12,6 +12,8 @@ export const sharedEnvSchema = z.object({
       PASS: z.string(),
     }),
   ),
+  INFRA_GIT_URL: z.string(),
+  INFRA_GIT_FETCH: z.string(),
 });
 
 // ローカルからのみ与えることが可能
@@ -19,6 +21,8 @@ export type SharedEnv = z.infer<typeof sharedEnvSchema>;
 export const requireSharedEnvVars = (): SharedEnv => {
   const { AWS_PROFILE, DOCKERHUB_USER, DOCKERHUB_PASS } = process.env;
   const { AWS_ACCOUNT_ID } = requireEnv('AWS_ACCOUNT_ID');
+  const { INFRA_GIT_URL } = requireEnv('INFRA_GIT_URL');
+  const { INFRA_GIT_FETCH } = requireEnv('INFRA_GIT_FETCH');
   if ((typeof DOCKERHUB_USER !== 'string') !== (typeof DOCKERHUB_PASS !== 'string'))
     throw new Error('both DOCKERHUB_USER and DOCKERHUB_PASS should either exist or be absent');
   const DOCKERHUB =
@@ -32,6 +36,8 @@ export const requireSharedEnvVars = (): SharedEnv => {
     AWS_PROFILE,
     PREVIEW_ZONE_ID,
     DOCKERHUB,
+    INFRA_GIT_URL,
+    INFRA_GIT_FETCH,
   };
 };
 

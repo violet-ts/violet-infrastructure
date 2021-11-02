@@ -35,8 +35,8 @@ export const dynamicOpEnvSchema = z.object({
   API_REPO_SHA: z.string(),
   WEB_REPO_SHA: z.string(),
 
-  GIT_URL: z.optional(z.string()),
-  GIT_FETCH: z.optional(z.string()),
+  INFRA_GIT_URL: z.optional(z.string()),
+  INFRA_GIT_FETCH: z.optional(z.string()),
 });
 
 export type DynamicOpEnv = z.infer<typeof dynamicOpEnvSchema>;
@@ -45,8 +45,8 @@ export const dynamicOpCodeBuildEnv = (env: DynamicOpEnv): CodeBuildEnv => toCode
 
 // computed: Manager 環境を作ったときに自動で計算して固定して設定する
 export const computedOpEnvSchema = z.object({
-  GIT_URL: z.string(),
-  GIT_FETCH: z.string(),
+  INFRA_GIT_URL: z.string(),
+  INFRA_GIT_FETCH: z.string(),
   API_REPO_NAME: z.string(),
   WEB_REPO_NAME: z.string(),
   AWS_ACCOUNT_ID: z.string(),
