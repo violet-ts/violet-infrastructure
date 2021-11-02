@@ -6,6 +6,8 @@ import { toCodeBuildEnv } from '../util/aws-cdk';
 
 // script: スクリプトの実行レベルで使う
 export const scriptOpEnvSchema = z.object({
+  BOT_TABLE_NAME: z.string(),
+  ENTRY_UUID: z.string(),
   OPERATION: z.union([
     z.literal('deploy'),
     z.literal('recreate'),

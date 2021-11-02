@@ -8,7 +8,7 @@ import type { SharedEnv } from '@self/shared/lib/def/env-vars';
 import { PROJECT_NAME } from '@self/shared/lib/const';
 import type { Section } from '@self/shared/lib/def/types';
 import { z } from 'zod';
-import type { OpOutput } from '@self/shared/lib/operate-env/output';
+import type { OpTfOutput } from '@self/shared/lib/operate-env/output';
 import { HTTPTask } from './http-task';
 import { MysqlDb } from './mysql';
 import { genTags } from './values';
@@ -187,13 +187,15 @@ export class VioletEnvStack extends TerraformStack {
     },
   });
 
-  readonly opOutput: OpOutput = {
+  readonly opTfOutput: OpTfOutput = {
     apiTaskDefinitionArn: this.apiTask.definition.arn,
     apiURL: this.apiTask.url,
     webURL: this.webTask.url,
+    ecsClusterRegion: z.string().parse(this.aws.region),
+    ecsClusterName: this.cluster.name,
   };
 
-  readonly opOutputs = Object.entries(this.opOutput).map(
+  readonly opOutputs = Object.entries(this.opTfOutput).map(
     ([key, value]) => new TerraformOutput(this, `opOutputs-${key}`, { value }),
   );
 }

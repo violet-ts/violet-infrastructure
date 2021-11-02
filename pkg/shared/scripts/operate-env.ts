@@ -1,19 +1,50 @@
 import { spawn } from 'child_process';
-import type { OutputBuiltInfo } from '@self/shared/lib/operate-env/built-info';
-import { outputBuiltInfo } from '@self/shared/lib/util/codebuild';
+import type { GeneralBuildOutput, TfBuildOutput } from '@self/shared/lib/operate-env/build-output';
 import { initEnv } from '@self/shared/lib/def/util/init-env';
 import { asyncIter } from 'ballvalve';
 import { PassThrough } from 'stream';
-import { ECS } from 'aws-sdk';
-import type { OpOutput } from '@self/shared/lib/operate-env/output';
+import { ECS, DynamoDB } from 'aws-sdk';
+import { marshall } from '@aws-sdk/util-dynamodb';
+import { configureAws } from '@self/bot/src/app/aws';
 import { scriptOpEnvSchema } from '../lib/operate-env/op-env';
+import type { OpTfOutput } from '../lib/operate-env/output';
 
 const main = async () => {
   initEnv();
 
+  // NOTE: ローカル実行用
+  configureAws();
+
   const scriptOpEnv = scriptOpEnvSchema.parse(process.env);
+  // TODO(hardcoded)
+  const botTableRegion = 'ap-northeast-1';
+  const entryURL = `https://${botTableRegion}.console.aws.amazon.com/dynamodbv2/home#item-explorer?autoScanAttribute=null&initialTagKey=&table=${scriptOpEnv.BOT_TABLE_NAME}`;
 
   const delay = (ms: number): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+  const updateTable = async <T extends Record<string, Record<string, string | number | boolean | null>>>(
+    outputObj: T,
+  ) => {
+    const entries = Object.entries(outputObj);
+    const expr = entries.map((_entry, i) => `#key${i} = :value${i}`).join(', ');
+    const keys = Object.fromEntries(entries.map(([key], i) => [`#key${i}`, key]));
+    const values = Object.fromEntries(
+      entries.flatMap(([_key, value], i) => Object.entries(marshall({ [`:value${i}`]: value }))),
+    );
+    const db = new DynamoDB();
+    // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html
+    await db
+      .updateItem({
+        TableName: scriptOpEnv.BOT_TABLE_NAME,
+        Key: {
+          uuid: { S: scriptOpEnv.ENTRY_UUID },
+        },
+        UpdateExpression: `SET ${expr}`,
+        ExpressionAttributeNames: keys,
+        ExpressionAttributeValues: values,
+      })
+      .promise();
+  };
 
   const e = async (file: string, args: string[]): Promise<{ stdout: string; stderr: string }> => {
     console.log(`Running ${[file, ...args].map((a) => JSON.stringify(a)).join(' ')}`);
@@ -40,7 +71,7 @@ const main = async () => {
     return { stdout, stderr };
   };
 
-  const tfOutput = async <T extends keyof OpOutput>(name: T): Promise<Record<T, string>> => {
+  const tfOutput = async <T extends keyof OpTfOutput>(name: T): Promise<Record<T, string>> => {
     const output = {
       [name]: (
         await e('terraform', [
@@ -77,67 +108,59 @@ const main = async () => {
     return res;
   };
 
-  const operate = async (tfCmd: string, tfArgs: string[], tryCount: number): Promise<void> => {
+  const operate = async (tfCmd: string, tfArgs: string[], minTryCount: number, maxTryCount: number): Promise<void> => {
     await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth']);
     await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init']);
     let succeeded = false;
-    for (let i = 0; i < tryCount && !succeeded; i += 1) {
+    let success = 0;
+    let failure = 0;
+    for (let i = 0; i < minTryCount || (i < maxTryCount && !succeeded); i += 1) {
       if (i > 0) {
         console.log('sleeping 10 seconds...');
         await delay(10000);
       }
       succeeded = true;
       try {
-        console.log(`${i + 1}-th try...`);
+        console.log(`${i + 1}-th run... (success=${success}, failure=${failure})`);
         await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', tfCmd, ...tfArgs]);
+        success += 1;
       } catch (err: unknown) {
         console.error(err);
         succeeded = false;
+        failure += 1;
       }
     }
+
+    console.log(`Run finished. (success=${success}, failure=${failure})`);
 
     if (!succeeded) {
       throw new Error('failed');
     }
 
-    const builtInfo: OutputBuiltInfo = {
-      rev: (await e('git', ['rev-parse', 'HEAD'])).stdout.trim(),
-      ...(await tfOutput('apiURL')),
-      ...(await tfOutput('webURL')),
-    };
-    outputBuiltInfo(builtInfo);
+    await updateTable<TfBuildOutput>({
+      tfBuildOutput: {
+        ...(await tfOutput('apiURL')),
+        ...(await tfOutput('webURL')),
+      },
+    });
   };
 
   switch (scriptOpEnv.OPERATION) {
     case 'deploy': {
-      operate('apply', ['--auto-approve'], 2).catch((err) => {
-        console.error(err);
-        process.exit(1);
-      });
+      await operate('apply', ['--auto-approve'], 2, 2);
       break;
     }
     case 'destroy': {
-      operate('destroy', ['--auto-approve'], 2).catch((err) => {
-        console.error(err);
-        process.exit(1);
-      });
+      await operate('destroy', ['--auto-approve'], 1, 2);
       break;
     }
     case 'status': {
-      operate('plan', [], 2).catch((err) => {
-        console.error(err);
-        process.exit(1);
-      });
+      await operate('plan', [], 1, 2);
       break;
     }
     case 'recreate': {
-      (async () => {
-        await operate('destroy', ['--auto-approve'], 2);
-        await operate('apply', ['--auto-approve'], 2);
-      })().catch((err) => {
-        console.error(err);
-        process.exit(1);
-      });
+      await operate('destroy', ['--auto-approve'], 1, 2);
+      await operate('apply', ['--auto-approve'], 1, 2);
       break;
     }
     case 'prisma/migrate/deploy': {
@@ -156,6 +179,17 @@ const main = async () => {
       throw new Error(`not implemented: "${scriptOpEnv.OPERATION}"`);
     }
   }
+
+  await updateTable<GeneralBuildOutput>({
+    generalBuildOutput: {
+      rev: (await e('git', ['rev-parse', 'HEAD'])).stdout.trim(),
+    },
+  });
+
+  console.log(`Table: ${entryURL}`);
 };
 
-main().catch((e) => console.error(e));
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

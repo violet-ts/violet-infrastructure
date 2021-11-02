@@ -68,6 +68,7 @@ export type ReplyCmd<Entry = { _keyForTypeCheck: string }, CommentValues = unkno
   main: (
     ctx: CommandContext,
     args: string[],
+    generalEntry: GeneralEntry,
   ) => ReplyCmdMainResult<Entry, CommentValues> | Promise<ReplyCmdMainResult<Entry, CommentValues>>;
   constructComment: (entry: Entry & GeneralEntry, commentValues: CommentValues, ctx: BasicContext) => CommentBody;
   update?: (

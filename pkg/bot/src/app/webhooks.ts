@@ -91,9 +91,6 @@ const processRun = async (
     namespace,
     logger,
   };
-  const { status, entry, values } = await cmd.main(ctx, args);
-  logger.info('Command main process done.', { status, entry, values });
-
   const uuid = uuidv4();
   const date = new Date();
   const generalEntry: GeneralEntry = {
@@ -109,6 +106,8 @@ const processRun = async (
     commentIssueNumber: payload.issue.number,
     commentId: -1,
   };
+  const { status, entry, values } = await cmd.main(ctx, args, generalEntry);
+  logger.info('Command main process done.', { status, entry, values });
 
   const fullEntry = { ...entry, ...generalEntry };
   const full = constructFullComment(cmd, fullEntry, values, ctx);
@@ -128,7 +127,7 @@ const processRun = async (
     const db = new DynamoDB();
     await db
       .putItem({
-        TableName: env.TABLE_NAME,
+        TableName: env.BOT_TABLE_NAME,
         Item: marshall(fullEntry),
       })
       .promise();
