@@ -46,7 +46,7 @@ export class VioletEnvStack extends TerraformStack {
 
   readonly aws = new AwsProvider(this, 'aws', {
     region: this.options.region,
-    profile: this.options.sharedEnv.AWS_PROFILE,
+    profile: process.env.AWS_PROFILE || undefined,
     defaultTags: {
       tags: genTags(null, this.options.dynamicOpEnv.NAMESPACE, this.options.section),
     },
