@@ -102,6 +102,8 @@ export class OperateEnv extends Resource {
   });
 
   readonly computedOpEnv: ComputedOpEnv = {
+    GIT_URL: 'https://github.com/LumaKernel/violet.git',
+    GIT_FETCH: 'main',
     API_REPO_NAME: this.parent.apiDevRepo.name,
     WEB_REPO_NAME: this.parent.webDevRepo.name,
     AWS_ACCOUNT_ID: this.parent.options.sharedEnv.AWS_ACCOUNT_ID,

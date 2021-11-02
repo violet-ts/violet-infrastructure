@@ -16,7 +16,6 @@ export const tfBuildOutputSchema = z.object({
       apiTaskDefinitionArn: z.string(),
       apiURL: z.string(),
       webURL: z.string(),
-      ecsClusterRegion: z.string(),
       ecsClusterName: z.string(),
       apiTaskLogGroupName: z.string(),
       webTaskLogGroupName: z.string(),

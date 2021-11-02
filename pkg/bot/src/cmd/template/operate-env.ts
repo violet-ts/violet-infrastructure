@@ -82,8 +82,6 @@ const createCmd = (
               NAMESPACE: ctx.namespace,
               API_REPO_SHA: apiImageDetail.imageDigest,
               WEB_REPO_SHA: webImageDetail.imageDigest,
-              GIT_URL: 'https://github.com/LumaKernel/violet.git',
-              GIT_FETCH: 'main',
             }),
           ],
         })
@@ -141,7 +139,7 @@ const createCmd = (
             ? [
                 `- api: ${entry.tfBuildOutput.apiURL}`,
                 `- web: ${entry.tfBuildOutput.webURL}`,
-                `- [ECS Cluster](https://${entry.tfBuildOutput.ecsClusterRegion}.console.aws.amazon.com/ecs/home#/clusters/${entry.tfBuildOutput.ecsClusterName}/services)`,
+                `- [ECS Cluster](https://${entry.tfBuildOutput.envRegion}.console.aws.amazon.com/ecs/home#/clusters/${entry.tfBuildOutput.ecsClusterName}/services)`,
               ]
             : []),
           ...(entry.tfBuildOutput && entry.runTaskBuildOutput
