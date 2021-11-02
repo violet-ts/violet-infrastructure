@@ -5,7 +5,11 @@ import { z } from 'zod';
 import type { ScriptOpEnv } from '@self/shared/lib/operate-env/op-env';
 import { dynamicOpCodeBuildEnv, scriptOpCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
 import type { BuiltInfo } from '@self/shared/lib/operate-env/build-output';
-import { tfBuildOutputSchema, generalBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
+import {
+  tfBuildOutputSchema,
+  generalBuildOutputSchema,
+  runTaskBuildOutputSchema,
+} from '@self/shared/lib/operate-env/build-output';
 import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
 import { renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
 import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
@@ -24,8 +28,9 @@ const entrySchema = z
     webImageDigest: z.string(),
     apiImageDigest: z.string(),
   })
+  .merge(generalBuildOutputSchema)
   .merge(tfBuildOutputSchema)
-  .merge(generalBuildOutputSchema);
+  .merge(runTaskBuildOutputSchema);
 export type Entry = z.infer<typeof entrySchema>;
 
 export interface CommentValues {
@@ -137,6 +142,15 @@ const createCmd = (
                 `- api: ${entry.tfBuildOutput.apiURL}`,
                 `- web: ${entry.tfBuildOutput.webURL}`,
                 `- [ECS Cluster](https://${entry.tfBuildOutput.ecsClusterRegion}.console.aws.amazon.com/ecs/home#/clusters/${entry.tfBuildOutput.ecsClusterName}/services)`,
+              ]
+            : []),
+          ...(entry.tfBuildOutput && entry.runTaskBuildOutput
+            ? [
+                `https://${
+                  entry.tfBuildOutput.envRegion
+                }.console.aws.amazon.com/cloudwatch/home#logsV2:log-groups/log-group/${
+                  entry.tfBuildOutput.apiTaskLogGroupName
+                }/log-events/api${'$252F'}api${'$252F'}${entry.runTaskBuildOutput}`,
               ]
             : []),
           values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,

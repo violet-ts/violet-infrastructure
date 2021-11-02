@@ -191,8 +191,10 @@ export class VioletEnvStack extends TerraformStack {
     apiTaskDefinitionArn: this.apiTask.definition.arn,
     apiURL: this.apiTask.url,
     webURL: this.webTask.url,
-    ecsClusterRegion: z.string().parse(this.aws.region),
+    envRegion: z.string().parse(this.aws.region),
     ecsClusterName: this.cluster.name,
+    apiTaskLogGroupName: z.string().parse(this.apiTask.logGroup.name),
+    webTaskLogGroupName: z.string().parse(this.webTask.logGroup.name),
   };
 
   readonly opOutputs = Object.entries(this.opTfOutput).map(
