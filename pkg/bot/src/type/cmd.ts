@@ -27,6 +27,7 @@ export const generalEntrySchema = z.object({
   commentRepo: z.string(),
   commentIssueNumber: z.number(),
   commentId: z.number(),
+  namespace: z.string(),
 });
 export type GeneralEntry = z.infer<typeof generalEntrySchema>;
 
@@ -55,11 +56,14 @@ export interface UpdateResult<Entry = Record<never, never>, CommentValues = unde
   values: CommentValues;
 }
 
-export type ReplyCmd<Entry = { _keyForTypeCheck: string }, CommentValues = unknown> = {
+export type ReplyCmdStatic = {
   name: string;
   where: 'any' | 'pr' | 'issue';
   description: string;
   hidden: boolean;
+};
+
+export type ReplyCmd<Entry = { _keyForTypeCheck: string }, CommentValues = unknown> = ReplyCmdStatic & {
   entrySchema: z.ZodTypeAny;
   main: (
     ctx: CommandContext,

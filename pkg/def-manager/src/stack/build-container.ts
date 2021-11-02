@@ -10,25 +10,25 @@ import { computedBuildCodeBuildEnv } from '@self/shared/lib/build-env';
 import type { VioletManagerStack } from '.';
 import { dataDir } from './values';
 
-export interface ApiBuildOptions {
-  ecr: ECR.EcrRepository;
+export interface ContainerBuildOptions {
+  repo: ECR.EcrRepository;
   tagsAll: Record<string, string>;
   prefix: string;
   logsPrefix: string;
 }
 
 /**
- * API をビルドして ECR に push するまでを行う CodeBuild Project とその周辺
+ * Docker イメージをビルドして ECR に push するまでを行う CodeBuild Project とその周辺
  * NOTE(security):
  *   Development と Production は config で判別し、権限の空間は完全に分ける。
  *   これは、攻撃的な PR をベースに CodeBuild が実行された場合でも安全である
  *   ようにするため。絶妙なタイミングで PR を更新するなどが考えられる。
  */
-export class ApiBuild extends Resource {
+export class ContainerBuild extends Resource {
   constructor(
     public parent: VioletManagerStack,
     name: string,
-    public options: ApiBuildOptions,
+    public options: ContainerBuildOptions,
     config?: ResourceConfig,
   ) {
     super(parent, name, config);
@@ -115,14 +115,13 @@ export class ApiBuild extends Resource {
       environmentVariable: [
         ...(this.parent.dockerHubCredentials?.codeBuildEnvironmentVariables ?? []),
         ...computedBuildCodeBuildEnv({
-          IMAGE_REPO_NAME: this.options.ecr.name,
           AWS_ACCOUNT_ID: this.parent.options.sharedEnv.AWS_ACCOUNT_ID,
         }),
       ],
     },
     source: {
       type: 'NO_SOURCE',
-      buildspec: `\${file("${ensurePath(path.resolve(dataDir, 'buildspecs', 'build-api.yml'))}")}`,
+      buildspec: `\${file("${ensurePath(path.resolve(dataDir, 'buildspecs', 'build-container.yml'))}")}`,
     },
     // NOTE: minutes
     buildTimeout: 20,
@@ -169,7 +168,7 @@ export class ApiBuild extends Resource {
       },
       {
         effect: 'Allow',
-        resources: [this.options.ecr.arn],
+        resources: [this.options.repo.arn],
         actions: [
           'ecr:BatchCheckLayerAvailability',
           'ecr:CompleteLayerUpload',

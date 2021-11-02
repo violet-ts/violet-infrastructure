@@ -103,6 +103,7 @@ export class OperateEnv extends Resource {
 
   readonly computedOpEnv: ComputedOpEnv = {
     API_REPO_NAME: this.parent.apiDevRepo.name,
+    WEB_REPO_NAME: this.parent.webDevRepo.name,
     AWS_ACCOUNT_ID: this.parent.options.sharedEnv.AWS_ACCOUNT_ID,
     S3BACKEND_REGION: this.tfstate.region,
     S3BACKEND_BUCKET: z.string().parse(this.tfstate.bucket),
@@ -116,6 +117,7 @@ export class OperateEnv extends Resource {
     NETWORK_PUB_ID0: this.devNetwork.publicSubnets[0].id,
     NETWORK_PUB_ID1: this.devNetwork.publicSubnets[1].id,
     NETWORK_PUB_ID2: this.devNetwork.publicSubnets[2].id,
+    OPERATE_ENV_ROLE_NAME: z.string().parse(this.role.name),
   };
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codebuild_project

@@ -3,7 +3,6 @@ import type { CodeBuildEnv } from '../util/aws-cdk';
 import { toCodeBuildEnv } from '../util/aws-cdk';
 
 export const computedBuildEnvSchema = z.object({
-  IMAGE_REPO_NAME: z.string(),
   AWS_ACCOUNT_ID: z.string(),
 });
 
@@ -14,7 +13,10 @@ export const computedBuildCodeBuildEnv = (env: ComputedBuildEnv): CodeBuildEnv =
 export const dynamicBuildEnvSchema = z.object({
   GIT_URL: z.string(),
   GIT_FETCH: z.string(),
+  IMAGE_REPO_NAME: z.string(),
   IMAGE_TAG: z.string(),
+  BUILD_DOCKERFILE: z.string(),
+  DOCKER_BUILD_ARGS: z.string(),
 });
 
 export type DynamicBuildEnv = z.infer<typeof dynamicBuildEnvSchema>;

@@ -6,7 +6,7 @@ import type { Construct } from 'constructs';
 import { PROJECT_NAME } from '@self/shared/lib/const';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import { Bot } from './bot';
-import { ApiBuild } from './build-api';
+import { ContainerBuild } from './build-container';
 import { DockerHubCredentials } from './dockerhub-credentials';
 import { OperateEnv } from './operate-env';
 import { genTags } from './values';
@@ -101,6 +101,10 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly ssmPrefix = `/${PROJECT_NAME}-${this.suffix.result}`;
 
+  readonly previewZone = new Route53.DataAwsRoute53Zone(this, 'previewZone', {
+    zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
+  });
+
   // === ECR Repositories ===
   // https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_Repository.html
   // 管理方針:
@@ -127,12 +131,42 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
+  readonly webProdRepo = new ECR.EcrRepository(this, 'webProdRepo', {
+    name: `violet-web-prod-${this.suffix.result}`,
+    imageTagMutability: 'IMMUTABLE',
+    // TODO(security): for production
+    // imageScanningConfiguration,
+    tagsAll: {
+      ...genTags(null, 'production'),
+    },
+  });
+
+  readonly webDevRepo = new ECR.EcrRepository(this, 'webDevRepo', {
+    name: `violet-web-dev-${this.suffix.result}`,
+    imageTagMutability: 'MUTABLE',
+    // TODO(security): for production
+    // imageScanningConfiguration,
+    tagsAll: {
+      ...genTags(null, 'development'),
+    },
+  });
+
   // ===
 
-  readonly devApiBuild = new ApiBuild(this, 'devApiBuild', {
+  readonly apiBuild = new ContainerBuild(this, 'apiBuild', {
     prefix: 'violet-dev-api-build',
     logsPrefix: `${this.logsPrefix}/dev-api-build`,
-    ecr: this.apiDevRepo,
+    repo: this.apiDevRepo,
+
+    tagsAll: {
+      ...genTags(null, 'development'),
+    },
+  });
+
+  readonly webBuild = new ContainerBuild(this, 'webBuild', {
+    prefix: 'violet-dev-web-build',
+    logsPrefix: `${this.logsPrefix}/dev-web-build`,
+    repo: this.webDevRepo,
 
     tagsAll: {
       ...genTags(null, 'development'),
@@ -150,7 +184,6 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly bot = new Bot(this, 'bot', {
     prefix: 'violet-bot',
-    devApiBuild: this.devApiBuild,
     ssmPrefix: `${this.ssmPrefix}/bot`,
     logsPrefix: `${this.logsPrefix}/bot`,
 
@@ -176,10 +209,6 @@ export class VioletManagerStack extends TerraformStack {
     value: Object.entries(this.operateEnv.computedOpEnv)
       .map(([key, value]) => `${key}=${value}`)
       .join('\n'),
-  });
-
-  readonly previewZone = new Route53.DataAwsRoute53Zone(this, 'previewZone', {
-    zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
   });
 
   readonly previewZoneCertificate = new TerraformHclModule(this, 'previewZoneCertificate', {

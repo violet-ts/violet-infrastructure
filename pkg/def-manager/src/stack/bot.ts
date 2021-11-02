@@ -7,11 +7,9 @@ import * as z from 'zod';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import type { ComputedBotEnv } from '@self/shared/lib/bot-env';
 import type { VioletManagerStack } from '.';
-import type { ApiBuild } from './build-api';
 import { botBuildDir, botEnv } from './values';
 
 export interface BotApiOptions {
-  devApiBuild: ApiBuild;
   ssmPrefix: string;
   tagsAll?: Record<string, string>;
   prefix: string;
@@ -41,6 +39,8 @@ export class Bot extends Resource {
         },
       }),
   );
+
+  readonly builds = Object.entries({ ApiBuild: this.parent.apiBuild, WebBuild: this.parent.webBuild });
 
   readonly accessLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'accessLogGroup', {
     name: `${this.options.logsPrefix}/access`,
@@ -120,7 +120,7 @@ export class Bot extends Resource {
       },
       {
         effect: 'Allow',
-        resources: [this.options.devApiBuild.build.arn],
+        resources: this.builds.map(([_name, build]) => build.build.arn),
         actions: ['codebuild:ListBuildsForProject', 'codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
       },
       {
@@ -154,12 +154,12 @@ export class Bot extends Resource {
           'ecr:ListImages',
           'ecr:ListTagsForResource',
         ],
-        resources: [this.parent.apiDevRepo.arn],
+        resources: this.builds.map(([_name, build]) => build.options.repo.arn),
       },
       {
         effect: 'Allow',
         actions: ['logs:FilterLogEvents'],
-        resources: [`${this.options.devApiBuild.buildLogGroup.arn}:*`],
+        resources: this.builds.map(([_name, build]) => `${build.buildLogGroup.arn}:*`),
       },
       // TODO(security): restrict
       {
@@ -235,10 +235,13 @@ export class Bot extends Resource {
   });
 
   readonly computedBotEnv: ComputedBotEnv = {
+    PREVIEW_DOMAIN: z.string().parse(this.parent.previewZone.name),
     SSM_PREFIX: this.options.ssmPrefix,
     TABLE_NAME: this.table.name,
     API_REPO_NAME: this.parent.apiDevRepo.name,
-    API_BUILD_PROJECT_NAME: this.options.devApiBuild.build.name,
+    WEB_REPO_NAME: this.parent.webDevRepo.name,
+    API_BUILD_PROJECT_NAME: this.parent.apiBuild.build.name,
+    WEB_BUILD_PROJECT_NAME: this.parent.webBuild.build.name,
     OPERATE_ENV_PROJECT_NAME: this.parent.operateEnv.build.name,
   };
 
@@ -290,19 +293,25 @@ export class Bot extends Resource {
     sourceArn: `${this.api.executionArn}/*/*/*`,
   });
 
-  readonly allowExecutionFromDevApiBuild = new LambdaFunction.LambdaPermission(this, 'allowExecutionFromDevApiBuild', {
-    statementId: 'AllowExecutionFromDevApiBuild',
-    action: 'lambda:InvokeFunction',
-    functionName: this.onAnyFunction.functionName,
-    principal: 'sns.amazonaws.com',
-    sourceArn: this.options.devApiBuild.topic.arn,
-  });
+  readonly allowExecutionFromBuild = this.builds.map(
+    ([name, build]) =>
+      new LambdaFunction.LambdaPermission(this, `allowExecutionFromBuild-${name}`, {
+        statementId: `AllowExecutionFrom${name}`,
+        action: 'lambda:InvokeFunction',
+        functionName: this.onAnyFunction.functionName,
+        principal: 'sns.amazonaws.com',
+        sourceArn: build.topic.arn,
+      }),
+  );
 
-  readonly subscription = new SNS.SnsTopicSubscription(this, 'subscription', {
-    topicArn: this.options.devApiBuild.topic.arn,
-    protocol: 'lambda',
-    endpoint: this.onAnyFunction.arn,
-  });
+  readonly subscription = this.builds.map(
+    ([name, build]) =>
+      new SNS.SnsTopicSubscription(this, `subscription-${name}`, {
+        topicArn: build.topic.arn,
+        protocol: 'lambda',
+        endpoint: this.onAnyFunction.arn,
+      }),
+  );
 
   readonly integ = new APIGatewayV2.Apigatewayv2Integration(this, 'integ', {
     apiId: this.api.id,
