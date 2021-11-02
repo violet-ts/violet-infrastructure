@@ -10,7 +10,7 @@ import { configureAws } from '@self/bot/src/app/aws';
 import { z } from 'zod';
 import { scriptOpEnvSchema, computedOpEnvSchema } from '../lib/operate-env/op-env';
 
-// TODO(logging): CloudWatch Logs
+// TODO(logging): logger
 
 const main = async () => {
   initEnv();
@@ -158,18 +158,27 @@ const main = async () => {
     await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init'], false);
     let success = 0;
     let failure = 0;
+    let lastFailed = false;
     for (let i = 0; success < minTryCount || i < maxTryCount; i += 1) {
       if (i > 0) {
-        console.log('sleeping 10 seconds...');
-        await delay(10000);
+        if (lastFailed) {
+          console.log('sleeping 10 seconds...');
+          await delay(10000);
+        } else {
+          console.log('sleeping 1 second...');
+          await delay(1000);
+        }
       }
+      lastFailed = false;
       try {
         console.log(`${i + 1}-th run... (success=${success}, failure=${failure})`);
         await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', tfCmd, ...tfArgs], false);
         success += 1;
       } catch (err: unknown) {
+        console.error(`${i + 1}-th run failed`);
         console.error(err);
         failure += 1;
+        lastFailed = true;
       }
     }
 

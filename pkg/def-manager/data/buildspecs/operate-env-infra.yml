@@ -4,6 +4,7 @@ env:
   variables:
     TERRAFORM_VERSION: "1.0.9"
     PNPM_VERSION: "6"
+    HUSKY: "0"
 
 phases:
   install:
@@ -25,8 +26,8 @@ phases:
       - echo ==== environment variables ====
       - echo "AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION"
       - echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
-      - echo "GIT_URL=$GIT_URL"
-      - echo "GIT_FETCH=$GIT_FETCH"
+      - echo "INFRA_GIT_URL=$INFRA_GIT_URL"
+      - echo "INFRA_GIT_FETCH=$INFRA_GIT_FETCH"
       - echo ==== info ====
       - pwd
       - whoami
@@ -38,9 +39,10 @@ phases:
       - cd main
       - git init || true
       - git reset --hard HEAD || true
+      - git clean -xdf || true
       - git remote remove origin || true
-      - git remote add origin "$GIT_URL"
-      - git fetch origin "$GIT_FETCH"
+      - git remote add origin "$INFRA_GIT_URL"
+      - git fetch origin "$INFRA_GIT_FETCH"
       - git checkout FETCH_HEAD
       - echo ==== pnpm store status ====
       - pnpm store status || true
