@@ -127,7 +127,7 @@ export class OperateEnv extends Resource {
   // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
   readonly build = new CodeBuild.CodebuildProject(this, 'build', {
     name: `${this.options.prefix}-${this.suffix.result}`,
-    concurrentBuildLimit: 1,
+    concurrentBuildLimit: 10,
     environment: {
       // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-compute-types.html
       computeType: 'BUILD_GENERAL1_SMALL',
