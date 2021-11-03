@@ -34,8 +34,7 @@ export class MysqlDb extends Resource {
     special: true,
     // https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBInstance.html#:~:text=Required%3A%20No-,MasterUserPassword,-The%20password%20for
     // ASCII characters except '/@" '
-    // NOTE: 埋め込むのでダブルクオートは使えない。またドル記号も除く
-    overrideSpecial: "_-=\\`!#%^&*(){}[]<>.,?:;'+|~",
+    overrideSpecial: "$_-=\\`!#%^&*(){}[]<>.,?:;'+|~",
   });
 
   readonly parameter = (() => {
@@ -104,5 +103,5 @@ export class MysqlDb extends Resource {
     },
   });
 
-  readonly dbURL = `mysql://${this.db.username}:${this.db.password}@${this.db.address}:${this.db.port}/${this.db.name}`;
+  readonly dbURL = `mysql://${this.db.username}:\${urlencode(${this.db.fqn}.password)}@${this.db.address}:${this.db.port}/${this.db.name}`;
 }
