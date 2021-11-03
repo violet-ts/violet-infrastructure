@@ -4,7 +4,7 @@ const cmd = createCmd(
   {
     name: 'preview/start',
     where: 'pr',
-    description: '先に /build が必要。',
+    description: '先に /build が必要',
     hidden: false,
   },
   (_env) => ({

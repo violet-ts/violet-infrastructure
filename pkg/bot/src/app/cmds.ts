@@ -6,6 +6,9 @@ import previewStart from '../cmd/preview-start';
 import previewStatus from '../cmd/preview-status';
 import previewRecreate from '../cmd/preview-recreate';
 import previewForceDestroy from '../cmd/preview-force-destroy';
+import prismaMigrateDeploy from '../cmd/prisma-migrate-deploy';
+import prismaMigrateReset from '../cmd/prisma-migrate-reset';
+import prismaDbSeed from '../cmd/prisma-db-seed';
 import type { ReplyCmd } from '../type/cmd';
 
 const entrySchema = z.object({});
@@ -42,5 +45,8 @@ export const cmds: ReplyCmd[] = [
   previewStatus,
   previewRecreate,
   previewForceDestroy,
+  prismaMigrateDeploy,
+  prismaMigrateReset,
+  prismaDbSeed,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ] as any;

@@ -123,31 +123,21 @@ const createCmd = (
         main: [
           `- ビルドID: [${entry.buildId}](${buildUrl})`,
           `- ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
-          `- 使用した Web イメージダイジェスト: ${renderECRImageDigest({
-            imageRegion,
-            imageDigest: entry.webImageDigest,
-            imageRepoName: ctx.env.WEB_REPO_NAME,
-          })}`,
-          `- 使用した API イメージダイジェスト: ${renderECRImageDigest({
-            imageRegion,
-            imageDigest: entry.apiImageDigest,
-            imageRepoName: ctx.env.API_REPO_NAME,
-          })}`,
           builtInfo && `- ビルド時間: ${builtInfo.timeRange}`,
           ...(entry.tfBuildOutput
             ? [
                 `- api: ${entry.tfBuildOutput.apiURL}`,
                 `- web: ${entry.tfBuildOutput.webURL}`,
-                `- [ECS Cluster](https://${entry.tfBuildOutput.envRegion}.console.aws.amazon.com/ecs/home#/clusters/${entry.tfBuildOutput.ecsClusterName}/services)`,
+                `- ECS Cluster Name: [\`${entry.tfBuildOutput.ecsClusterName}\`](https://${entry.tfBuildOutput.envRegion}.console.aws.amazon.com/ecs/home#/clusters/${entry.tfBuildOutput.ecsClusterName}/services)`,
               ]
             : []),
           ...(entry.tfBuildOutput && entry.runTaskBuildOutput
             ? [
-                `https://${
+                `[RunTask の詳細ログ (CloudWatch Logs)](https://${
                   entry.tfBuildOutput.envRegion
                 }.console.aws.amazon.com/cloudwatch/home#logsV2:log-groups/log-group/${
                   entry.tfBuildOutput.apiTaskLogGroupName
-                }/log-events/api${'$252F'}api${'$252F'}${entry.runTaskBuildOutput}`,
+                }/log-events/api${'$252F'}api${'$252F'}${entry.runTaskBuildOutput})`,
               ]
             : []),
           values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
@@ -157,6 +147,16 @@ const createCmd = (
             title: '詳細',
             body: {
               main: [
+                `- 使用した Web イメージダイジェスト: ${renderECRImageDigest({
+                  imageRegion,
+                  imageDigest: entry.webImageDigest,
+                  imageRepoName: ctx.env.WEB_REPO_NAME,
+                })}`,
+                `- 使用した API イメージダイジェスト: ${renderECRImageDigest({
+                  imageRegion,
+                  imageDigest: entry.apiImageDigest,
+                  imageRepoName: ctx.env.API_REPO_NAME,
+                })}`,
                 entry.generalBuildOutput &&
                   `- 使用したインフラ定義バージョン: ${renderGitHubCommit({
                     owner: 'violet-ts',
