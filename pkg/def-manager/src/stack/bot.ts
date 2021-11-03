@@ -14,6 +14,7 @@ export interface BotApiOptions {
   tagsAll?: Record<string, string>;
   prefix: string;
   logsPrefix: string;
+  table: DynamoDB.DynamodbTable;
 }
 export class Bot extends Resource {
   constructor(public parent: VioletManagerStack, name: string, public options: BotApiOptions, config?: ResourceConfig) {
@@ -60,34 +61,13 @@ export class Bot extends Resource {
     },
   });
 
-  // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
-  readonly table = new DynamoDB.DynamodbTable(this, 'table', {
-    name: `${this.options.prefix}-${this.suffix.result}`,
-    billingMode: 'PAY_PER_REQUEST',
-    ttl: {
-      enabled: true,
-      attributeName: 'ttl',
-    },
-    attribute: [
-      {
-        name: 'uuid',
-        type: 'S',
-      },
-    ],
-    hashKey: 'uuid',
-
-    tagsAll: {
-      ...this.options.tagsAll,
-    },
-  });
-
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item
   // ローカルでのスクリプト実行時のダミー用
   readonly dummyItem = new DynamoDB.DynamodbTableItem(this, 'dummyItem', {
-    tableName: this.table.name,
-    hashKey: this.table.hashKey,
+    tableName: this.options.table.name,
+    hashKey: this.options.table.hashKey,
     item: JSON.stringify({
-      [this.table.hashKey]: { S: 'dummy' },
+      [this.options.table.hashKey]: { S: 'dummy' },
     }),
   });
 
@@ -154,7 +134,7 @@ export class Bot extends Resource {
           `dynamodb:Query`,
           `dynamodb:Scan`,
         ],
-        resources: [this.table.arn],
+        resources: [this.options.table.arn],
       },
       {
         // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerregistry.html
@@ -256,7 +236,7 @@ export class Bot extends Resource {
   readonly computedBotEnv: ComputedBotEnv = {
     PREVIEW_DOMAIN: z.string().parse(this.parent.previewZone.name),
     SSM_PREFIX: this.options.ssmPrefix,
-    BOT_TABLE_NAME: this.table.name,
+    BOT_TABLE_NAME: this.options.table.name,
     API_REPO_NAME: this.parent.apiDevRepo.name,
     WEB_REPO_NAME: this.parent.webDevRepo.name,
     API_BUILD_PROJECT_NAME: this.parent.apiBuild.build.name,

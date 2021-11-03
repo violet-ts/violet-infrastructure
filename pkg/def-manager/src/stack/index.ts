@@ -1,4 +1,4 @@
-import { AwsProvider, ECR, ResourceGroups, Route53 } from '@cdktf/provider-aws';
+import { AwsProvider, DynamoDB, ECR, ResourceGroups, Route53 } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
 import { TerraformOutput, TerraformStack, TerraformHclModule } from 'cdktf';
@@ -173,9 +173,27 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
+  // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
+  readonly botTable = new DynamoDB.DynamodbTable(this, 'table', {
+    name: `violet-bot-${this.suffix.result}`,
+    billingMode: 'PAY_PER_REQUEST',
+    ttl: {
+      enabled: true,
+      attributeName: 'ttl',
+    },
+    attribute: [
+      {
+        name: 'uuid',
+        type: 'S',
+      },
+    ],
+    hashKey: 'uuid',
+  });
+
   readonly operateEnv = new OperateEnv(this, 'operateEnv', {
     prefix: 'violet-dev-openv',
     logsPrefix: `${this.logsPrefix}/dev-openv`,
+    botTable: this.botTable,
 
     tagsAll: {
       ...genTags(null, 'development'),
@@ -186,6 +204,7 @@ export class VioletManagerStack extends TerraformStack {
     prefix: 'violet-bot',
     ssmPrefix: `${this.ssmPrefix}/bot`,
     logsPrefix: `${this.logsPrefix}/bot`,
+    table: this.botTable,
 
     tagsAll: {
       ...genTags(null),
@@ -206,10 +225,7 @@ export class VioletManagerStack extends TerraformStack {
   });
 
   readonly opEnvFile = new TerraformOutput(this, 'opEnvFile', {
-    value: Object.entries({
-      ...this.operateEnv.computedOpEnv,
-      BOT_TABLE_NAME: this.bot.table.name,
-    })
+    value: Object.entries(this.operateEnv.computedOpEnv)
       .map(([key, value]) => `${key}=${value}`)
       .join('\n'),
   });

@@ -75,7 +75,6 @@ const createCmd = (
           environmentVariablesOverride: [
             ...scriptOpCodeBuildEnv({
               OPERATION: paramsGetter(ctx.env).operation,
-              BOT_TABLE_NAME: ctx.env.BOT_TABLE_NAME,
               ENTRY_UUID: generalEntry.uuid,
             }),
             ...dynamicOpCodeBuildEnv({
