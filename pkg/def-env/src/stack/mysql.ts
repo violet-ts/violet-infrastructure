@@ -2,14 +2,17 @@ import type { VPC } from '@cdktf/provider-aws';
 import { RDS } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import { Password, String as RandomString } from '@cdktf/provider-random';
+import { Password } from '@cdktf/provider-random';
 import * as fs from 'fs';
 import * as path from 'path';
+import { assertInRange } from '@self/shared/lib/ranged-string';
+import type { RangedString26 } from '@self/shared/lib/ranged-string/util';
+import { len32 } from '@self/shared/lib/ranged-string/util';
 import type { VioletEnvStack } from '.';
 import { dataDir } from './values';
 
 export interface MysqlDbOptions {
-  prefix: string;
+  prefix: RangedString26;
   tagsAll?: Record<string, string>;
   /** e.g. rds:production-2015-06-26-06-05 */
   snapshotIdentifier?: string;
@@ -21,13 +24,6 @@ export class MysqlDb extends Resource {
   constructor(private parent: VioletEnvStack, name: string, public options: MysqlDbOptions, config?: ResourceConfig) {
     super(parent, name, config);
   }
-
-  private readonly suffix = new RandomString(this, 'suffix', {
-    length: 6,
-    lower: true,
-    upper: false,
-    special: false,
-  });
 
   // https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password
   // https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBInstance.html
@@ -50,7 +46,7 @@ export class MysqlDb extends Resource {
 
   // https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DBParameterGroup.html
   readonly mysqlParameter = new RDS.DbParameterGroup(this, 'mysqlParameter', {
-    name: `${this.options.prefix}-${this.suffix.result}`,
+    name: assertInRange(this.options.prefix, len32),
     family: 'mysql8.0',
     parameter: this.parameter,
 
@@ -62,7 +58,7 @@ export class MysqlDb extends Resource {
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/db_subnet_group
   readonly dbSubnetGroup = new RDS.DbSubnetGroup(this, 'dbSubnetGroup', {
-    name: `${this.options.prefix}-${this.suffix.result}`,
+    name: assertInRange(this.options.prefix, len32),
     subnetIds: this.options.subnets.map((subnet) => subnet.id),
 
     tagsAll: {
@@ -81,7 +77,7 @@ export class MysqlDb extends Resource {
   // TODO(scale): prod: DB usage should be watched
   // TODO(perf): prod: tuning at scale
   readonly db = new RDS.DbInstance(this, 'db', {
-    identifier: `${this.options.prefix}-${this.suffix.result}`,
+    identifier: assertInRange(this.options.prefix, len32),
     // DB name
     name: `violet`,
     publiclyAccessible: ['development', 'preview', 'staging'].includes(this.parent.options.section),

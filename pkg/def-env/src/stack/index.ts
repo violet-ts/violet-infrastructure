@@ -1,6 +1,5 @@
 import { AwsProvider, ResourceGroups, S3, Route53, ECS, ECR, ACM, IAM } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
-import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
 import { TerraformOutput, TerraformStack } from 'cdktf';
 import type { Construct } from 'constructs';
 import type { ComputedOpEnv, DynamicOpEnv } from '@self/shared/lib/operate-env/op-env';
@@ -9,6 +8,9 @@ import { PROJECT_NAME } from '@self/shared/lib/const';
 import type { Section } from '@self/shared/lib/def/types';
 import { z } from 'zod';
 import type { OpTfOutput } from '@self/shared/lib/operate-env/output';
+import { concat, assertRangedString, assertInRange } from '@self/shared/lib/ranged-string';
+import type { RangedString2 } from '@self/shared/lib/ranged-string/util';
+import { len26, getHash6, len32 } from '@self/shared/lib/ranged-string/util';
 import { HTTPTask } from './http-task';
 import { MysqlDb } from './mysql';
 import { genTags } from './values';
@@ -38,11 +40,12 @@ export class VioletEnvStack extends TerraformStack {
     }
   }
 
-  private readonly prefix = `violet-e-${this.options.dynamicOpEnv.NAMESPACE}-${this.options.section[0]}`;
+  private readonly prefix = concat(
+    concat(assertRangedString('vio-e-'), getHash6(this.options.dynamicOpEnv.NAMESPACE)),
+    `-${this.options.section[0]}` as RangedString2,
+  );
 
   readonly nullProvider = new NullProvider(this, 'nullProvider', {});
-
-  readonly random = new RandomProvider(this, 'random', {});
 
   readonly aws = new AwsProvider(this, 'aws', {
     region: this.options.region,
@@ -50,13 +53,6 @@ export class VioletEnvStack extends TerraformStack {
     defaultTags: {
       tags: genTags(null, this.options.dynamicOpEnv.NAMESPACE, this.options.section),
     },
-  });
-
-  private readonly suffix = new RandomString(this, 'suffix', {
-    length: 6,
-    lower: true,
-    upper: false,
-    special: false,
   });
 
   readonly apiRepo = new ECR.DataAwsEcrRepository(this, 'apiRepo', {
@@ -92,7 +88,7 @@ export class VioletEnvStack extends TerraformStack {
   // この namespace に属する Violet インフラを構築する、関連した
   // リソースの一覧
   readonly resourceGroups = new ResourceGroups.ResourcegroupsGroup(this, 'resourceGroups', {
-    name: `${this.prefix}-${this.suffix.result}`,
+    name: assertInRange(this.prefix, len32),
     resourceQuery: {
       query: JSON.stringify({
         ResourceTypeFilters: ['AWS::AllSupported'],
@@ -114,7 +110,7 @@ export class VioletEnvStack extends TerraformStack {
   });
 
   readonly mysql = new MysqlDb(this, 'mysql', {
-    prefix: `${this.prefix}-mysql`,
+    prefix: assertInRange(concat(this.prefix, assertRangedString('-mysql')), len26),
     subnets: this.network.publicSubnets,
     vpcSecurityGroups: [this.network.dbSg],
   });
@@ -127,7 +123,7 @@ export class VioletEnvStack extends TerraformStack {
 
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_Cluster.html
   readonly cluster = new ECS.EcsCluster(this, 'cluster', {
-    name: `${this.prefix}-${this.suffix.result}`,
+    name: assertInRange(this.prefix, len32),
     capacityProviders: ['FARGATE'],
     // TODO(security): for production
     // imageScanningConfiguration,
@@ -140,13 +136,13 @@ export class VioletEnvStack extends TerraformStack {
     // TODO(security): for prod: encryption
     // TODO(logging): for prod
     // TODO(cost): for prod: lifecycle
-    bucket: `${this.prefix}-${this.suffix.result}`,
+    bucket: assertInRange(this.prefix, len32),
     forceDestroy: true,
   });
 
   readonly apiTask = new HTTPTask(this, 'apiTask', {
     name: 'api',
-    prefix: `${this.prefix}-api`,
+    prefix: assertInRange(concat(this.prefix, assertRangedString('-api')), len26),
     ipv6interfaceIdPrefix: 10,
 
     repo: this.apiRepo,
@@ -167,14 +163,14 @@ export class VioletEnvStack extends TerraformStack {
   });
 
   readonly allowRunApiTaskRolePolicy = new IAM.IamRolePolicy(this, 'allowRunApiTaskRolePolicy', {
-    name: `${this.prefix}-${this.suffix.result}`,
+    name: assertInRange(this.prefix, len32),
     role: this.operateEnvRole.name,
     policy: this.apiTask.allowRunTaskPolicyDoc.json,
   });
 
   readonly webTask = new HTTPTask(this, 'webTask', {
     name: 'web',
-    prefix: `${this.prefix}-web`,
+    prefix: assertInRange(concat(this.prefix, assertRangedString('-web')), len26),
     ipv6interfaceIdPrefix: 20,
 
     repo: this.webRepo,

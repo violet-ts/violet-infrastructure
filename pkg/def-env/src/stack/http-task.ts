@@ -2,8 +2,10 @@ import type { ECR } from '@cdktf/provider-aws';
 import { ECS, ELB, Route53, IAM, VPC, CloudWatch } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import { String as RandomString } from '@cdktf/provider-random';
 import * as z from 'zod';
+import type { RangedString26 } from '@self/shared/lib/ranged-string/util';
+import { len32 } from '@self/shared/lib/ranged-string/util';
+import { assertInRange, assertRangedString, concat } from '@self/shared/lib/ranged-string';
 import type { VioletEnvStack } from '.';
 
 export interface HTTPTaskOptions {
@@ -11,7 +13,7 @@ export interface HTTPTaskOptions {
    * シンプルな短い名前
    */
   name: string;
-  prefix: string;
+  prefix: RangedString26;
   /**
    * Random fixed number.
    * https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#VPC_Sizing
@@ -30,13 +32,6 @@ export class HTTPTask extends Resource {
     super(parent, name, config);
   }
 
-  private readonly suffix = new RandomString(this, 'suffix', {
-    length: 6,
-    lower: true,
-    upper: false,
-    special: false,
-  });
-
   readonly subdomain = `${this.options.name}-${this.parent.options.dynamicOpEnv.NAMESPACE}`;
 
   readonly domain = `${this.subdomain}.${z.string().parse(this.parent.zone.name)}`;
@@ -48,7 +43,7 @@ export class HTTPTask extends Resource {
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb
   readonly alb = new ELB.Alb(this, 'alb', {
-    name: `${this.options.prefix}-${this.suffix.result}`,
+    name: assertInRange(this.options.prefix, len32),
     internal: false,
     loadBalancerType: 'application',
     securityGroups: [this.parent.network.lbSg.id],
@@ -157,7 +152,7 @@ export class HTTPTask extends Resource {
   });
 
   readonly executionRole = new IAM.IamRole(this, 'executionRole', {
-    name: `${this.options.prefix}-exec-${this.suffix.result}`,
+    name: assertInRange(concat(this.options.prefix, assertRangedString('-exec')), len32),
     assumeRolePolicy: this.executionRoleAssumeDocument.json,
     tagsAll: {
       ...this.options.tagsAll,
@@ -188,7 +183,7 @@ export class HTTPTask extends Resource {
   });
 
   readonly executionPolicy = new IAM.IamRolePolicy(this, 'executionPolicy', {
-    name: `${this.options.prefix}-exec-${this.suffix.result}`,
+    name: assertInRange(concat(this.options.prefix, assertRangedString('-exec')), len32),
     role: z.string().parse(this.executionRole.name),
     policy: this.executionPolicyDocument.json,
   });
@@ -210,7 +205,7 @@ export class HTTPTask extends Resource {
   });
 
   readonly taskRole = new IAM.IamRole(this, 'taskRole', {
-    name: `${this.options.prefix}-task-${this.suffix.result}`,
+    name: assertInRange(concat(this.options.prefix, assertRangedString('-task')), len32),
     assumeRolePolicy: this.taskRoleAssumeDocument.json,
     tagsAll: {
       ...this.options.tagsAll,
@@ -218,7 +213,7 @@ export class HTTPTask extends Resource {
   });
 
   readonly logGroup = new CloudWatch.CloudwatchLogGroup(this, 'logGroup', {
-    name: `${this.options.prefix}-${this.suffix.result}`,
+    name: assertInRange(this.options.prefix, len32),
     // TODO(service): longer for prod
     retentionInDays: 7,
     tagsAll: {
@@ -238,7 +233,7 @@ export class HTTPTask extends Resource {
   });
 
   readonly taskPolicy = new IAM.IamRolePolicy(this, 'taskPolicy', {
-    name: `${this.options.prefix}-task-${this.suffix.result}`,
+    name: assertInRange(concat(this.options.prefix, assertRangedString('-task')), len32),
     role: z.string().parse(this.taskRole.name),
     policy: this.taskPolicyDocument.json,
   });
@@ -295,7 +290,7 @@ export class HTTPTask extends Resource {
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_Service.html
   readonly service = new ECS.EcsService(this, 'service', {
-    name: `${this.options.prefix}-${this.suffix.result}`,
+    name: assertInRange(this.options.prefix, len32),
     propagateTags: 'SERVICE',
     networkConfiguration: {
       subnets: this.parent.network.publicSubnets.map((subnet) => subnet.id),
