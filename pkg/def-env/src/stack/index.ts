@@ -11,6 +11,7 @@ import type { OpTfOutput } from '@self/shared/lib/operate-env/output';
 import { concat, assertRangedString, assertInRange } from '@self/shared/lib/ranged-string';
 import type { RangedString2 } from '@self/shared/lib/ranged-string/util';
 import { len26, getHash6, len32 } from '@self/shared/lib/ranged-string/util';
+import { RandomProvider } from '@cdktf/provider-random';
 import { HTTPTask } from './http-task';
 import { MysqlDb } from './mysql';
 import { genTags } from './values';
@@ -46,6 +47,8 @@ export class VioletEnvStack extends TerraformStack {
   );
 
   readonly nullProvider = new NullProvider(this, 'nullProvider', {});
+
+  readonly random = new RandomProvider(this, 'random', {});
 
   readonly aws = new AwsProvider(this, 'aws', {
     region: this.options.region,
