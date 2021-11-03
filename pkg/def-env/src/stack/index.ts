@@ -1,6 +1,6 @@
 import { AwsProvider, ResourceGroups, S3, Route53, ECS, ECR, ACM, IAM } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
-import { TerraformOutput, TerraformStack } from 'cdktf';
+import { TerraformLocal, TerraformOutput, TerraformStack } from 'cdktf';
 import type { Construct } from 'constructs';
 import type { ComputedOpEnv, DynamicOpEnv } from '@self/shared/lib/operate-env/op-env';
 import type { SharedEnv } from '@self/shared/lib/def/env-vars';
@@ -118,6 +118,10 @@ export class VioletEnvStack extends TerraformStack {
     vpcSecurityGroups: [this.network.dbSg],
   });
 
+  readonly dbURLLocal = new TerraformLocal(this, 'dbURLLocal', {
+    value: this.mysql.dbURL,
+  });
+
   // DB URL for prisma schema
   readonly dbURL = new TerraformOutput(this, 'dbURL', {
     value: this.mysql.dbURL,
@@ -154,8 +158,8 @@ export class VioletEnvStack extends TerraformStack {
 
     env: {
       API_BASE_PATH: '',
-      // TODO(security): SecretsManager 使いたい
-      DATABASE_URL: `\${urlencode("${z.string().parse(this.dbURL.value)}")}`,
+      // TODO(security): SecretsManager
+      DATABASE_URL: z.string().parse(this.dbURL.value),
       S3_BUCKET: z.string().parse(this.s3.bucket),
       S3_REGION: this.s3.region,
     },
