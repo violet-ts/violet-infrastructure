@@ -184,6 +184,7 @@ export class OperateEnv extends Resource {
           'ecr:*',
           'rds:*',
           'application-autoscaling:*',
+          'resource-groups:*',
 
           'ecs:*',
           'events:*',
