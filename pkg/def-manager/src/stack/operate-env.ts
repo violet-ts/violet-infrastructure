@@ -106,6 +106,7 @@ export class OperateEnv extends Resource {
     ...this.parent.options.sharedEnv,
     INFRA_GIT_URL: this.parent.options.sharedEnv.INFRA_GIT_URL,
     INFRA_GIT_FETCH: this.parent.options.sharedEnv.INFRA_GIT_FETCH,
+    INFRA_TRUSTED_MERGER_GITHUB_EMAILS: this.parent.options.sharedEnv.INFRA_TRUSTED_MERGER_GITHUB_EMAILS,
     API_REPO_NAME: this.parent.apiDevRepo.name,
     WEB_REPO_NAME: this.parent.webDevRepo.name,
     AWS_ACCOUNT_ID: this.parent.options.sharedEnv.AWS_ACCOUNT_ID,
