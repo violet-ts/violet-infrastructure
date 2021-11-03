@@ -41,7 +41,7 @@ export class ContainerBuild extends Resource {
     special: false,
   });
 
-  // TODO
+  // TODO: https://github.com/hashicorp/terraform-provider-aws/issues/10195
   readonly cachename = `${this.options.prefix}-cache`;
 
   // TODO(cost): lifecycle
@@ -220,7 +220,7 @@ export class ContainerBuild extends Resource {
     name: `${this.options.prefix}-${this.suffix.result}`,
     resource: this.build.arn,
     detailType: 'BASIC',
-    // https://docs.aws.amazon.com/ja_jp/dtconsole/latest/userguide/concepts.html#concepts-api
+    // https://docs.aws.amazon.com/dtconsole/latest/userguide/concepts.html#concepts-api
     eventTypeIds: [
       'codebuild-project-build-state-failed',
       'codebuild-project-build-state-succeeded',

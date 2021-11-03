@@ -20,7 +20,6 @@ export const scriptOpEnvSchema = z.object({
     z.literal('prisma/migrate/status'), // TODO: wip
     z.literal('prisma/db/seed'),
   ]),
-  BOT_TABLE_NAME: z.string(),
   ENTRY_UUID: z.string(),
 });
 
@@ -63,6 +62,7 @@ export const computedOpEnvSchema = z
     NETWORK_PUB_ID1: z.string(),
     NETWORK_PUB_ID2: z.string(),
     OPERATE_ENV_ROLE_NAME: z.string(),
+    BOT_TABLE_NAME: z.string(),
   })
   .merge(sharedEnvSchema);
 

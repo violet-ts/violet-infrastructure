@@ -23,7 +23,7 @@ const main = async () => {
 
   // TODO(hardcoded)
   const botTableRegion = 'ap-northeast-1';
-  const entryURL = `https://${botTableRegion}.console.aws.amazon.com/dynamodbv2/home#item-explorer?autoScanAttribute=null&initialTagKey=&table=${scriptOpEnv.BOT_TABLE_NAME}`;
+  const entryURL = `https://${botTableRegion}.console.aws.amazon.com/dynamodbv2/home#item-explorer?autoScanAttribute=null&initialTagKey=&table=${computedOpEnv.BOT_TABLE_NAME}`;
 
   const delay = (ms: number): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -40,7 +40,7 @@ const main = async () => {
     // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html
     await db
       .updateItem({
-        TableName: scriptOpEnv.BOT_TABLE_NAME,
+        TableName: computedOpEnv.BOT_TABLE_NAME,
         Key: {
           uuid: { S: scriptOpEnv.ENTRY_UUID },
         },

@@ -1,3 +1,4 @@
+import type { DynamoDB } from '@cdktf/provider-aws';
 import { SNS, IAM, CodeBuild, CodeStar, S3, CloudWatch } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
@@ -15,6 +16,7 @@ export interface EnvDeployOptions {
   tagsAll: Record<string, string>;
   prefix: string;
   logsPrefix: string;
+  botTable: DynamoDB.DynamodbTable;
 }
 
 /**
@@ -37,8 +39,7 @@ export class OperateEnv extends Resource {
     special: false,
   });
 
-  // TODO
-  // TODO: https://github.com/hashicorp/terraform-provider-aws/issues/13587
+  // TODO: https://github.com/hashicorp/terraform-provider-aws/issues/10195
   readonly cachename = `${this.options.prefix}-cache`;
 
   // TODO(cost): lifecycle
@@ -105,6 +106,7 @@ export class OperateEnv extends Resource {
     ...this.parent.options.sharedEnv,
     INFRA_GIT_URL: this.parent.options.sharedEnv.INFRA_GIT_URL,
     INFRA_GIT_FETCH: this.parent.options.sharedEnv.INFRA_GIT_FETCH,
+    INFRA_TRUSTED_MERGER_GITHUB_EMAILS: this.parent.options.sharedEnv.INFRA_TRUSTED_MERGER_GITHUB_EMAILS,
     API_REPO_NAME: this.parent.apiDevRepo.name,
     WEB_REPO_NAME: this.parent.webDevRepo.name,
     AWS_ACCOUNT_ID: this.parent.options.sharedEnv.AWS_ACCOUNT_ID,
@@ -121,6 +123,7 @@ export class OperateEnv extends Resource {
     NETWORK_PUB_ID1: this.devNetwork.publicSubnets[1].id,
     NETWORK_PUB_ID2: this.devNetwork.publicSubnets[2].id,
     OPERATE_ENV_ROLE_NAME: z.string().parse(this.role.name),
+    BOT_TABLE_NAME: this.options.botTable.name,
   };
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codebuild_project
@@ -263,6 +266,13 @@ export class OperateEnv extends Resource {
         actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
       },
 
+      // ここからは、個別に指定した必須の権限
+
+      {
+        effect: 'Allow',
+        actions: [`dynamodb:UpdateItem`],
+        resources: [this.options.botTable.arn],
+      },
       {
         // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
         effect: 'Allow',
@@ -317,7 +327,7 @@ export class OperateEnv extends Resource {
     name: `${this.options.prefix}-${this.suffix.result}`,
     resource: this.build.arn,
     detailType: 'BASIC',
-    // https://docs.aws.amazon.com/ja_jp/dtconsole/latest/userguide/concepts.html#concepts-api
+    // https://docs.aws.amazon.com/dtconsole/latest/userguide/concepts.html#concepts-api
     eventTypeIds: [
       'codebuild-project-build-state-failed',
       'codebuild-project-build-state-succeeded',
