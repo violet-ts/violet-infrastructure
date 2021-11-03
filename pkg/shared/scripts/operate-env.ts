@@ -12,7 +12,7 @@ import { scriptOpEnvSchema, computedOpEnvSchema } from '../lib/operate-env/op-en
 
 // TODO(logging): logger
 
-const main = async () => {
+const main = async (): Promise<void> => {
   initEnv();
 
   // NOTE: ローカル実行用
@@ -112,7 +112,10 @@ const main = async () => {
         ),
       );
 
-  const apiTaskRun = async (prismaArgs: string[]) => {
+  const apiPrismaTaskRun = async (prismaArgs: string[]) => {
+    await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth'], false);
+    await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init'], false);
+
     const tfBuildOutput = await getTfBuildOutput();
 
     const ecs = new ECS({ region: tfBuildOutput.envRegion });
@@ -160,8 +163,6 @@ const main = async () => {
   };
 
   const operate = async (tfCmd: string, tfArgs: string[], minTryCount: number, maxTryCount: number): Promise<void> => {
-    await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth'], false);
-    await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init'], false);
     let success = 0;
     let failure = 0;
     let lastFailed = false;
@@ -193,42 +194,52 @@ const main = async () => {
     if (success < minTryCount) {
       throw new Error('run failed');
     }
-
-    const tfBuildOutput = await getTfBuildOutput();
-
-    await updateTable<TfBuildOutput>({
-      tfBuildOutput,
-    });
   };
 
   switch (scriptOpEnv.OPERATION) {
     case 'deploy': {
       await operate('apply', ['--auto-approve'], 2, 3);
+      const tfBuildOutput = await getTfBuildOutput();
+      await updateTable<TfBuildOutput>({
+        tfBuildOutput,
+      });
       break;
     }
     case 'destroy': {
       await operate('destroy', ['--auto-approve'], 1, 2);
+      const tfBuildOutput = await getTfBuildOutput();
+      await updateTable<TfBuildOutput>({
+        tfBuildOutput,
+      });
       break;
     }
     case 'status': {
       await operate('plan', [], 1, 2);
+      const tfBuildOutput = await getTfBuildOutput();
+      await updateTable<TfBuildOutput>({
+        tfBuildOutput,
+      });
       break;
     }
     case 'recreate': {
       await operate('destroy', ['--auto-approve'], 1, 2);
       await operate('apply', ['--auto-approve'], 1, 2);
+      const tfBuildOutput = await getTfBuildOutput();
+      await updateTable<TfBuildOutput>({
+        tfBuildOutput,
+      });
       break;
     }
     case 'prisma/migrate/deploy': {
-      await apiTaskRun(['migrate', 'deploy']);
+      await apiPrismaTaskRun(['migrate', 'deploy']);
       break;
     }
     case 'prisma/migrate/reset': {
-      await apiTaskRun(['migrate', 'reset']);
+      await apiPrismaTaskRun(['migrate', 'reset']);
       break;
     }
     case 'prisma/db/seed': {
-      await apiTaskRun(['db', 'seed']);
+      await apiPrismaTaskRun(['db', 'seed']);
       break;
     }
     default: {
