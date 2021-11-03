@@ -112,10 +112,13 @@ const main = async (): Promise<void> => {
         ),
       );
 
-  const apiPrismaTaskRun = async (prismaArgs: string[]) => {
+  const tfSynthInit = async (): Promise<void> => {
     await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth'], false);
     await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init'], false);
+  };
 
+  const apiPrismaTaskRun = async (prismaArgs: string[]) => {
+    await tfSynthInit();
     const tfBuildOutput = await getTfBuildOutput();
 
     const ecs = new ECS({ region: tfBuildOutput.envRegion });
@@ -163,6 +166,7 @@ const main = async (): Promise<void> => {
   };
 
   const operate = async (tfCmd: string, tfArgs: string[], minTryCount: number, maxTryCount: number): Promise<void> => {
+    await tfSynthInit();
     let success = 0;
     let failure = 0;
     let lastFailed = false;
