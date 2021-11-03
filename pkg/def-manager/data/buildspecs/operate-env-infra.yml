@@ -5,6 +5,7 @@ env:
     TERRAFORM_VERSION: "1.0.9"
     PNPM_VERSION: "6"
     HUSKY: "0"
+  shell: bash
 
 phases:
   install:
