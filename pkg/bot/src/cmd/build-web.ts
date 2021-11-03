@@ -5,7 +5,7 @@ const cmd = createCmd(
   {
     name: 'build/web',
     where: 'pr',
-    description: 'build',
+    description: 'Web イメージをビルド',
     hidden: false,
   },
   (env, namespace) => ({

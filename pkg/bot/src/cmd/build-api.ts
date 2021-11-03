@@ -4,7 +4,7 @@ const cmd = createCmd(
   {
     name: 'build/api',
     where: 'pr',
-    description: 'build',
+    description: 'API イメージをビルド',
     hidden: false,
   },
   (env) => ({
