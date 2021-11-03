@@ -155,7 +155,7 @@ export class VioletEnvStack extends TerraformStack {
     env: {
       API_BASE_PATH: '',
       // TODO(security): SecretsManager 使いたい
-      DATABASE_URL: `urlencode(${z.string().parse(this.dbURL.value)})`,
+      DATABASE_URL: `\${urlencode("${z.string().parse(this.dbURL.value)}")}`,
       S3_BUCKET: z.string().parse(this.s3.bucket),
       S3_REGION: this.s3.region,
     },
