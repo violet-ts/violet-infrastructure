@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 export const botSecretsSchema = z.object({
   WEBHOOKS_SECRET: z.string(),
-  BOT_INSTALLATION_ID: z.string(),
   BOT_APP_ID: z.string(),
   BOT_PRIVATE_KEY: z.string(),
 });
