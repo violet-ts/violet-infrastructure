@@ -69,9 +69,4 @@ export class DockerHubCredentials extends Resource {
       },
     ],
   });
-
-  readonly policy = new IAM.IamPolicy(this, 'policy', {
-    namePrefix: this.options.prefix,
-    policy: this.policyDocument.json,
-  });
 }
