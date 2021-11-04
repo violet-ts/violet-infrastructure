@@ -47,7 +47,7 @@ const handler: Handler = async (event: unknown, context) => {
   }
 
   const secrets = await requireSecrets(env);
-  const octokit = await createOctokit(env, secrets);
+  const octokit = await createOctokit(env, secrets, oldEntry.botInstallationId);
 
   logger.info('Entry found.', { oldEntry });
   const cmd = cmds.find((cmd) => cmd.name === oldEntry.name);
@@ -82,6 +82,7 @@ const handler: Handler = async (event: unknown, context) => {
     commentIssueNumber: oldEntry.commentIssueNumber,
     commentId: oldEntry.commentId,
     lastUpdate: toTemporalInstant.call(date).epochSeconds,
+    botInstallationId: oldEntry.botInstallationId,
   };
   logger.debug('New entry computed.', { newEntry });
   const full = constructFullComment(cmd, newEntry, values, cmdCtx);

@@ -7,6 +7,7 @@ import type { IssueCommentEvent } from '@octokit/webhooks-types';
 import type { Octokit } from '@octokit/rest';
 import { v4 as uuidv4 } from 'uuid';
 import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot-env';
+import { z } from 'zod';
 import type { Command } from '../util/parse-comment';
 import { embedDirective, parseComment } from '../util/parse-comment';
 import { createOctokit } from './github-app';
@@ -52,6 +53,7 @@ const processRun = async (
   env: ComputedBotEnv,
   payload: IssueCommentEvent,
   logger: Logger,
+  botInstallationId: string,
 ) => {
   logger.info('Trying to run', run.args);
   const [cmdName, ...args] = run.args;
@@ -105,6 +107,7 @@ const processRun = async (
     commentRepo: payload.repository.name,
     commentIssueNumber: payload.issue.number,
     commentId: -1,
+    botInstallationId,
   };
   const { status, entry, values } = await cmd.main(ctx, args, generalEntry);
   logger.info('Command main process done.', { status, entry, values });
@@ -172,13 +175,14 @@ export const createWebhooks = (
       if (!['LumaKernel', 'solufa', 'maihrs55', 'shuheiest', 'naoya502'].includes(payload.comment.user.login)) return;
       logger.info('Authentication success.');
 
-      const octokit = await createOctokit(env, secrets);
+      const botInstallationId = z.string().parse(payload.installation?.id);
+      const octokit = await createOctokit(env, secrets, botInstallationId);
       const runs = parseComment(payload.comment.body, botPrefix);
       logger.info(`${runs.length} runs detected.`);
 
       // eslint-disable-next-line no-restricted-syntax
       for await (const run of runs) {
-        await processRun(run, octokit, env, payload, logger).catch((e) => {
+        await processRun(run, octokit, env, payload, logger, botInstallationId).catch((e) => {
           logger.error(`Error while running ${run.args}`, e);
         });
       }
