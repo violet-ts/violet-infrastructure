@@ -6,11 +6,13 @@ import { createWebhooks } from '@self/bot/src/app/webhooks';
 import { createLambdaLogger } from '@self/bot/src/util/loggers';
 import { requireSecrets } from '@self/bot/src/app/secrets';
 import { computedBotEnvSchema } from '@self/shared/lib/bot-env';
+import { getLambdaCredentials } from '@self/bot/src/app/aws';
 
 const handler: APIGatewayProxyHandlerV2 = async (event, _context) => {
+  const credentials = getLambdaCredentials();
   const logger = createLambdaLogger('github-bot');
   const env = computedBotEnvSchema.parse(process.env);
-  const secrets = await requireSecrets(env);
+  const secrets = await requireSecrets(env, credentials, logger);
   const { body } = event;
   if (typeof body !== 'string') throw new Error('no body found');
 
@@ -22,7 +24,7 @@ const handler: APIGatewayProxyHandlerV2 = async (event, _context) => {
   if (typeof id !== 'string') throw new Error('header x-github-delivery not configured');
 
   const payload = JSON.parse(body);
-  const { webhooks, onAllDone } = createWebhooks(env, secrets, logger);
+  const { webhooks, onAllDone } = createWebhooks(env, secrets, credentials, logger);
   logger.info('Verifying...');
   await webhooks.verifyAndReceive({
     id,

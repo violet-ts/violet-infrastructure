@@ -4,19 +4,19 @@ import { tfBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
 import { initEnv } from '@self/shared/lib/def/util/init-env';
 import { asyncIter } from 'ballvalve';
 import { PassThrough } from 'stream';
-import { ECS, DynamoDB } from 'aws-sdk';
+import { ECS } from '@aws-sdk/client-ecs';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
-import { configureAws } from '@self/bot/src/app/aws';
+import { getCodeBuildCredentials } from '@self/bot/src/app/aws';
 import { z } from 'zod';
 import { scriptOpEnvSchema, computedOpEnvSchema } from '../lib/operate-env/op-env';
-
-// TODO(logging): logger
 
 const main = async (): Promise<void> => {
   initEnv();
 
-  // NOTE: ローカル実行用
-  configureAws();
+  const credentials = getCodeBuildCredentials();
+  // TODO(logging): logger
+  // const logger
 
   const scriptOpEnv = scriptOpEnvSchema.parse(process.env);
   const computedOpEnv = computedOpEnvSchema.parse(process.env);
@@ -36,19 +36,17 @@ const main = async (): Promise<void> => {
     const values = Object.fromEntries(
       entries.flatMap(([_key, value], i) => Object.entries(marshall({ [`:value${i}`]: value }))),
     );
-    const db = new DynamoDB();
+    const db = new DynamoDB({ credentials });
     // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html
-    await db
-      .updateItem({
-        TableName: computedOpEnv.BOT_TABLE_NAME,
-        Key: {
-          uuid: { S: scriptOpEnv.ENTRY_UUID },
-        },
-        UpdateExpression: `SET ${expr}`,
-        ExpressionAttributeNames: keys,
-        ExpressionAttributeValues: values,
-      })
-      .promise();
+    await db.updateItem({
+      TableName: computedOpEnv.BOT_TABLE_NAME,
+      Key: {
+        uuid: { S: scriptOpEnv.ENTRY_UUID },
+      },
+      UpdateExpression: `SET ${expr}`,
+      ExpressionAttributeNames: keys,
+      ExpressionAttributeValues: values,
+    });
   };
 
   const e = async (file: string, args: string[], silent: boolean): Promise<{ stdout: string; stderr: string }> => {
@@ -121,35 +119,33 @@ const main = async (): Promise<void> => {
     await tfSynthInit();
     const tfBuildOutput = await getTfBuildOutput();
 
-    const ecs = new ECS({ region: tfBuildOutput.envRegion });
+    const ecs = new ECS({ credentials, region: tfBuildOutput.envRegion });
     // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_RunTask.html
     const task = await (async () => {
-      const res = await ecs
-        .runTask({
-          cluster: tfBuildOutput.ecsClusterName,
-          networkConfiguration: {
-            awsvpcConfiguration: {
-              subnets: [computedOpEnv.NETWORK_PUB_ID0, computedOpEnv.NETWORK_PUB_ID1, computedOpEnv.NETWORK_PUB_ID2],
-              securityGroups: [computedOpEnv.NETWORK_SVC_SG_ID],
-              // // TODO(security): NAT
-              assignPublicIp: 'ENABLED',
+      const res = await ecs.runTask({
+        cluster: tfBuildOutput.ecsClusterName,
+        networkConfiguration: {
+          awsvpcConfiguration: {
+            subnets: [computedOpEnv.NETWORK_PUB_ID0, computedOpEnv.NETWORK_PUB_ID1, computedOpEnv.NETWORK_PUB_ID2],
+            securityGroups: [computedOpEnv.NETWORK_SVC_SG_ID],
+            // // TODO(security): NAT
+            assignPublicIp: 'ENABLED',
+          },
+        },
+        taskDefinition: tfBuildOutput.apiTaskDefinitionArn,
+        propagateTags: 'TASK_DEFINITION',
+        launchType: 'FARGATE',
+        overrides: {
+          containerOverrides: [
+            {
+              name: 'api',
+              command: ['pnpm', '--dir=./packages/api', 'exec', 'prisma', ...prismaArgs],
+              cpu: 256,
+              memory: 512,
             },
-          },
-          taskDefinition: tfBuildOutput.apiTaskDefinitionArn,
-          propagateTags: 'TASK_DEFINITION',
-          launchType: 'FARGATE',
-          overrides: {
-            containerOverrides: [
-              {
-                name: 'api',
-                command: ['pnpm', '--dir=./packages/api', 'exec', 'prisma', ...prismaArgs],
-                cpu: 256,
-                memory: 512,
-              },
-            ],
-          },
-        })
-        .promise();
+          ],
+        },
+      });
       console.log(res);
       const task = res.tasks?.[0];
       if (task == null) throw new Error('run task not found');
@@ -202,7 +198,8 @@ const main = async (): Promise<void> => {
 
   switch (scriptOpEnv.OPERATION) {
     case 'deploy': {
-      await operate('apply', ['--auto-approve'], 2, 3);
+      // NOTE: 削除含む apply で一発では正常に apply できない事がある
+      await operate('apply', ['--auto-approve'], 1, 2);
       const tfBuildOutput = await getTfBuildOutput();
       await updateTable<TfBuildOutput>({
         tfBuildOutput,

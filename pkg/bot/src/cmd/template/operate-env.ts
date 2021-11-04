@@ -1,4 +1,4 @@
-import { CodeBuild } from 'aws-sdk';
+import { CodeBuild } from '@aws-sdk/client-codebuild';
 import type { Temporal } from '@js-temporal/polyfill';
 import { toTemporalInstant } from '@js-temporal/polyfill';
 import { z } from 'zod';
@@ -53,38 +53,45 @@ const createCmd = (
     entrySchema,
     async main(ctx, _args, generalEntry) {
       const { number: prNumber } = ctx.commentPayload.issue;
+      const { credentials, logger } = ctx;
 
-      const apiImageDetail = await getImageDetailByTag({
-        imageRegion,
-        imageRepoName: ctx.env.API_REPO_NAME,
-        imageTag: ctx.namespace,
-      });
+      const apiImageDetail = await getImageDetailByTag(
+        {
+          imageRegion,
+          imageRepoName: ctx.env.API_REPO_NAME,
+          imageTag: ctx.namespace,
+        },
+        credentials,
+        logger,
+      );
       if (!apiImageDetail) throw new Error('Image for API not found.');
 
-      const webImageDetail = await getImageDetailByTag({
-        imageRegion,
-        imageRepoName: ctx.env.WEB_REPO_NAME,
-        imageTag: ctx.namespace,
-      });
+      const webImageDetail = await getImageDetailByTag(
+        {
+          imageRegion,
+          imageRepoName: ctx.env.WEB_REPO_NAME,
+          imageTag: ctx.namespace,
+        },
+        credentials,
+        logger,
+      );
       if (!webImageDetail) throw new Error('Image for WEB not found.');
 
-      const codeBuild = new CodeBuild();
-      const r = await codeBuild
-        .startBuild({
-          projectName: ctx.env.OPERATE_ENV_PROJECT_NAME,
-          environmentVariablesOverride: [
-            ...scriptOpCodeBuildEnv({
-              OPERATION: paramsGetter(ctx.env).operation,
-              ENTRY_UUID: generalEntry.uuid,
-            }),
-            ...dynamicOpCodeBuildEnv({
-              NAMESPACE: ctx.namespace,
-              API_REPO_SHA: apiImageDetail.imageDigest,
-              WEB_REPO_SHA: webImageDetail.imageDigest,
-            }),
-          ],
-        })
-        .promise();
+      const codeBuild = new CodeBuild({ credentials, logger });
+      const r = await codeBuild.startBuild({
+        projectName: ctx.env.OPERATE_ENV_PROJECT_NAME,
+        environmentVariablesOverride: [
+          ...scriptOpCodeBuildEnv({
+            OPERATION: paramsGetter(ctx.env).operation,
+            ENTRY_UUID: generalEntry.uuid,
+          }),
+          ...dynamicOpCodeBuildEnv({
+            NAMESPACE: ctx.namespace,
+            API_REPO_SHA: apiImageDetail.imageDigest,
+            WEB_REPO_SHA: webImageDetail.imageDigest,
+          }),
+        ],
+      });
 
       const { build } = r;
       if (build == null) throw new TypeError('Response not found for CodeBuild.startBuild');
@@ -170,12 +177,11 @@ const createCmd = (
       };
     },
     async update(entry, ctx) {
-      const codeBuild = new CodeBuild();
-      const r = await codeBuild
-        .batchGetBuilds({
-          ids: [entry.buildId],
-        })
-        .promise();
+      const { credentials, logger } = ctx;
+      const codeBuild = new CodeBuild({ credentials, logger });
+      const r = await codeBuild.batchGetBuilds({
+        ids: [entry.buildId],
+      });
       const { builds } = r;
       ctx.logger.info('builds', { builds });
       if (builds == null) throw new TypeError('builds not found');

@@ -1,6 +1,7 @@
 import { Temporal, toTemporalInstant } from '@js-temporal/polyfill';
-import { DynamoDB } from 'aws-sdk';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
+import type { Credentials, Provider } from '@aws-sdk/types';
 import type { Logger } from 'winston';
 import { Webhooks } from '@octokit/webhooks';
 import type { IssueCommentEvent } from '@octokit/webhooks-types';
@@ -52,8 +53,9 @@ const processRun = async (
   octokit: Octokit,
   env: ComputedBotEnv,
   payload: IssueCommentEvent,
-  logger: Logger,
   botInstallationId: number,
+  credentials: Credentials | Provider<Credentials>,
+  logger: Logger,
 ) => {
   logger.info('Trying to run', run.args);
   const [cmdName, ...args] = run.args;
@@ -91,6 +93,7 @@ const processRun = async (
     originalArgs: run.args,
     commentPayload: payload,
     namespace,
+    credentials,
     logger,
   };
   const uuid = uuidv4();
@@ -127,13 +130,11 @@ const processRun = async (
 
   if (status === 'undone') {
     logger.info('Saving result...');
-    const db = new DynamoDB();
-    await db
-      .putItem({
-        TableName: env.BOT_TABLE_NAME,
-        Item: marshall(fullEntry),
-      })
-      .promise();
+    const db = new DynamoDB({ credentials, logger });
+    await db.putItem({
+      TableName: env.BOT_TABLE_NAME,
+      Item: marshall(fullEntry),
+    });
   }
 };
 
@@ -141,6 +142,7 @@ const processRun = async (
 export const createWebhooks = (
   env: ComputedBotEnv,
   secrets: BotSecrets,
+  credentials: Credentials | Provider<Credentials>,
   logger: Logger,
 ): { webhooks: Webhooks; onAllDone: () => Promise<void> } => {
   const webhooks = new Webhooks({
@@ -182,7 +184,7 @@ export const createWebhooks = (
 
       // eslint-disable-next-line no-restricted-syntax
       for await (const run of runs) {
-        await processRun(run, octokit, env, payload, logger, botInstallationId).catch((e) => {
+        await processRun(run, octokit, env, payload, botInstallationId, credentials, logger).catch((e) => {
           logger.error(`Error while running ${run.args}`, e);
         });
       }
