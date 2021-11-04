@@ -28,7 +28,7 @@ export const generalEntrySchema = z.object({
   commentIssueNumber: z.number(),
   commentId: z.number(),
   namespace: z.string(),
-  botInstallationId: z.string(),
+  botInstallationId: z.number(),
 });
 export type GeneralEntry = z.infer<typeof generalEntrySchema>;
 

@@ -53,7 +53,7 @@ const processRun = async (
   env: ComputedBotEnv,
   payload: IssueCommentEvent,
   logger: Logger,
-  botInstallationId: string,
+  botInstallationId: number,
 ) => {
   logger.info('Trying to run', run.args);
   const [cmdName, ...args] = run.args;
@@ -175,7 +175,7 @@ export const createWebhooks = (
       if (!['LumaKernel', 'solufa', 'maihrs55', 'shuheiest', 'naoya502'].includes(payload.comment.user.login)) return;
       logger.info('Authentication success.');
 
-      const botInstallationId = z.string().parse(payload.installation?.id);
+      const botInstallationId = z.number().parse(payload.installation?.id);
       const octokit = await createOctokit(env, secrets, botInstallationId);
       const runs = parseComment(payload.comment.body, botPrefix);
       logger.info(`${runs.length} runs detected.`);

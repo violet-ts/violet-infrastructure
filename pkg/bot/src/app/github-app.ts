@@ -5,7 +5,7 @@ import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot-env';
 export const createOctokit = async (
   _env: ComputedBotEnv,
   secrets: BotSecrets,
-  installationId: string,
+  installationId: number,
 ): Promise<Octokit> => {
   const octokit = new Octokit({
     authStrategy: createAppAuth,
