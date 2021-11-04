@@ -7,14 +7,14 @@ import { PassThrough } from 'stream';
 import { ECS } from '@aws-sdk/client-ecs';
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
-import { getLambdaCredentials } from '@self/bot/src/app/aws';
+import { getCodeBuildCredentials } from '@self/bot/src/app/aws';
 import { z } from 'zod';
 import { scriptOpEnvSchema, computedOpEnvSchema } from '../lib/operate-env/op-env';
 
 const main = async (): Promise<void> => {
   initEnv();
 
-  const credentials = getLambdaCredentials();
+  const credentials = getCodeBuildCredentials();
   // TODO(logging): logger
   // const logger
 
