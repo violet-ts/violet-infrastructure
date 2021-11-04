@@ -25,7 +25,6 @@ export const scanOne = async (
   }
   logger.debug('item', item);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const unmarshalled: unknown = unmarshall(item as any);
+  const unmarshalled: unknown = unmarshall(item);
   return unmarshalled;
 };
