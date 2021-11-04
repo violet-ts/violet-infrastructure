@@ -44,12 +44,14 @@ export class Bot extends Resource {
   readonly builds = Object.entries({
     ApiBuild: this.parent.apiBuild,
     WebBuild: this.parent.webBuild,
+    LambdaBuild: this.parent.lambdaBuild,
     OperateEnv: this.parent.operateEnv,
   });
 
   readonly repos = Object.entries({
     Api: this.parent.apiBuild.options.repo,
     Web: this.parent.webBuild.options.repo,
+    Lambda: this.parent.lambdaBuild.options.repo,
   });
 
   readonly accessLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'accessLogGroup', {
@@ -239,8 +241,10 @@ export class Bot extends Resource {
     BOT_TABLE_NAME: this.options.table.name,
     API_REPO_NAME: this.parent.apiDevRepo.name,
     WEB_REPO_NAME: this.parent.webDevRepo.name,
+    LAMBDA_REPO_NAME: this.parent.lambdaDevRepo.name,
     API_BUILD_PROJECT_NAME: this.parent.apiBuild.build.name,
     WEB_BUILD_PROJECT_NAME: this.parent.webBuild.build.name,
+    LAMBDA_BUILD_PROJECT_NAME: this.parent.lambdaBuild.build.name,
     OPERATE_ENV_PROJECT_NAME: this.parent.operateEnv.build.name,
   };
 
