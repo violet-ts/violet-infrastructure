@@ -105,7 +105,7 @@ const handler: Handler = async (event: unknown, context) => {
   }
 
   await octokit.issues.updateComment({
-    owner: newEntry.callerName,
+    owner: newEntry.commentOwner,
     repo: newEntry.commentRepo,
     comment_id: newEntry.commentId,
     body: full,
