@@ -124,8 +124,6 @@ export class VioletManagerStack extends TerraformStack {
   readonly apiDevRepo = new ECR.EcrRepository(this, 'apiDevRepo', {
     name: `violet-api-dev-${this.suffix.result}`,
     imageTagMutability: 'MUTABLE',
-    // TODO(security): for production
-    // imageScanningConfiguration,
     tagsAll: {
       ...genTags(null, 'development'),
     },
@@ -144,8 +142,24 @@ export class VioletManagerStack extends TerraformStack {
   readonly webDevRepo = new ECR.EcrRepository(this, 'webDevRepo', {
     name: `violet-web-dev-${this.suffix.result}`,
     imageTagMutability: 'MUTABLE',
+    tagsAll: {
+      ...genTags(null, 'development'),
+    },
+  });
+
+  readonly lambdaProdRepo = new ECR.EcrRepository(this, 'lambdaProdRepo', {
+    name: `violet-lam-prod-${this.suffix.result}`,
+    imageTagMutability: 'IMMUTABLE',
     // TODO(security): for production
     // imageScanningConfiguration,
+    tagsAll: {
+      ...genTags(null, 'production'),
+    },
+  });
+
+  readonly lambdaDevRepo = new ECR.EcrRepository(this, 'lambdaDevRepo', {
+    name: `violet-lam-dev-${this.suffix.result}`,
+    imageTagMutability: 'MUTABLE',
     tagsAll: {
       ...genTags(null, 'development'),
     },
@@ -167,6 +181,16 @@ export class VioletManagerStack extends TerraformStack {
     prefix: 'violet-dev-web-build',
     logsPrefix: `${this.logsPrefix}/dev-web-build`,
     repo: this.webDevRepo,
+
+    tagsAll: {
+      ...genTags(null, 'development'),
+    },
+  });
+
+  readonly lambdaBuild = new ContainerBuild(this, 'lambdaBuild', {
+    prefix: 'violet-dev-lam-build',
+    logsPrefix: `${this.logsPrefix}/dev-lam-build`,
+    repo: this.lambdaDevRepo,
 
     tagsAll: {
       ...genTags(null, 'development'),
