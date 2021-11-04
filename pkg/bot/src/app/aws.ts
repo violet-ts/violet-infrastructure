@@ -1,4 +1,4 @@
-import { fromIni, fromEnv } from '@aws-sdk/credential-providers';
+import { fromIni, fromEnv, fromInstanceMetadata } from '@aws-sdk/credential-providers';
 import type { Credentials, Provider } from '@aws-sdk/types';
 
 export const getLambdaCredentials = (): Credentials | Provider<Credentials> => {
@@ -14,5 +14,5 @@ export const getCodeBuildCredentials = (): Credentials | Provider<Credentials> =
   if (AWS_PROFILE) {
     return fromIni({ profile: AWS_PROFILE });
   }
-  return fromEnv();
+  return fromInstanceMetadata();
 };
