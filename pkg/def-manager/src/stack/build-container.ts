@@ -82,12 +82,12 @@ export class ContainerBuild extends Resource {
     },
   });
 
-  readonly dockerHubPolicyAttach =
+  readonly dockerHubPolicy =
     this.parent.dockerHubCredentials &&
-    new IAM.IamPolicyAttachment(this, 'dockerHubPolicyAttach', {
-      name: `${this.options.prefix}-${this.suffix.result}`,
-      policyArn: this.parent.dockerHubCredentials.policy.arn,
-      roles: [this.role.id],
+    new IAM.IamRolePolicy(this, 'dockerHubPolicy', {
+      namePrefix: `${this.options.prefix}-dcred`,
+      policy: this.parent.dockerHubCredentials.policyDocument.json,
+      role: this.role.id,
     });
 
   readonly buildLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'buildLogGroup', {
