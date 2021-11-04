@@ -198,7 +198,8 @@ const main = async (): Promise<void> => {
 
   switch (scriptOpEnv.OPERATION) {
     case 'deploy': {
-      await operate('apply', ['--auto-approve'], 2, 3);
+      // NOTE: 削除含む apply で一発では正常に apply できない事がある
+      await operate('apply', ['--auto-approve'], 1, 2);
       const tfBuildOutput = await getTfBuildOutput();
       await updateTable<TfBuildOutput>({
         tfBuildOutput,
