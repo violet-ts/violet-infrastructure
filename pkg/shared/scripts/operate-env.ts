@@ -139,7 +139,7 @@ const main = async (): Promise<void> => {
           containerOverrides: [
             {
               name: 'api',
-              command: ['pnpm', '--dir=./packages/api', 'exec', 'prisma', ...prismaArgs],
+              command: ['pnpm', '--dir=./pkg/api', 'exec', 'prisma', ...prismaArgs],
               cpu: 256,
               memory: 512,
             },
