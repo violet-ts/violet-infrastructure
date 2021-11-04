@@ -1,4 +1,4 @@
-import { CodeBuild } from 'aws-sdk';
+import { CodeBuild } from '@aws-sdk/client-codebuild';
 import type { Temporal } from '@js-temporal/polyfill';
 import { toTemporalInstant } from '@js-temporal/polyfill';
 import { z } from 'zod';
@@ -65,24 +65,23 @@ const createCmd = (
     entrySchema,
     async main(ctx, _args) {
       const { number: prNumber } = ctx.commentPayload.issue;
-      const codeBuild = new CodeBuild();
+      const { credentials, logger } = ctx;
+      const codeBuild = new CodeBuild({ credentials, logger });
       const imageTag = ctx.namespace;
       const params = paramsGetter(ctx.env, ctx.namespace);
-      const r = await codeBuild
-        .startBuild({
-          projectName: params.projectName,
-          environmentVariablesOverride: [
-            ...dynamicBuildCodeBuildEnv({
-              GIT_URL: ctx.commentPayload.repository.clone_url,
-              GIT_FETCH: `refs/pull/${prNumber}/head`,
-              IMAGE_REPO_NAME: params.imageRepoName,
-              IMAGE_TAG: imageTag,
-              BUILD_DOCKERFILE: params.buildDockerfile,
-              DOCKER_BUILD_ARGS: params.dockerBuildArgs,
-            }),
-          ],
-        })
-        .promise();
+      const r = await codeBuild.startBuild({
+        projectName: params.projectName,
+        environmentVariablesOverride: [
+          ...dynamicBuildCodeBuildEnv({
+            GIT_URL: ctx.commentPayload.repository.clone_url,
+            GIT_FETCH: `refs/pull/${prNumber}/head`,
+            IMAGE_REPO_NAME: params.imageRepoName,
+            IMAGE_TAG: imageTag,
+            BUILD_DOCKERFILE: params.buildDockerfile,
+            DOCKER_BUILD_ARGS: params.dockerBuildArgs,
+          }),
+        ],
+      });
 
       const { build } = r;
       if (build == null) throw new TypeError('Response not found for CodeBuild.startBuild');
@@ -147,12 +146,11 @@ const createCmd = (
       };
     },
     async update(entry, ctx) {
-      const codeBuild = new CodeBuild();
-      const r = await codeBuild
-        .batchGetBuilds({
-          ids: [entry.buildId],
-        })
-        .promise();
+      const { credentials, logger } = ctx;
+      const codeBuild = new CodeBuild({ credentials, logger });
+      const r = await codeBuild.batchGetBuilds({
+        ids: [entry.buildId],
+      });
       const { builds } = r;
       ctx.logger.info('builds', { builds });
       if (builds == null) throw new TypeError('builds not found');
@@ -171,7 +169,7 @@ const createCmd = (
         if (logs == null) return null;
         if (logs.groupName == null) return null;
         if (logs.streamName == null) return null;
-        const output = await collectLogsOutput(logs.groupName, [logs.streamName]);
+        const output = await collectLogsOutput(logs.groupName, [logs.streamName], credentials, logger);
         const timeRange = renderDuration(
           toTemporalInstant.call(firstStartTime).until(toTemporalInstant.call(lastEndTime ?? lastStartTime)),
         );
@@ -189,11 +187,15 @@ const createCmd = (
       ctx.logger.info('Built info.', { builtInfo });
       const imageDetail =
         builtInfo &&
-        (await getImageDetailByTag({
-          imageRegion,
-          ...entry,
-          ...builtInfo,
-        }));
+        (await getImageDetailByTag(
+          {
+            imageRegion,
+            ...entry,
+            ...builtInfo,
+          },
+          credentials,
+          logger,
+        ));
 
       const values: CommentValues = {
         buildStatus: last.buildStatus,

@@ -2,11 +2,13 @@ import type { Octokit } from '@octokit/rest';
 import type { IssueCommentEvent } from '@octokit/webhooks-types';
 import type { Logger } from 'winston';
 import { z } from 'zod';
+import type { Credentials, Provider } from '@aws-sdk/types';
 import type { ComputedBotEnv } from '@self/shared/lib/bot-env';
 
 export type BasicContext = {
   octokit: Octokit;
   env: ComputedBotEnv;
+  credentials: Credentials | Provider<Credentials>;
   logger: Logger;
 };
 

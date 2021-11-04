@@ -1,12 +1,10 @@
-import { config, SharedIniFileCredentials, RemoteCredentials } from 'aws-sdk';
+import { fromIni, fromInstanceMetadata } from '@aws-sdk/credential-providers';
+import type { Credentials, Provider } from '@aws-sdk/types';
 
-export const configureAws = (): void => {
+export const getLambdaCredentials = (): Credentials | Provider<Credentials> => {
   const { AWS_PROFILE } = process.env;
-  // TODO(hardcoded)
-  config.region = 'ap-northeast-1';
-  if (typeof AWS_PROFILE === 'string') {
-    config.credentials = new SharedIniFileCredentials({ profile: AWS_PROFILE });
-  } else {
-    config.credentials = new RemoteCredentials();
+  if (AWS_PROFILE) {
+    return fromIni({ profile: AWS_PROFILE });
   }
+  return fromInstanceMetadata();
 };

@@ -6,7 +6,7 @@ import 'source-map-support/register';
 
 import type { Handler } from 'aws-lambda';
 import { toTemporalInstant } from '@js-temporal/polyfill';
-import { DynamoDB } from 'aws-sdk';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { cmds } from '@self/bot/src/app/cmds';
 import { createOctokit } from '@self/bot/src/app/github-app';
 import { matchers } from '@self/bot/src/app/matchers';
@@ -17,13 +17,17 @@ import { computedBotEnvSchema } from '@self/shared/lib/bot-env';
 import { createLambdaLogger } from '@self/bot/src/util/loggers';
 import { requireSecrets } from '@self/bot/src/app/secrets';
 import { generalEntrySchema } from '@self/bot/src/type/cmd';
+import { getLambdaCredentials } from '../../app/aws';
 
 const handler: Handler = async (event: unknown, context) => {
   const env = computedBotEnvSchema.parse(process.env);
+
+  const credentials = getLambdaCredentials();
   const logger = createLambdaLogger('on-any');
 
   const handlerCtx: MatcherBasicContext = {
     env,
+    credentials,
     logger,
   };
 
@@ -46,7 +50,7 @@ const handler: Handler = async (event: unknown, context) => {
     return;
   }
 
-  const secrets = await requireSecrets(env);
+  const secrets = await requireSecrets(env, credentials, logger);
   const octokit = await createOctokit(env, secrets, oldEntry.botInstallationId);
 
   logger.info('Entry found.', { oldEntry });
@@ -64,6 +68,7 @@ const handler: Handler = async (event: unknown, context) => {
   const cmdCtx: CommandBasicContext = {
     octokit,
     env,
+    credentials,
     logger,
   };
 
@@ -88,17 +93,15 @@ const handler: Handler = async (event: unknown, context) => {
   const full = constructFullComment(cmd, newEntry, values, cmdCtx);
 
   if (status !== 'undone') {
-    const db = new DynamoDB();
-    await db
-      .deleteItem({
-        TableName: env.BOT_TABLE_NAME,
-        Key: {
-          uuid: {
-            S: newEntry.uuid,
-          },
+    const db = new DynamoDB({ credentials });
+    await db.deleteItem({
+      TableName: env.BOT_TABLE_NAME,
+      Key: {
+        uuid: {
+          S: newEntry.uuid,
         },
-      })
-      .promise();
+      },
+    });
   }
 
   await octokit.issues.updateComment({

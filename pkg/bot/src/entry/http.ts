@@ -5,7 +5,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { computedBotEnvSchema } from '@self/shared/lib/bot-env';
 import { createWebhooks } from '../app/webhooks';
-import { configureAws } from '../app/aws';
+import { getLambdaCredentials } from '../app/aws';
 import { requireSecrets } from '../app/secrets';
 
 const main = async () => {
@@ -14,7 +14,7 @@ const main = async () => {
   const port = Number.parseInt(process.env.PORT || '8000', 10);
   const env = computedBotEnvSchema.parse(process.env);
 
-  configureAws();
+  const credentials = getLambdaCredentials();
 
   const logger = winston.createLogger({
     level: process.env.LOG_LEVEL ?? 'info',
@@ -28,8 +28,8 @@ const main = async () => {
     }),
   );
 
-  const secrets = await requireSecrets(env);
-  const { webhooks } = createWebhooks(env, secrets, logger);
+  const secrets = await requireSecrets(env, credentials, logger);
+  const { webhooks } = createWebhooks(env, secrets, credentials, logger);
 
   // eslint-disable-next-line no-console
   console.log(`Listening on :${port}`);

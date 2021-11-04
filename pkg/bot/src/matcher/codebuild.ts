@@ -39,6 +39,7 @@ const handler: CallbackMatcher = {
         FilterExpression: 'buildArn = :arn',
         ExpressionAttributeValues: { ':arn': { S: message.detail['build-id'] } },
       },
+      ctx.credentials,
       ctx.logger,
     );
   },
