@@ -1,11 +1,8 @@
 import type { ECR } from '@cdktf/provider-aws';
-import { ECS, ELB, Route53, IAM, VPC, CloudWatch } from '@cdktf/provider-aws';
+import { CloudWatch, ECS, ELB, IAM, Route53, VPC } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import * as z from 'zod';
-import type { RangedString26 } from '@self/shared/lib/ranged-string/util';
-import { len32 } from '@self/shared/lib/ranged-string/util';
-import { assertInRange, assertRangedString, concat } from '@self/shared/lib/ranged-string';
+import { z } from 'zod';
 import type { VioletEnvStack } from '.';
 
 export interface HTTPTaskOptions {
@@ -13,7 +10,8 @@ export interface HTTPTaskOptions {
    * シンプルな短い名前
    */
   name: string;
-  prefix: RangedString26;
+  // len <= 26
+  prefix: string;
   /**
    * Random fixed number.
    * https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#VPC_Sizing
@@ -43,7 +41,7 @@ export class HTTPTask extends Resource {
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb
   readonly alb = new ELB.Alb(this, 'alb', {
-    name: assertInRange(this.options.prefix, len32),
+    name: this.options.prefix,
     internal: false,
     loadBalancerType: 'application',
     securityGroups: [this.parent.network.lbSg.id],
@@ -152,7 +150,8 @@ export class HTTPTask extends Resource {
   });
 
   readonly executionRole = new IAM.IamRole(this, 'executionRole', {
-    name: assertInRange(concat(this.options.prefix, assertRangedString('-exec')), len32),
+    // len = 26 + 5 = 31
+    name: `${this.options.prefix}-exec`,
     assumeRolePolicy: this.executionRoleAssumeDocument.json,
     tagsAll: {
       ...this.options.tagsAll,
@@ -183,7 +182,8 @@ export class HTTPTask extends Resource {
   });
 
   readonly executionPolicy = new IAM.IamRolePolicy(this, 'executionPolicy', {
-    name: assertInRange(concat(this.options.prefix, assertRangedString('-exec')), len32),
+    // len = 26 + 5 = 31
+    name: `${this.options.prefix}-exec`,
     role: z.string().parse(this.executionRole.name),
     policy: this.executionPolicyDocument.json,
   });
@@ -205,7 +205,8 @@ export class HTTPTask extends Resource {
   });
 
   readonly taskRole = new IAM.IamRole(this, 'taskRole', {
-    name: assertInRange(concat(this.options.prefix, assertRangedString('-task')), len32),
+    // len = 26 + 5 = 31
+    name: `${this.options.prefix}-task`,
     assumeRolePolicy: this.taskRoleAssumeDocument.json,
     tagsAll: {
       ...this.options.tagsAll,
@@ -213,7 +214,7 @@ export class HTTPTask extends Resource {
   });
 
   readonly logGroup = new CloudWatch.CloudwatchLogGroup(this, 'logGroup', {
-    name: assertInRange(this.options.prefix, len32),
+    name: this.options.prefix,
     // TODO(service): longer for prod
     retentionInDays: 7,
     tagsAll: {
@@ -233,7 +234,8 @@ export class HTTPTask extends Resource {
   });
 
   readonly taskPolicy = new IAM.IamRolePolicy(this, 'taskPolicy', {
-    name: assertInRange(concat(this.options.prefix, assertRangedString('-task')), len32),
+    // len = 26 + 5 = 31
+    name: `${this.options.prefix}-task`,
     role: z.string().parse(this.taskRole.name),
     policy: this.taskPolicyDocument.json,
   });
@@ -290,7 +292,7 @@ export class HTTPTask extends Resource {
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_Service.html
   readonly service = new ECS.EcsService(this, 'service', {
-    name: assertInRange(this.options.prefix, len32),
+    name: this.options.prefix,
     propagateTags: 'SERVICE',
     networkConfiguration: {
       subnets: this.parent.network.publicSubnets.map((subnet) => subnet.id),

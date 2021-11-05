@@ -34,15 +34,16 @@ phases:
       - echo "INFRA_GIT_URL=$INFRA_GIT_URL"
       - echo "INFRA_GIT_FETCH=$INFRA_GIT_FETCH"
       - echo "INFRA_TRUSTED_MERGER_GITHUB_EMAILS=$INFRA_TRUSTED_MERGER_GITHUB_EMAILS"
+      - echo "RUN_SCRIPT_NAME=$RUN_SCRIPT_NAME"
       - echo ==== info ====
       - pwd
       - whoami
       - echo ==== finished ====
   pre_build:
     commands:
-      - echo ==== git clone main repository ====
-      - mkdir main || true
-      - cd main
+      - echo ==== git clone infra repository ====
+      - mkdir infra || true
+      - cd infra
       - git init || true
       - git reset --hard HEAD || true
       - git clean -xdf || true
@@ -89,15 +90,10 @@ phases:
   build:
     commands:
       - echo ==== terraform operation ====
-      - pnpm exec ts-node -T ./pkg/shared/scripts/operate-env.ts
-      - echo ==== finished ====
-  post_build:
-    commands:
-      - echo ==== output ====
-      - echo "!output=rev=$(git rev-parse HEAD)"
+      - pnpm exec ts-node -T "./pkg/shared/scripts/$RUN_SCRIPT_NAME"
       - echo ==== finished ====
 
 cache:
   paths:
-    - "main/.git/**/*"
+    - "infra/.git/**/*"
     - "/root/.pnpm-store/**/*"

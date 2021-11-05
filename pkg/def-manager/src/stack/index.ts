@@ -1,12 +1,14 @@
 import { AwsProvider, DynamoDB, ECR, ResourceGroups, Route53 } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
-import { TerraformOutput, TerraformStack, TerraformHclModule } from 'cdktf';
-import type { Construct } from 'constructs';
 import { PROJECT_NAME } from '@self/shared/lib/const';
 import type { DockerHubCred, ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
+import { TerraformHclModule, TerraformOutput, TerraformStack } from 'cdktf';
+import type { Construct } from 'constructs';
+import type { BuildDictContext, RepoDictContext } from './bot';
 import { Bot } from './bot';
 import { ContainerBuild } from './build-container';
+import { createDictContext } from './context/dict';
 import { DockerHubCredentials } from './dockerhub-credentials';
 import { OperateEnv } from './operate-env';
 import { genTags } from './values';
@@ -46,6 +48,10 @@ export class VioletManagerStack extends TerraformStack {
     upper: false,
     special: false,
   });
+
+  readonly buildDictContext: BuildDictContext = createDictContext();
+
+  readonly repoDictContext: RepoDictContext = createDictContext();
 
   readonly logsPrefix = `/violet/${this.suffix.result}`;
 
@@ -121,13 +127,16 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly apiDevRepo = new ECR.EcrRepository(this, 'apiDevRepo', {
-    name: `violet-api-dev-${this.suffix.result}`,
-    imageTagMutability: 'MUTABLE',
-    tagsAll: {
-      ...genTags(null, 'development'),
-    },
-  });
+  readonly apiDevRepo = this.repoDictContext.add(
+    'Api',
+    new ECR.EcrRepository(this, 'apiDevRepo', {
+      name: `violet-api-dev-${this.suffix.result}`,
+      imageTagMutability: 'MUTABLE',
+      tagsAll: {
+        ...genTags(null, 'development'),
+      },
+    }),
+  );
 
   readonly webProdRepo = new ECR.EcrRepository(this, 'webProdRepo', {
     name: `violet-web-prod-${this.suffix.result}`,
@@ -139,13 +148,16 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly webDevRepo = new ECR.EcrRepository(this, 'webDevRepo', {
-    name: `violet-web-dev-${this.suffix.result}`,
-    imageTagMutability: 'MUTABLE',
-    tagsAll: {
-      ...genTags(null, 'development'),
-    },
-  });
+  readonly webDevRepo = this.repoDictContext.add(
+    'Web',
+    new ECR.EcrRepository(this, 'webDevRepo', {
+      name: `violet-web-dev-${this.suffix.result}`,
+      imageTagMutability: 'MUTABLE',
+      tagsAll: {
+        ...genTags(null, 'development'),
+      },
+    }),
+  );
 
   readonly lambdaProdRepo = new ECR.EcrRepository(this, 'lambdaProdRepo', {
     name: `violet-lam-prod-${this.suffix.result}`,
@@ -157,20 +169,28 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly lambdaDevRepo = new ECR.EcrRepository(this, 'lambdaDevRepo', {
-    name: `violet-lam-dev-${this.suffix.result}`,
-    imageTagMutability: 'MUTABLE',
-    tagsAll: {
-      ...genTags(null, 'development'),
-    },
-  });
+  readonly lambdaDevRepo = this.repoDictContext.add(
+    'Lam',
+    new ECR.EcrRepository(this, 'lambdaDevRepo', {
+      name: `violet-lam-dev-${this.suffix.result}`,
+      imageTagMutability: 'MUTABLE',
+      tagsAll: {
+        ...genTags(null, 'development'),
+      },
+    }),
+  );
 
   // ===
 
   readonly apiBuild = new ContainerBuild(this, 'apiBuild', {
+    name: 'Api',
     prefix: 'violet-dev-api-build',
+    sharedEnv: this.options.sharedEnv,
+    managerEnv: this.options.managerEnv,
     logsPrefix: `${this.logsPrefix}/dev-api-build`,
     repo: this.apiDevRepo,
+
+    buildDictContext: this.buildDictContext,
 
     tagsAll: {
       ...genTags(null, 'development'),
@@ -178,9 +198,14 @@ export class VioletManagerStack extends TerraformStack {
   });
 
   readonly webBuild = new ContainerBuild(this, 'webBuild', {
+    name: 'Web',
     prefix: 'violet-dev-web-build',
+    sharedEnv: this.options.sharedEnv,
+    managerEnv: this.options.managerEnv,
     logsPrefix: `${this.logsPrefix}/dev-web-build`,
     repo: this.webDevRepo,
+
+    buildDictContext: this.buildDictContext,
 
     tagsAll: {
       ...genTags(null, 'development'),
@@ -188,9 +213,14 @@ export class VioletManagerStack extends TerraformStack {
   });
 
   readonly lambdaBuild = new ContainerBuild(this, 'lambdaBuild', {
+    name: 'Lam',
+    sharedEnv: this.options.sharedEnv,
+    managerEnv: this.options.managerEnv,
     prefix: 'violet-dev-lam-build',
     logsPrefix: `${this.logsPrefix}/dev-lam-build`,
     repo: this.lambdaDevRepo,
+
+    buildDictContext: this.buildDictContext,
 
     tagsAll: {
       ...genTags(null, 'development'),
@@ -215,9 +245,15 @@ export class VioletManagerStack extends TerraformStack {
   });
 
   readonly operateEnv = new OperateEnv(this, 'operateEnv', {
-    prefix: 'violet-dev-openv',
+    prefix: 'vio-d-ope',
     logsPrefix: `${this.logsPrefix}/dev-openv`,
     botTable: this.botTable,
+    sharedEnv: this.options.sharedEnv,
+    managerEnv: this.options.managerEnv,
+    apiDevRepo: this.apiDevRepo,
+    webDevRepo: this.webDevRepo,
+
+    buildDictContext: this.buildDictContext,
 
     tagsAll: {
       ...genTags(null, 'development'),
@@ -229,6 +265,10 @@ export class VioletManagerStack extends TerraformStack {
     ssmPrefix: `${this.ssmPrefix}/bot`,
     logsPrefix: `${this.logsPrefix}/bot`,
     table: this.botTable,
+
+    buildDictContext: this.buildDictContext,
+    repoDictContext: this.repoDictContext,
+    previewZone: this.previewZone,
 
     tagsAll: {
       ...genTags(null),

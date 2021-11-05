@@ -1,13 +1,19 @@
 import * as path from 'path';
+import type { ECR, Route53 } from '@cdktf/provider-aws';
 import { SSM, APIGatewayV2, DynamoDB, IAM, LambdaFunction, S3, SNS, CloudWatch } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
-import * as z from 'zod';
+import { z } from 'zod';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
-import type { ComputedBotEnv } from '@self/shared/lib/bot-env';
-import type { VioletManagerStack } from '.';
+import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
+import type { Construct } from 'constructs';
 import { botBuildDir, botEnv } from './values';
+import type { DictContext } from './context/dict';
+import type { CodeBuildStack } from './codebuild-stack';
+
+export type BuildDictContext = DictContext<CodeBuildStack>;
+export type RepoDictContext = DictContext<ECR.EcrRepository>;
 
 export interface BotApiOptions {
   ssmPrefix: string;
@@ -15,10 +21,15 @@ export interface BotApiOptions {
   prefix: string;
   logsPrefix: string;
   table: DynamoDB.DynamodbTable;
+
+  buildDictContext: BuildDictContext;
+  repoDictContext: RepoDictContext;
+
+  previewZone: Route53.DataAwsRoute53Zone;
 }
 export class Bot extends Resource {
-  constructor(public parent: VioletManagerStack, name: string, public options: BotApiOptions, config?: ResourceConfig) {
-    super(parent, name, config);
+  constructor(scope: Construct, name: string, public options: BotApiOptions, config?: ResourceConfig) {
+    super(scope, name, config);
   }
 
   private readonly suffix = new RandomString(this, 'suffix', {
@@ -40,19 +51,6 @@ export class Bot extends Resource {
         },
       }),
   );
-
-  readonly builds = Object.entries({
-    ApiBuild: this.parent.apiBuild,
-    WebBuild: this.parent.webBuild,
-    LambdaBuild: this.parent.lambdaBuild,
-    OperateEnv: this.parent.operateEnv,
-  });
-
-  readonly repos = Object.entries({
-    Api: this.parent.apiBuild.options.repo,
-    Web: this.parent.webBuild.options.repo,
-    Lambda: this.parent.lambdaBuild.options.repo,
-  });
 
   readonly accessLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'accessLogGroup', {
     name: `${this.options.logsPrefix}/access`,
@@ -121,7 +119,7 @@ export class Bot extends Resource {
       },
       {
         effect: 'Allow',
-        resources: this.builds.map(([_name, build]) => build.build.arn),
+        resources: this.options.buildDictContext.getAll().map(([_name, build]) => build.build.arn),
         actions: ['codebuild:ListBuildsForProject', 'codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
       },
       {
@@ -155,12 +153,12 @@ export class Bot extends Resource {
           'ecr:ListImages',
           'ecr:ListTagsForResource',
         ],
-        resources: this.repos.map(([_name, repo]) => repo.arn),
+        resources: this.options.repoDictContext.getAll().map(([_name, repo]) => repo.arn),
       },
       {
         effect: 'Allow',
         actions: ['logs:FilterLogEvents'],
-        resources: this.builds.map(([_name, build]) => `${build.buildLogGroup.arn}:*`),
+        resources: this.options.buildDictContext.getAll().map(([_name, build]) => `${build.buildLogGroup.arn}:*`),
       },
       // TODO(security): restrict
       {
@@ -236,16 +234,18 @@ export class Bot extends Resource {
   });
 
   readonly computedBotEnv: ComputedBotEnv = {
-    PREVIEW_DOMAIN: z.string().parse(this.parent.previewZone.name),
+    PREVIEW_DOMAIN: z.string().parse(this.options.previewZone.name),
     SSM_PREFIX: this.options.ssmPrefix,
     BOT_TABLE_NAME: this.options.table.name,
-    API_REPO_NAME: this.parent.apiDevRepo.name,
-    WEB_REPO_NAME: this.parent.webDevRepo.name,
-    LAMBDA_REPO_NAME: this.parent.lambdaDevRepo.name,
-    API_BUILD_PROJECT_NAME: this.parent.apiBuild.build.name,
-    WEB_BUILD_PROJECT_NAME: this.parent.webBuild.build.name,
-    LAMBDA_BUILD_PROJECT_NAME: this.parent.lambdaBuild.build.name,
-    OPERATE_ENV_PROJECT_NAME: this.parent.operateEnv.build.name,
+
+    API_REPO_NAME: this.options.repoDictContext.get('Api').name,
+    WEB_REPO_NAME: this.options.repoDictContext.get('Web').name,
+    LAMBDA_REPO_NAME: this.options.repoDictContext.get('Lam').name,
+
+    API_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Api').build.name,
+    WEB_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Web').build.name,
+    LAMBDA_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Lam').build.name,
+    OPERATE_ENV_PROJECT_NAME: this.options.buildDictContext.get('Ope').build.name,
   };
 
   // Main Lambda function triggered by GitHub webhooks
@@ -296,18 +296,18 @@ export class Bot extends Resource {
     sourceArn: `${this.api.executionArn}/*/*/*`,
   });
 
-  readonly allowExecutionFromBuild = this.builds.map(
-    ([name, build]) =>
+  readonly allowExecutionFromBuild = this.options.buildDictContext.getAll().map(
+    ([name, porject]) =>
       new LambdaFunction.LambdaPermission(this, `allowExecutionFromBuild-${name}`, {
         statementId: `AllowExecutionFrom${name}`,
         action: 'lambda:InvokeFunction',
         functionName: this.onAnyFunction.functionName,
         principal: 'sns.amazonaws.com',
-        sourceArn: build.topic.arn,
+        sourceArn: porject.topic.arn,
       }),
   );
 
-  readonly subscription = this.builds.map(
+  readonly subscription = this.options.buildDictContext.getAll().map(
     ([name, build]) =>
       new SNS.SnsTopicSubscription(this, `subscription-${name}`, {
         topicArn: build.topic.arn,

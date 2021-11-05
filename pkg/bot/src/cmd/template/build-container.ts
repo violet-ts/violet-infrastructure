@@ -10,7 +10,7 @@ import { hintHowToPullDocker } from '@self/bot/src/util/hint';
 import { collectLogsOutput } from '@self/bot/src/util/aws/logs-output';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
 import { renderGitHubPRCommit } from '@self/bot/src/util/comment-render/github';
-import type { ComputedBotEnv } from '@self/shared/lib/bot-env';
+import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
 
 // TODO(hardcoded)
 const imageRegion = 'ap-northeast-1';

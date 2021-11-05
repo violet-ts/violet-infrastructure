@@ -4,17 +4,17 @@ import { marshall } from '@aws-sdk/util-dynamodb';
 import { Temporal, toTemporalInstant } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
 import { Webhooks } from '@octokit/webhooks';
-import type { IssueCommentEvent } from '@octokit/webhooks-types';
-import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot-env';
+import type { IssueCommentEvent, PullRequestOpenedEvent, WorkflowRunRequestedEvent } from '@octokit/webhooks-types';
+import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot/env';
 import { v4 as uuidv4 } from 'uuid';
 import type { Logger } from 'winston';
 import { z } from 'zod';
+import { createOctokit } from '@self/shared/lib/bot/octokit';
 import type { BasicContext, CommandContext, GeneralEntry, ReplyCmd } from '../type/cmd';
 import { renderCommentBody, renderTimestamp } from '../util/comment-render';
 import type { Command } from '../util/parse-comment';
 import { embedDirective, parseComment } from '../util/parse-comment';
 import { cmds } from './cmds';
-import { createOctokit } from './github-app';
 
 // TODO(hardcoded)
 const botPrefix = '/';
@@ -167,10 +167,39 @@ export const createWebhooks = (
     logger.debug('event received', all);
   });
 
-  webhooks.on('issue_comment', ({ payload }) => {
+  // TODO
+  // webhooks.on('workflow_run.completed', ({ payload }) => {
+  // });
+
+  // TODO
+  const onNewPRCommit = async (_payload: PullRequestOpenedEvent | WorkflowRunRequestedEvent) => {
+    // payload.
+  };
+
+  webhooks.on('pull_request.opened', ({ payload }) => {
     const inner = async () => {
-      logger.info('Event issue_comment received.');
-      if (payload.action !== 'created') return;
+      await onNewPRCommit(payload);
+    };
+    add(
+      inner().catch((e) => {
+        logger.error(`Error while running issue_comment reciever`, e);
+      }),
+    );
+  });
+  webhooks.on('workflow_run.requested', ({ payload }) => {
+    const inner = async () => {
+      await onNewPRCommit(payload);
+    };
+    add(
+      inner().catch((e) => {
+        logger.error(`Error while running issue_comment reciever`, e);
+      }),
+    );
+  });
+
+  webhooks.on('issue_comment.created', ({ payload }) => {
+    const inner = async () => {
+      logger.info('Event issue_comment.created received.');
       logger.info('comment created', payload.comment.user);
       if (payload.comment.user.type !== 'User') return;
       // TODO(hardcoded)
@@ -178,7 +207,7 @@ export const createWebhooks = (
       logger.info('Authentication success.');
 
       const botInstallationId = z.number().parse(payload.installation?.id);
-      const octokit = await createOctokit(env, secrets, botInstallationId);
+      const octokit = await createOctokit(secrets, botInstallationId);
       const runs = parseComment(payload.comment.body, botPrefix);
       logger.info(`${runs.length} runs detected.`);
 

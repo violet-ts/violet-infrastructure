@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv';
 import { PROJECT_NAME } from '@self/shared/lib/const';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import type { Section } from '@self/shared/lib/def/types';
-import { botSecretsSchema } from '@self/shared/lib/bot-env';
+import { botSecretsSchema } from '@self/shared/lib/bot/env';
 
 export const genTags = (name: string | null, section?: Section | null): Record<string, string> => {
   const tags: Record<string, string> = {

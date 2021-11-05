@@ -6,7 +6,7 @@ import { cmds } from '@self/bot/src/app/cmds';
 import { constructFullComment } from '@self/bot/src/app/webhooks';
 import type { BasicContext as CommandBasicContext, CmdStatus } from '@self/bot/src/type/cmd';
 import { generalEntrySchema } from '@self/bot/src/type/cmd';
-import type { ComputedBotEnv } from '@self/shared/lib/bot-env';
+import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
 import type { Logger } from 'winston';
 import type { GeneralEntry } from '../type/cmd';
 

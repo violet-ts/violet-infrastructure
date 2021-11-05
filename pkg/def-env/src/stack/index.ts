@@ -8,10 +8,10 @@ import { PROJECT_NAME } from '@self/shared/lib/const';
 import type { Section } from '@self/shared/lib/def/types';
 import { z } from 'zod';
 import type { OpTfOutput } from '@self/shared/lib/operate-env/output';
-import { concat, assertRangedString, assertInRange } from '@self/shared/lib/ranged-string';
-import type { RangedString2 } from '@self/shared/lib/ranged-string/util';
-import { len26, getHash6, len32 } from '@self/shared/lib/ranged-string/util';
+import { getHash6 } from '@self/shared/lib/util/string';
 import { RandomProvider } from '@cdktf/provider-random';
+import type { DynamicRunScriptEnv, ComputedRunScriptEnv } from '@self/shared/lib/run-script/env';
+import type { CodeBuildStackEnv } from '@self/shared/lib/codebuild-stack/env';
 import { HTTPTask } from './http-task';
 import { MysqlDb } from './mysql';
 import { genTags } from './values';
@@ -24,6 +24,9 @@ export interface VioletEnvOptions {
   sharedEnv: SharedEnv;
   dynamicOpEnv: DynamicOpEnv;
   computedOpEnv: ComputedOpEnv;
+  dynamicRunScriptEnv: DynamicRunScriptEnv;
+  computedRunScriptEnv: ComputedRunScriptEnv;
+  codeBuildStackEnv: CodeBuildStackEnv;
 }
 
 export class VioletEnvStack extends TerraformStack {
@@ -41,10 +44,8 @@ export class VioletEnvStack extends TerraformStack {
     }
   }
 
-  private readonly prefix = concat(
-    concat(assertRangedString('vio-e-'), getHash6(this.options.dynamicOpEnv.NAMESPACE)),
-    `-${this.options.section[0]}` as RangedString2,
-  );
+  /** len = 6 + 6 + 1 + 1 = 14 */
+  private readonly prefix = `vio-e-${getHash6(this.options.dynamicOpEnv.NAMESPACE)}-${this.options.section[0]}`;
 
   readonly nullProvider = new NullProvider(this, 'nullProvider', {});
 
@@ -91,7 +92,7 @@ export class VioletEnvStack extends TerraformStack {
   // この namespace に属する Violet インフラを構築する、関連した
   // リソースの一覧
   readonly resourceGroups = new ResourceGroups.ResourcegroupsGroup(this, 'resourceGroups', {
-    name: assertInRange(this.prefix, len32),
+    name: this.prefix,
     resourceQuery: {
       query: JSON.stringify({
         ResourceTypeFilters: ['AWS::AllSupported'],
@@ -113,7 +114,8 @@ export class VioletEnvStack extends TerraformStack {
   });
 
   readonly mysql = new MysqlDb(this, 'mysql', {
-    prefix: assertInRange(concat(this.prefix, assertRangedString('-mysql')), len26),
+    // len = 14 + 6 = 20
+    prefix: `${this.prefix}-mysql`,
     subnets: this.network.publicSubnets,
     vpcSecurityGroups: [this.network.dbSg],
   });
@@ -130,7 +132,7 @@ export class VioletEnvStack extends TerraformStack {
 
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_Cluster.html
   readonly cluster = new ECS.EcsCluster(this, 'cluster', {
-    name: assertInRange(this.prefix, len32),
+    name: this.prefix,
     capacityProviders: ['FARGATE'],
     // TODO(security): for production
     // imageScanningConfiguration,
@@ -143,13 +145,14 @@ export class VioletEnvStack extends TerraformStack {
     // TODO(security): for prod: encryption
     // TODO(logging): for prod
     // TODO(cost): for prod: lifecycle
-    bucket: assertInRange(this.prefix, len32),
+    bucket: this.prefix,
     forceDestroy: true,
   });
 
   readonly apiTask = new HTTPTask(this, 'apiTask', {
     name: 'api',
-    prefix: assertInRange(concat(this.prefix, assertRangedString('-api')), len26),
+    // len = 14 + 4 = 18
+    prefix: `${this.prefix}-api`,
     ipv6interfaceIdPrefix: 10,
 
     repo: this.apiRepo,
@@ -166,18 +169,19 @@ export class VioletEnvStack extends TerraformStack {
   });
 
   readonly operateEnvRole = new IAM.DataAwsIamRole(this, 'operateEnvRole', {
-    name: this.options.computedOpEnv.OPERATE_ENV_ROLE_NAME,
+    name: this.options.codeBuildStackEnv.SCRIPT_ROLE_NAME,
   });
 
   readonly allowRunApiTaskRolePolicy = new IAM.IamRolePolicy(this, 'allowRunApiTaskRolePolicy', {
-    name: assertInRange(this.prefix, len32),
+    name: this.prefix,
     role: this.operateEnvRole.name,
     policy: this.apiTask.allowRunTaskPolicyDoc.json,
   });
 
   readonly webTask = new HTTPTask(this, 'webTask', {
     name: 'web',
-    prefix: assertInRange(concat(this.prefix, assertRangedString('-web')), len26),
+    // len = 14 + 4 = 18
+    prefix: `${this.prefix}-web`,
     ipv6interfaceIdPrefix: 20,
 
     repo: this.webRepo,

@@ -1,15 +1,14 @@
-import { spawn } from 'child_process';
-import type { GeneralBuildOutput, RunTaskBuildOutput, TfBuildOutput } from '@self/shared/lib/operate-env/build-output';
-import { tfBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
-import { initEnv } from '@self/shared/lib/def/util/init-env';
-import { asyncIter } from 'ballvalve';
-import { PassThrough } from 'stream';
-import { ECS } from '@aws-sdk/client-ecs';
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
+import { ECS } from '@aws-sdk/client-ecs';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import { getCodeBuildCredentials } from '@self/bot/src/app/aws';
+import { initEnv } from '@self/shared/lib/def/util/init-env';
+import type { GeneralBuildOutput, RunTaskBuildOutput, TfBuildOutput } from '@self/shared/lib/operate-env/build-output';
+import { tfBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
+import { computedOpEnvSchema, scriptOpEnvSchema } from '@self/shared/lib/operate-env/op-env';
+import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
+import { exec } from '@self/shared/lib/util/exec';
 import { z } from 'zod';
-import { scriptOpEnvSchema, computedOpEnvSchema } from '../lib/operate-env/op-env';
 
 const main = async (): Promise<void> => {
   initEnv();
@@ -20,10 +19,12 @@ const main = async (): Promise<void> => {
 
   const scriptOpEnv = scriptOpEnvSchema.parse(process.env);
   const computedOpEnv = computedOpEnvSchema.parse(process.env);
+  const dynamicRunScriptEnv = dynamicRunScriptEnvSchema.parse(process.env);
+  const computedRunScriptEnv = computedRunScriptEnvSchema.parse(process.env);
 
   // TODO(hardcoded)
   const botTableRegion = 'ap-northeast-1';
-  const entryURL = `https://${botTableRegion}.console.aws.amazon.com/dynamodbv2/home#item-explorer?autoScanAttribute=null&initialTagKey=&table=${computedOpEnv.BOT_TABLE_NAME}`;
+  const entryURL = `https://${botTableRegion}.console.aws.amazon.com/dynamodbv2/home#item-explorer?autoScanAttribute=null&initialTagKey=&table=${computedRunScriptEnv.BOT_TABLE_NAME}`;
 
   const delay = (ms: number): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -39,9 +40,9 @@ const main = async (): Promise<void> => {
     const db = new DynamoDB({ credentials });
     // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html
     await db.updateItem({
-      TableName: computedOpEnv.BOT_TABLE_NAME,
+      TableName: computedRunScriptEnv.BOT_TABLE_NAME,
       Key: {
-        uuid: { S: scriptOpEnv.ENTRY_UUID },
+        uuid: { S: dynamicRunScriptEnv.ENTRY_UUID },
       },
       UpdateExpression: `SET ${expr}`,
       ExpressionAttributeNames: keys,
@@ -51,30 +52,10 @@ const main = async (): Promise<void> => {
 
   const e = async (file: string, args: string[], silent: boolean): Promise<{ stdout: string; stderr: string }> => {
     console.log(`Running ${[file, ...args].map((a) => JSON.stringify(a)).join(' ')}`);
-    const proc = spawn(file, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    const prom = new Promise<void>((resolve) =>
-      proc.once('exit', () => {
-        resolve();
-      }),
-    );
-    if (!silent) {
-      proc.stdout.pipe(new PassThrough()).pipe(process.stdout);
-      proc.stderr.pipe(new PassThrough()).pipe(process.stderr);
-    }
-    const [stdout, stderr] = await Promise.all([
-      asyncIter<Buffer>(proc.stdout)
-        .collect()
-        .then((b) => `${Buffer.concat(b).toString('utf-8')}\n`),
-      asyncIter<Buffer>(proc.stderr)
-        .collect()
-        .then((b) => `${Buffer.concat(b).toString('utf-8')}\n`),
-    ]);
-    await prom;
-    if (proc.exitCode !== 0) {
+    const { stdout, stderr, exitCode } = await exec(file, args, silent);
+    if (exitCode !== 0) {
       if (silent) console.error({ stdout, stderr });
-      throw new Error(`exit with ${proc.exitCode}`);
+      throw new Error(`exit with ${exitCode}`);
     }
     return { stdout, stderr };
   };

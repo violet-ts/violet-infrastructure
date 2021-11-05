@@ -3,16 +3,24 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "run-s test:tsc",
+    "test": "run-s test:tsc test:jest",
     "test-watch": "run-p test-watch:*",
-    "test-watch:tsc": "tsc --noEmit --watch",
-    "test:tsc": "tsc --noEmit"
+    "test-watch:tsc": "jest --watch",
+    "test-watch:jest": "tsc --noEmit --watch",
+    "test:tsc": "tsc --noEmit",
+    "test:jest": "jest"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.39.0",
     "@aws-sdk/client-ecs": "^3.39.0",
+    "@aws-sdk/client-ssm": "^3.39.0",
+    "@aws-sdk/types": "^3.38.0",
     "@aws-sdk/util-dynamodb": "^3.39.0",
-    "ballvalve": "^3.1.3"
+    "@octokit/auth-app": "^3.6.1",
+    "@octokit/rest": "^18.12.0",
+    "ballvalve": "^3.1.3",
+    "parse-diff": "^0.8.1",
+    "date-fns": "^2.25.0"
   },
   "engines": {
     "node": ">=14",

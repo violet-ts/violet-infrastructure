@@ -1,12 +1,8 @@
 import { Octokit } from '@octokit/rest';
 import { createAppAuth } from '@octokit/auth-app';
-import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot-env';
+import type { BotSecrets } from '@self/shared/lib/bot/env';
 
-export const createOctokit = async (
-  _env: ComputedBotEnv,
-  secrets: BotSecrets,
-  installationId: number,
-): Promise<Octokit> => {
+export const createOctokit = async (secrets: BotSecrets, installationId: number): Promise<Octokit> => {
   const octokit = new Octokit({
     authStrategy: createAppAuth,
     auth: {
