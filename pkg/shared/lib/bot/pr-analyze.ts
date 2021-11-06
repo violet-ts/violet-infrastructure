@@ -101,13 +101,14 @@ export const prAnalyze = ({
   chanegdFiles.forEach((f) => {
     const basename = path.basename(f);
     if (
-      ['.eslintrc', '.prettierrc', '.stylelintrc'].some((name) => name === basename || basename.startsWith(`${name}.`))
+      ['.eslintrc', '.prettierrc', '.stylelintrc', 'commitlint.config'].some(
+        (name) => name === basename || basename.startsWith(`${name}.`),
+      )
     )
-      labels.add('update/rule');
-    if (['.eslintignore', '.prettierignore', '.stylelintignore', '.npmrc'].includes(basename))
-      labels.add('update/rule');
+      labels.add('rule');
+    if (['.eslintignore', '.prettierignore', '.stylelintignore', '.npmrc'].includes(basename)) labels.add('rule');
     if (['pnpm-lock.yaml'].includes(basename)) labels.add('update/lockfile');
-    if (f.startsWith('.github/')) labels.add('update/rule');
+    if (f.startsWith('.github/')) labels.add('rule');
     if (f.startsWith('.github/workflows/')) labels.add('update/ci');
     if (['CODEOWNERS'].includes(basename)) labels.add('update/codeowners');
     if (['.gitignore'].includes(basename)) labels.add('update/gitignore');

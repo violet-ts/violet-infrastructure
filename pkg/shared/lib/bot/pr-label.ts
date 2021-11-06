@@ -9,6 +9,7 @@ export const getLabelInfo = (
   if (newLabel.startsWith('docker/')) return { color: '7510C5', description: '' };
   if (newLabel.startsWith('update/')) return { color: 'C00B00', description: '' };
   if (newLabel.startsWith('invalid/')) return { color: 'E4E669', description: '' };
+  if (newLabel === 'rule') return { color: '9F1162', description: '' };
   if (newLabel === 'prisma') return { color: 'FEF2C0', description: 'Prisma relevant' };
   if (newLabel.startsWith('prisma/')) return { color: 'FEF2C0', description: '' };
   if (newLabel === 'diff/XS') return { color: '64682D', description: '差分が 10 行以下' };

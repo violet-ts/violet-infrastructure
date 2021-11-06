@@ -366,16 +366,18 @@ describe('prAnalyze', () => {
   });
 
   it('should analyze update', () => {
-    expect(prAnalyze(c('.eslintrc.js')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
-    expect(prAnalyze(c('.eslintrc.cjs')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
-    expect(prAnalyze(c('.prettierrc')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
-    expect(prAnalyze(c('.eslintignore')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
-    expect(prAnalyze(c('.stylelintignore')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
-    expect(prAnalyze(c('.npmrc')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
+    expect(prAnalyze(c('.eslintrc.js')).sort()).toEqual(['diff/XS', 'rule'].sort());
+    expect(prAnalyze(c('.eslintrc.cjs')).sort()).toEqual(['diff/XS', 'rule'].sort());
+    expect(prAnalyze(c('.prettierrc')).sort()).toEqual(['diff/XS', 'rule'].sort());
+    expect(prAnalyze(c('.eslintignore')).sort()).toEqual(['diff/XS', 'rule'].sort());
+    expect(prAnalyze(c('.stylelintignore')).sort()).toEqual(['diff/XS', 'rule'].sort());
+    expect(prAnalyze(c('commitlint.config.js')).sort()).toEqual(['diff/XS', 'rule'].sort());
+    expect(prAnalyze(c('commitlint.config.cjs')).sort()).toEqual(['diff/XS', 'rule'].sort());
+    expect(prAnalyze(c('.npmrc')).sort()).toEqual(['diff/XS', 'rule'].sort());
 
     expect(prAnalyze(c('pnpm-lock.yaml')).sort()).toEqual(['diff/XS', 'update/lockfile'].sort());
-    expect(prAnalyze(c('.github/ISSUE_TEMPLATE/foo.md')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
-    expect(prAnalyze(c('.github/workflows/ci.yml')).sort()).toEqual(['diff/XS', 'update/rule', 'update/ci'].sort());
+    expect(prAnalyze(c('.github/ISSUE_TEMPLATE/foo.md')).sort()).toEqual(['diff/XS', 'rule'].sort());
+    expect(prAnalyze(c('.github/workflows/ci.yml')).sort()).toEqual(['diff/XS', 'rule', 'update/ci'].sort());
     expect(prAnalyze(c('CODEOWNERS')).sort()).toEqual(['diff/XS', 'update/codeowners'].sort());
     expect(prAnalyze(c('.gitignore')).sort()).toEqual(['diff/XS', 'update/gitignore'].sort());
     expect(prAnalyze(c('.dockerignore')).sort()).toEqual(['diff/XS', 'update/dockerignore'].sort());
