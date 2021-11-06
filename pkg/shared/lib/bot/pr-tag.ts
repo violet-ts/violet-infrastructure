@@ -7,6 +7,8 @@ export const getLabelInfo = (
 } => {
   if (newLabel.startsWith('pkg/')) return { color: '506BD4', description: '' };
   if (newLabel.startsWith('docker/')) return { color: '7510C5', description: '' };
+  if (newLabel.startsWith('update/')) return { color: 'C00B00', description: '' };
+  if (newLabel.startsWith('invalid/')) return { color: 'E4E669', description: '' };
   if (newLabel === 'diff/XS') return { color: '64682D', description: '差分が 10 行以下' };
   if (newLabel === 'diff/S') return { color: '64682D', description: '差分が 60 行以下' };
   if (newLabel === 'diff/M') return { color: '64682D', description: '差分が 300 行以下' };

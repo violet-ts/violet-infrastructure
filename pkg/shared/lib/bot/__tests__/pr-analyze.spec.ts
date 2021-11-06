@@ -339,4 +339,41 @@ describe('prAnalyze', () => {
       }).sort(),
     ).toEqual(['diff/XS', 'docker/foo/bar'].sort());
   });
+
+  it('should analyze update', () => {
+    const c = (f: string) => ({
+      dockerfiles: [],
+      projectPackages: [],
+      chanegdFiles: [f],
+      changes: [],
+      commits: [],
+    });
+
+    expect(prAnalyze(c('.eslintrc.js')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
+    expect(prAnalyze(c('.eslintrc.cjs')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
+    expect(prAnalyze(c('.prettierrc')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
+    expect(prAnalyze(c('.eslintignore')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
+    expect(prAnalyze(c('.stylelintignore')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
+    expect(prAnalyze(c('.npmrc')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
+
+    expect(prAnalyze(c('pnpm-lock.yaml')).sort()).toEqual(['diff/XS', 'update/lockfile'].sort());
+    expect(prAnalyze(c('.github/ISSUE_TEMPLATE/foo.md')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
+    expect(prAnalyze(c('.github/workflows/ci.yml')).sort()).toEqual(['diff/XS', 'update/rule', 'update/ci'].sort());
+    expect(prAnalyze(c('CODEOWNERS')).sort()).toEqual(['diff/XS', 'update/codeowners'].sort());
+    expect(prAnalyze(c('.gitignore')).sort()).toEqual(['diff/XS', 'update/gitignore'].sort());
+    expect(prAnalyze(c('.dockerignore')).sort()).toEqual(['diff/XS', 'update/dockerignore'].sort());
+  });
+
+  it('should analyze invalid update', () => {
+    const c = (f: string) => ({
+      dockerfiles: [],
+      projectPackages: [],
+      chanegdFiles: [f],
+      changes: [],
+      commits: [],
+    });
+
+    expect(prAnalyze(c('package-lock.json')).sort()).toEqual(['diff/XS', 'invalid/package-lock'].sort());
+    expect(prAnalyze(c('yarn.lock')).sort()).toEqual(['diff/XS', 'invalid/yarn-lock'].sort());
+  });
 });

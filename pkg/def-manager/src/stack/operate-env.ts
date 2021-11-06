@@ -6,7 +6,6 @@ import { String as RandomString } from '@cdktf/provider-random';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import type { ComputedOpEnv } from '@self/shared/lib/operate-env/op-env';
 import { computedOpCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
-import type { ComputedRunScriptEnv } from '@self/shared/lib/run-script/env';
 import type { Construct } from 'constructs';
 import { z } from 'zod';
 import type { BuildDictContext } from './bot';
@@ -17,6 +16,7 @@ export interface OperateEnvOptions {
   tagsAll: Record<string, string>;
   prefix: string;
   logsPrefix: string;
+  botSsmPrefix: string;
   botTable: DynamoDB.DynamodbTable;
   sharedEnv: SharedEnv;
   managerEnv: ManagerEnv;
@@ -55,11 +55,6 @@ export class OperateEnv extends Resource {
     cidrNum: this.options.managerEnv.CIDR_NUM,
   });
 
-  readonly computedRunScriptEnv: ComputedRunScriptEnv = {
-    RUN_SCRIPT_NAME: 'operate-env.ts',
-    BOT_TABLE_NAME: this.options.botTable.name,
-  };
-
   readonly computedOpEnv: ComputedOpEnv = {
     API_REPO_NAME: this.options.apiDevRepo.name,
     WEB_REPO_NAME: this.options.webDevRepo.name,
@@ -84,6 +79,7 @@ export class OperateEnv extends Resource {
     prefix: `${this.options.prefix}-rs`,
     logsPrefix: this.options.logsPrefix,
     runScriptName: 'operate-env.ts',
+    botSsmPrefix: this.options.botSsmPrefix,
     botTable: this.options.botTable,
     environmentVariable: [...computedOpCodeBuildEnv(this.computedOpEnv)],
     buildDictContext: this.options.buildDictContext,

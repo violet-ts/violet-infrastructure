@@ -1,4 +1,5 @@
 import parseDiff from 'parse-diff';
+import * as path from 'path';
 
 export interface ParsePrParams {
   // find ./docker/ -type f -a -name 'Dockerfile'
@@ -64,35 +65,54 @@ export const prAnalyze = ({
   dockerfiles,
   projectPackages,
 }: PrAnalyzeParams): string[] => {
-  const tags = new Set<string>();
+  const labels = new Set<string>();
 
   commits.forEach((c) => {
-    if (c.startsWith('feat')) tags.add('feat');
-    if (c.startsWith('docs')) tags.add('documentation');
-    if (c.startsWith('refactor')) tags.add('refactor');
-    if (c.startsWith('fix')) tags.add('bug');
+    if (c.startsWith('feat')) labels.add('feat');
+    if (c.startsWith('docs')) labels.add('documentation');
+    if (c.startsWith('refactor')) labels.add('refactor');
+    if (c.startsWith('fix')) labels.add('bug');
   });
 
   const changedLines = changes.filter((c) => c.type !== 'normal').filter((c) => c.content.match(/\S/)).length;
-  if (changedLines <= 10) tags.add('diff/XS');
-  else if (changedLines <= 60) tags.add('diff/S');
-  else if (changedLines <= 300) tags.add('diff/M');
-  else if (changedLines <= 1000) tags.add('diff/L');
-  else if (changedLines <= 3000) tags.add('diff/XL');
-  else tags.add('diff/XXL');
+  if (changedLines <= 10) labels.add('diff/XS');
+  else if (changedLines <= 60) labels.add('diff/S');
+  else if (changedLines <= 300) labels.add('diff/M');
+  else if (changedLines <= 1000) labels.add('diff/L');
+  else if (changedLines <= 3000) labels.add('diff/XL');
+  else labels.add('diff/XXL');
 
   const addTODO = changes.filter((c) => c.type === 'add').some((c) => c.content.match(/\bTODO\b.*:/));
-  if (addTODO) tags.add('add/TODO');
+  if (addTODO) labels.add('add/TODO');
 
   chanegdFiles.forEach((f) => {
     const p = projectPackages.filter((p) => p.startsWith('pkg/')).find((p) => f.startsWith(`${p}/`));
-    if (p) tags.add(p);
+    if (p) labels.add(p);
   });
 
   chanegdFiles.forEach((f) => {
     const p = dockerfiles.filter((p) => p.startsWith('docker/')).find((p) => f.startsWith(`${p}/`));
-    if (p) tags.add(p);
+    if (p) labels.add(p);
   });
 
-  return [...tags];
+  chanegdFiles.forEach((f) => {
+    const basename = path.basename(f);
+    if (
+      ['.eslintrc', '.prettierrc', '.stylelintrc'].some((name) => name === basename || basename.startsWith(`${name}.`))
+    )
+      labels.add('update/rule');
+    if (['.eslintignore', '.prettierignore', '.stylelintignore', '.npmrc'].includes(basename))
+      labels.add('update/rule');
+    if (['pnpm-lock.yaml'].includes(basename)) labels.add('update/lockfile');
+    if (f.startsWith('.github/')) labels.add('update/rule');
+    if (f.startsWith('.github/workflows/')) labels.add('update/ci');
+    if (['CODEOWNERS'].includes(basename)) labels.add('update/codeowners');
+    if (['.gitignore'].includes(basename)) labels.add('update/gitignore');
+    if (['.dockerignore'].includes(basename)) labels.add('update/dockerignore');
+
+    if (['package-lock.json'].includes(basename)) labels.add('invalid/package-lock');
+    if (['yarn.lock'].includes(basename)) labels.add('invalid/yarn-lock');
+  });
+
+  return [...labels];
 };

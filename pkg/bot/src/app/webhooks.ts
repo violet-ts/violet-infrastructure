@@ -4,12 +4,15 @@ import { marshall } from '@aws-sdk/util-dynamodb';
 import { Temporal, toTemporalInstant } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
 import { Webhooks } from '@octokit/webhooks';
-import type { IssueCommentEvent, PullRequestOpenedEvent, WorkflowRunRequestedEvent } from '@octokit/webhooks-types';
+import type { IssueCommentEvent } from '@octokit/webhooks-types';
 import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot/env';
 import { v4 as uuidv4 } from 'uuid';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import { createOctokit } from '@self/shared/lib/bot/octokit';
+import { dynamicUpdatePrLabelsEnvCodeBuildEnv } from '@self/shared/lib/update-pr-labels/env';
+import { dynamicRunScriptCodeBuildEnv } from '@self/shared/lib/run-script/env';
+import { CodeBuild } from '@aws-sdk/client-codebuild';
 import type { BasicContext, CommandContext, GeneralEntry, ReplyCmd } from '../type/cmd';
 import { renderCommentBody, renderTimestamp } from '../util/comment-render';
 import type { Command } from '../util/parse-comment';
@@ -172,23 +175,33 @@ export const createWebhooks = (
   // });
 
   // TODO
-  const onNewPRCommit = async (_payload: PullRequestOpenedEvent | WorkflowRunRequestedEvent) => {
-    // payload.
+  const onNewPRCommit = async (owner: string, repo: string, prNumber: number, botInstallationId: number) => {
+    const codeBuild = new CodeBuild({ credentials, logger });
+    const startBuildResult = await codeBuild.startBuild({
+      projectName: env.PR_UPDATE_LABELS_PROJECT_NAME,
+      environmentVariablesOverride: [
+        ...dynamicRunScriptCodeBuildEnv({
+          ENTRY_UUID: '',
+        }),
+        ...dynamicUpdatePrLabelsEnvCodeBuildEnv({
+          UPDATE_LABELS_OWNER: owner,
+          UPDATE_LABELS_REPO: repo,
+          UPDATE_LABELS_PR_NUMBER: prNumber.toString(),
+          BOT_INSTALLATION_ID: botInstallationId.toString(),
+        }),
+      ],
+    });
+    logger.debug('Build started for PR labels update', { startBuildResult });
   };
 
-  webhooks.on('pull_request.opened', ({ payload }) => {
+  webhooks.on(['pull_request.opened', 'pull_request.edited', 'pull_request.synchronize'], ({ payload }) => {
     const inner = async () => {
-      await onNewPRCommit(payload);
-    };
-    add(
-      inner().catch((e) => {
-        logger.error(`Error while running issue_comment reciever`, e);
-      }),
-    );
-  });
-  webhooks.on('workflow_run.requested', ({ payload }) => {
-    const inner = async () => {
-      await onNewPRCommit(payload);
+      await onNewPRCommit(
+        payload.repository.owner.login,
+        payload.repository.name,
+        payload.pull_request.number,
+        z.number().parse(payload.installation?.id),
+      );
     };
     add(
       inner().catch((e) => {

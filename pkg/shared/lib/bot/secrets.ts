@@ -3,18 +3,19 @@ import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot/env';
 import { botSecretsSchema } from '@self/shared/lib/bot/env';
 import type { Credentials, Provider } from '@aws-sdk/types';
 import type { Logger } from 'winston';
+import type { ComputedRunScriptEnv } from '../run-script/env';
 
 const keys = Object.keys(botSecretsSchema.shape);
 type SecretKeys = keyof BotSecrets;
 
 export const requireSecrets = async (
-  computedBotEnv: ComputedBotEnv,
+  env: ComputedBotEnv | ComputedRunScriptEnv,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,
 ): Promise<BotSecrets> => {
   const ssm = new SSM({ credentials, logger });
   const r = await ssm.getParameters({
-    Names: keys.map((key) => `${computedBotEnv.SSM_PREFIX}/${key}`),
+    Names: keys.map((key) => `${env.BOT_SSM_PREFIX}/${key}`),
     WithDecryption: true,
   });
 

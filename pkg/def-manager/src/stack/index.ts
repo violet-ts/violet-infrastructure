@@ -11,6 +11,7 @@ import { ContainerBuild } from './build-container';
 import { createDictContext } from './context/dict';
 import { DockerHubCredentials } from './dockerhub-credentials';
 import { OperateEnv } from './operate-env';
+import { RunScript } from './run-script';
 import { genTags } from './values';
 
 export interface VioletManagerOptions {
@@ -244,9 +245,12 @@ export class VioletManagerStack extends TerraformStack {
     hashKey: 'uuid',
   });
 
+  readonly botSsmPrefix = `${this.ssmPrefix}/bot`;
+
   readonly operateEnv = new OperateEnv(this, 'operateEnv', {
     prefix: 'vio-d-ope',
     logsPrefix: `${this.logsPrefix}/dev-openv`,
+    botSsmPrefix: this.botSsmPrefix,
     botTable: this.botTable,
     sharedEnv: this.options.sharedEnv,
     managerEnv: this.options.managerEnv,
@@ -260,9 +264,26 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
+  readonly updatePRLabels = new RunScript(this, 'updatePRLabels', {
+    name: 'UpLa',
+    prefix: 'vio-d-ope',
+    logsPrefix: `${this.logsPrefix}/dev-openv`,
+    botSsmPrefix: this.botSsmPrefix,
+    botTable: this.botTable,
+    sharedEnv: this.options.sharedEnv,
+    managerEnv: this.options.managerEnv,
+    runScriptName: 'update-pr-labels.ts',
+
+    buildDictContext: this.buildDictContext,
+
+    tagsAll: {
+      ...genTags(null, 'development'),
+    },
+  });
+
   readonly bot = new Bot(this, 'bot', {
     prefix: 'violet-bot',
-    ssmPrefix: `${this.ssmPrefix}/bot`,
+    ssmPrefix: this.botSsmPrefix,
     logsPrefix: `${this.logsPrefix}/bot`,
     table: this.botTable,
 

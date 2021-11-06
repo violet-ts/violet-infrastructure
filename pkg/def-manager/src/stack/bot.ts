@@ -235,7 +235,7 @@ export class Bot extends Resource {
 
   readonly computedBotEnv: ComputedBotEnv = {
     PREVIEW_DOMAIN: z.string().parse(this.options.previewZone.name),
-    SSM_PREFIX: this.options.ssmPrefix,
+    BOT_SSM_PREFIX: this.options.ssmPrefix,
     BOT_TABLE_NAME: this.options.table.name,
 
     API_REPO_NAME: this.options.repoDictContext.get('Api').name,
@@ -246,6 +246,7 @@ export class Bot extends Resource {
     WEB_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Web').build.name,
     LAMBDA_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Lam').build.name,
     OPERATE_ENV_PROJECT_NAME: this.options.buildDictContext.get('Ope').build.name,
+    PR_UPDATE_LABELS_PROJECT_NAME: this.options.buildDictContext.get('UpLa').build.name,
   };
 
   // Main Lambda function triggered by GitHub webhooks

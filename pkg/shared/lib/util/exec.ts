@@ -3,11 +3,13 @@ import type { SpawnOptionsWithStdioTuple, StdioNull, StdioPipe } from 'child_pro
 import { spawn } from 'child_process';
 import { PassThrough } from 'stream';
 
+export type ExecOptions = Omit<SpawnOptionsWithStdioTuple<StdioNull, StdioPipe, StdioPipe>, 'stdio'>;
+
 export const exec = async (
   file: string,
   args: string[],
   silent: boolean,
-  options?: Omit<SpawnOptionsWithStdioTuple<StdioNull, StdioPipe, StdioPipe>, 'stdio'>,
+  options?: ExecOptions,
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> => {
   const proc = spawn(file, args, {
     ...options,
@@ -32,4 +34,23 @@ export const exec = async (
   ]);
   await prom;
   return { stdout, stderr, exitCode: proc.exitCode };
+};
+
+export const execThrow = async (
+  file: string,
+  args: string[],
+  silent: boolean,
+  options?: ExecOptions,
+): Promise<{ stdout: string; stderr: string; exitCode: number | null }> => {
+  const { stdout, stderr, exitCode } = await exec(file, args, silent, options);
+  if (exitCode !== 0) {
+    throw Object.assign(new Error(`exit code is not 0`), {
+      args: [file, ...args],
+      options,
+      stdout,
+      stderr,
+      exitCode,
+    });
+  }
+  return { stdout, stderr, exitCode };
 };

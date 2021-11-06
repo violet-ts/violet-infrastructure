@@ -4,13 +4,16 @@ import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
+import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import type { ComputedRunScriptEnv } from '@self/shared/lib/run-script/env';
 import { computedRunScriptCodeBuildEnv } from '@self/shared/lib/run-script/env';
 import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import type { Construct } from 'constructs';
+import path from 'path';
 import { z } from 'zod';
 import type { BuildDictContext } from './bot';
 import { CodeBuildStack } from './codebuild-stack';
+import { sharedScriptsDir } from './values';
 
 export interface RunScriptOptions {
   tagsAll: Record<string, string>;
@@ -20,6 +23,7 @@ export interface RunScriptOptions {
   prefix: string;
   logsPrefix: string;
   runScriptName: string;
+  botSsmPrefix: string;
   botTable: DynamoDB.DynamodbTable;
   environmentVariable?: CodeBuildEnv | undefined;
 
@@ -31,6 +35,8 @@ export class RunScript extends Resource {
     super(scope, name, config);
   }
 
+  readonly scriptPath = ensurePath(path.resolve(sharedScriptsDir, this.options.runScriptName));
+
   private readonly suffix = new RandomString(this, 'suffix', {
     length: 6,
     lower: true,
@@ -41,6 +47,7 @@ export class RunScript extends Resource {
   readonly computedRunScriptEnv: ComputedRunScriptEnv = {
     ...this.options.sharedEnv,
     RUN_SCRIPT_NAME: this.options.runScriptName,
+    BOT_SSM_PREFIX: this.options.botSsmPrefix,
     BOT_TABLE_NAME: this.options.botTable.name,
   };
 

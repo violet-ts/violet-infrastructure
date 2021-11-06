@@ -5,8 +5,8 @@
   "scripts": {
     "test": "run-s test:tsc test:jest",
     "test-watch": "run-p test-watch:*",
-    "test-watch:tsc": "jest --watch",
-    "test-watch:jest": "tsc --noEmit --watch",
+    "test-watch:tsc": "tsc --noEmit --watch",
+    "test-watch:jest": "jest --watch",
     "test:tsc": "tsc --noEmit",
     "test:jest": "jest"
   },

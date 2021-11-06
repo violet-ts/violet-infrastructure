@@ -11,6 +11,7 @@ export const dynamicRunScriptCodeBuildEnv = (env: DynamicRunScriptEnv): CodeBuil
 
 export const computedRunScriptEnvSchema = z.object({
   RUN_SCRIPT_NAME: z.string(),
+  BOT_SSM_PREFIX: z.string(),
   BOT_TABLE_NAME: z.string(),
 });
 export type ComputedRunScriptEnv = z.infer<typeof computedRunScriptEnvSchema>;
