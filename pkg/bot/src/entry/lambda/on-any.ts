@@ -2,14 +2,14 @@
 // event から対象コメントの uuid を特定し、更新をする。
 // コメントは uuid さえ特定すれば他の情報を一切必要とせずに更新できるようにしている。
 // そのため、uuid を特定する材料さえ見つければ良い。
-import { getLambdaCredentials } from '@self/bot/src/app/aws';
+import { getLambdaCredentials } from '@self/shared/lib/aws';
 import { createOctokit } from '@self/shared/lib/bot/octokit';
 import { matchers } from '@self/bot/src/app/matchers';
 import { requireSecrets } from '@self/shared/lib/bot/secrets';
 import { reEvaluateAndUpdate } from '@self/bot/src/app/update-cmd';
 import { generalEntrySchema } from '@self/bot/src/type/cmd';
 import type { MatcherBasicContext } from '@self/bot/src/type/matcher';
-import { createLambdaLogger } from '@self/bot/src/util/loggers';
+import { createLambdaLogger } from '@self/shared/lib/loggers';
 import { computedAfterwardBotEnvSchema, computedBotEnvSchema } from '@self/shared/lib/bot/env';
 import type { Handler } from 'aws-lambda';
 import 'source-map-support/register';

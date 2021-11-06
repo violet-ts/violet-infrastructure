@@ -6,7 +6,7 @@ import * as path from 'path';
 import { computedAfterwardBotEnvSchema, computedBotEnvSchema } from '@self/shared/lib/bot/env';
 import { requireSecrets } from '@self/shared/lib/bot/secrets';
 import { createWebhooks } from '@self/bot/src/app/webhooks';
-import { getLambdaCredentials } from '@self/bot/src/app/aws';
+import { getLambdaCredentials } from '@self/shared/lib/aws';
 
 const main = async () => {
   dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });

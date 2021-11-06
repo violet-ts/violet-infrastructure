@@ -1,5 +1,5 @@
-import { getCodeBuildCredentials } from '@self/bot/src/app/aws';
-import { createLambdaLogger } from '@self/bot/src/util/loggers';
+import { getCodeBuildCredentials } from '@self/shared/lib/aws';
+import { createLambdaLogger } from '@self/shared/lib/loggers';
 import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
 import { createOctokit } from '@self/shared/lib/bot/octokit';
 import { parsePr, prAnalyze } from '@self/shared/lib/bot/pr-analyze';

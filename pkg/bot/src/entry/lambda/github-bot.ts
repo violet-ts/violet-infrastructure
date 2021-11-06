@@ -3,10 +3,10 @@ import 'source-map-support/register';
 
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { createWebhooks } from '@self/bot/src/app/webhooks';
-import { createLambdaLogger } from '@self/bot/src/util/loggers';
+import { createLambdaLogger } from '@self/shared/lib/loggers';
 import { requireSecrets } from '@self/shared/lib/bot/secrets';
 import { computedBotEnvSchema, computedAfterwardBotEnvSchema } from '@self/shared/lib/bot/env';
-import { getLambdaCredentials } from '@self/bot/src/app/aws';
+import { getLambdaCredentials } from '@self/shared/lib/aws';
 
 const handler: APIGatewayProxyHandlerV2 = async (event, _context) => {
   const credentials = getLambdaCredentials();

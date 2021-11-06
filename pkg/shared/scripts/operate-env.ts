@@ -1,7 +1,7 @@
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { ECS } from '@aws-sdk/client-ecs';
 import { marshall } from '@aws-sdk/util-dynamodb';
-import { getCodeBuildCredentials } from '@self/bot/src/app/aws';
+import { getCodeBuildCredentials } from '@self/shared/lib/aws';
 import { initEnv } from '@self/shared/lib/def/util/init-env';
 import type { GeneralBuildOutput, RunTaskBuildOutput, TfBuildOutput } from '@self/shared/lib/operate-env/build-output';
 import { tfBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
