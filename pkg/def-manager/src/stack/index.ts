@@ -287,7 +287,7 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly updatePRLabels = new RunScript(this, 'updatePRLabels', {
     name: 'UpLa',
-    prefix: 'vio-d-ope',
+    prefix: 'vio-d-upla',
     logsPrefix: `${this.logsPrefix}/dev-openv`,
     botSsmPrefix: this.botSsmPrefix,
     botTable: this.botTable,
