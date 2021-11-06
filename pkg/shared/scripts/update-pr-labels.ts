@@ -9,7 +9,7 @@ import { initEnv } from '@self/shared/lib/def/util/init-env';
 import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
 import type { DynamicUpdatePrLabelsEnv } from '@self/shared/lib/update-pr-labels/env';
 import { dynamicUpdatePrLabelsEnvSchema } from '@self/shared/lib/update-pr-labels/env';
-import { execThrow } from '@self/shared/lib/util/exec';
+import { exec, execThrow } from '@self/shared/lib/util/exec';
 import { createTmpdirContext } from '@self/shared/lib/util/tmpdir';
 import arg from 'arg';
 
@@ -53,7 +53,7 @@ const main = async (): Promise<void> => {
 
       const parsePRParams = {
         dockerfilesOutput: (
-          await execThrow('find', ['./docker/', '-type', 'f', '-a', '-name', 'Dockerfile'], false, {
+          await exec('find', ['./docker/', '-type', 'f', '-a', '-name', 'Dockerfile'], false, {
             cwd: tmpdir,
           })
         ).stdout,
@@ -96,17 +96,18 @@ const main = async (): Promise<void> => {
 
   logger.info('Got newLabels.', { newLabels });
 
-  const repoLabels = (await octokit.issues.listLabelsForRepo({ repo, owner })).data.map((label) => label.name);
-  const createLabels = newLabels.filter((label) => !repoLabels.includes(label));
   await Promise.all(
-    createLabels.map(async (newLabel) => {
-      await octokit.issues.createLabel({
-        repo,
-        owner,
-        issue_number: prNumber,
-        name: newLabel,
-        ...getLabelInfo(newLabel),
-      });
+    newLabels.map(async (label) => {
+      await octokit.issues
+        .createLabel({
+          repo,
+          owner,
+          name: label,
+          ...getLabelInfo(label),
+        })
+        .catch(() => {
+          console.warn(`Label "${label}" already exists.`);
+        });
     }),
   );
   await octokit.issues.setLabels({ repo, owner, issue_number: prNumber, labels: [...newLabels, ...keepLabels] });
