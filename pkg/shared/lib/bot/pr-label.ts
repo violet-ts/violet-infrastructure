@@ -9,6 +9,8 @@ export const getLabelInfo = (
   if (newLabel.startsWith('docker/')) return { color: '7510C5', description: '' };
   if (newLabel.startsWith('update/')) return { color: 'C00B00', description: '' };
   if (newLabel.startsWith('invalid/')) return { color: 'E4E669', description: '' };
+  if (newLabel === 'prisma') return { color: 'FEF2C0', description: 'Prisma relevant' };
+  if (newLabel.startsWith('prisma/')) return { color: 'FEF2C0', description: '' };
   if (newLabel === 'diff/XS') return { color: '64682D', description: '差分が 10 行以下' };
   if (newLabel === 'diff/S') return { color: '64682D', description: '差分が 60 行以下' };
   if (newLabel === 'diff/M') return { color: '64682D', description: '差分が 300 行以下' };
@@ -20,9 +22,11 @@ export const getLabelInfo = (
   if (newLabel === 'bug') return { color: 'd73a4a', description: '' };
   if (newLabel === 'refactor') return { color: '1FE9D7', description: '' };
   if (newLabel === 'documentation') return { color: '0075ca', description: '' };
+  if (newLabel === 'test') return { color: '1E9969', description: 'Testing relevant' };
   throw new Error(`Unknown label "${newLabel}"`);
 };
 
+// TODO: dirty
 export const isManagedLabel = (label: string): boolean => {
   try {
     getLabelInfo(label);

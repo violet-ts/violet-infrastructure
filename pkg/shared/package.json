@@ -19,13 +19,17 @@
     "@octokit/auth-app": "^3.6.1",
     "@octokit/rest": "^18.12.0",
     "ballvalve": "^3.1.3",
-    "parse-diff": "^0.8.1",
-    "date-fns": "^2.25.0"
+    "conventional-commits-parser": "^3.2.3",
+    "date-fns": "^2.25.0",
+    "parse-diff": "^0.8.1"
   },
   "engines": {
     "node": ">=14",
     "npm": "use pnpm",
     "pnpm": ">=6",
     "yarn": "use pnpm"
+  },
+  "devDependencies": {
+    "@types/conventional-commits-parser": "^3.0.2"
   }
 }

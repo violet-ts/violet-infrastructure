@@ -21,6 +21,14 @@ describe('parsePr', () => {
 });
 
 describe('prAnalyze', () => {
+  const c = (f: string) => ({
+    dockerfiles: [],
+    projectPackages: [],
+    chanegdFiles: [f],
+    changes: [],
+    commits: [],
+  });
+
   it('should analyze conventional commits', () => {
     expect(
       prAnalyze({
@@ -37,9 +45,9 @@ describe('prAnalyze', () => {
         projectPackages: [],
         chanegdFiles: [],
         changes: [],
-        commits: ['fix: foo', 'chore: foo', 'docs(some): foo', 'foo', 'refactor(some/other): foo'],
+        commits: ['fix: foo', 'chore: foo', 'docs(some): foo', 'foo', 'refactor(some/other): foo', 'test: foo'],
       }).sort(),
-    ).toEqual(['diff/XS', 'bug', 'documentation', 'refactor'].sort());
+    ).toEqual(['diff/XS', 'bug', 'documentation', 'refactor', 'test'].sort());
   });
 
   it('should analyze diff size', () => {
@@ -340,15 +348,24 @@ describe('prAnalyze', () => {
     ).toEqual(['diff/XS', 'docker/foo/bar'].sort());
   });
 
-  it('should analyze update', () => {
-    const c = (f: string) => ({
-      dockerfiles: [],
-      projectPackages: [],
-      chanegdFiles: [f],
-      changes: [],
-      commits: [],
-    });
+  it('should analyze test relevant updates', () => {
+    expect(prAnalyze(c('foo/bar.spec.ts')).sort()).toEqual(['diff/XS', 'test'].sort());
+    expect(prAnalyze(c('foo/bar.test.ts')).sort()).toEqual(['diff/XS', 'test'].sort());
+    expect(prAnalyze(c('foo/test/bar.ts')).sort()).toEqual(['diff/XS', 'test'].sort());
+    expect(prAnalyze(c('foo/tests/bar.ts')).sort()).toEqual(['diff/XS', 'test'].sort());
+    expect(prAnalyze(c('foo/__test__/bar.ts')).sort()).toEqual(['diff/XS', 'test'].sort());
+    expect(prAnalyze(c('foo/__tests__/bar.ts')).sort()).toEqual(['diff/XS', 'test'].sort());
+  });
 
+  it('should analyze prisma updates', () => {
+    expect(prAnalyze(c('foo/prisma/seed.ts')).sort()).toEqual(['diff/XS', 'prisma'].sort());
+    expect(prAnalyze(c('foo/prisma/schema.prisma')).sort()).toEqual(['diff/XS', 'prisma', 'prisma/schema'].sort());
+    expect(prAnalyze(c('foo/prisma/migrations/foo/bar')).sort()).toEqual(
+      ['diff/XS', 'prisma', 'prisma/migrations'].sort(),
+    );
+  });
+
+  it('should analyze update', () => {
     expect(prAnalyze(c('.eslintrc.js')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
     expect(prAnalyze(c('.eslintrc.cjs')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
     expect(prAnalyze(c('.prettierrc')).sort()).toEqual(['diff/XS', 'update/rule'].sort());
@@ -365,14 +382,6 @@ describe('prAnalyze', () => {
   });
 
   it('should analyze invalid update', () => {
-    const c = (f: string) => ({
-      dockerfiles: [],
-      projectPackages: [],
-      chanegdFiles: [f],
-      changes: [],
-      commits: [],
-    });
-
     expect(prAnalyze(c('package-lock.json')).sort()).toEqual(['diff/XS', 'invalid/package-lock'].sort());
     expect(prAnalyze(c('yarn.lock')).sort()).toEqual(['diff/XS', 'invalid/yarn-lock'].sort());
   });

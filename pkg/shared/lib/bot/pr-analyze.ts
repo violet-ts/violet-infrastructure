@@ -1,5 +1,6 @@
 import parseDiff from 'parse-diff';
 import * as path from 'path';
+import conventionalCommitsParser from 'conventional-commits-parser';
 
 export interface ParsePrParams {
   // find ./docker/ -type f -a -name 'Dockerfile'
@@ -68,10 +69,12 @@ export const prAnalyze = ({
   const labels = new Set<string>();
 
   commits.forEach((c) => {
-    if (c.startsWith('feat')) labels.add('feat');
-    if (c.startsWith('docs')) labels.add('documentation');
-    if (c.startsWith('refactor')) labels.add('refactor');
-    if (c.startsWith('fix')) labels.add('bug');
+    const { type } = conventionalCommitsParser.sync(c);
+    if (type === 'feat') labels.add('feat');
+    if (type === 'docs') labels.add('documentation');
+    if (type === 'refactor') labels.add('refactor');
+    if (type === 'fix') labels.add('bug');
+    if (type === 'test') labels.add('test');
   });
 
   const changedLines = changes.filter((c) => c.type !== 'normal').filter((c) => c.content.match(/\S/)).length;
@@ -112,6 +115,15 @@ export const prAnalyze = ({
 
     if (['package-lock.json'].includes(basename)) labels.add('invalid/package-lock');
     if (['yarn.lock'].includes(basename)) labels.add('invalid/yarn-lock');
+    if (f.match(/\bprisma\b/)) labels.add('prisma');
+    if (f.match(/\bprisma\/migrations\b/)) labels.add('prisma/migrations');
+    if (basename === 'schema.prisma') labels.add('prisma/schema');
+    if (basename.match(/\.test\./)) labels.add('test');
+    if (basename.match(/\.spec\./)) labels.add('test');
+    if (f.split('/').includes('test')) labels.add('test');
+    if (f.split('/').includes('tests')) labels.add('test');
+    if (f.split('/').includes('__test__')) labels.add('test');
+    if (f.split('/').includes('__tests__')) labels.add('test');
   });
 
   return [...labels];

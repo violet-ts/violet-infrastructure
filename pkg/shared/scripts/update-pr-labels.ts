@@ -6,7 +6,7 @@ import { dynamicUpdatePrLabelsEnvSchema } from '@self/shared/lib/update-pr-label
 import { requireSecrets } from '@self/shared/lib/bot/secrets';
 import { createLambdaLogger } from '@self/bot/src/util/loggers';
 import { getLambdaCredentials } from '@self/bot/src/app/aws';
-import { getLabelInfo, isManagedLabel } from '@self/shared/lib/bot/pr-tag';
+import { getLabelInfo, isManagedLabel } from '@self/shared/lib/bot/pr-label';
 import { execThrow } from '@self/shared/lib/util/exec';
 import { createTmpdirContext } from '@self/shared/lib/util/tmpdir';
 import { parsePr, prAnalyze } from '@self/shared/lib/bot/pr-analyze';
