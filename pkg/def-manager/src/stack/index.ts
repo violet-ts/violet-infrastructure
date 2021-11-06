@@ -1,21 +1,22 @@
 import * as path from 'path';
-import { AwsProvider, DynamoDB, ECR, ResourceGroups, Route53, S3 } from '@cdktf/provider-aws';
+import { AwsProvider, ECR, ResourceGroups, Route53, S3 } from '@cdktf/provider-aws';
 import { z } from 'zod';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
 import { projectRootDir, PROJECT_NAME } from '@self/shared/lib/const';
 import type { DockerHubCred, ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
-import { TerraformHclModule, TerraformOutput, TerraformStack } from 'cdktf';
+import { Fn, TerraformHclModule, TerraformOutput, TerraformStack } from 'cdktf';
 import type { Construct } from 'constructs';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
-import type { BuildDictContext, RepoDictContext } from './bot';
-import { Bot } from './bot';
+import type { BuildDictContext, RepoDictContext } from './bot-attach';
+import { BotAttach } from './bot-attach';
 import { ContainerBuild } from './build-container';
 import { createDictContext } from './context/dict';
 import { DockerHubCredentials } from './dockerhub-credentials';
 import { OperateEnv } from './operate-env';
-import { RunScript } from './run-script';
 import { genTags } from './values';
+import { UpdatePRLabels } from './update-pr-labels';
+import { Bot } from './bot';
 
 export interface VioletManagerOptions {
   region: string;
@@ -125,7 +126,7 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly infraSourceZip = new S3.S3BucketObject(this, 'infraSourceZip', {
     bucket: z.string().parse(this.infraSourceBucket.bucket),
-    key: `self.local.zip`,
+    key: `source-${Fn.sha1(Fn.filebase64(this.infraSourceZipPath))}.zip`,
     source: this.infraSourceZipPath,
     acl: 'private',
     forceDestroy: true,
@@ -247,30 +248,24 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
-  readonly botTable = new DynamoDB.DynamodbTable(this, 'table', {
-    name: `violet-bot-${this.suffix.result}`,
-    billingMode: 'PAY_PER_REQUEST',
-    ttl: {
-      enabled: true,
-      attributeName: 'ttl',
-    },
-    attribute: [
-      {
-        name: 'uuid',
-        type: 'S',
-      },
-    ],
-    hashKey: 'uuid',
-  });
+  readonly bot = new Bot(this, 'bot', {
+    prefix: 'vio-bot',
+    logsPrefix: `${this.logsPrefix}/bot`,
+    ssmPrefix: `${this.logsPrefix}/bot`,
 
-  readonly botSsmPrefix = `${this.ssmPrefix}/bot`;
+    infraSourceBucket: this.infraSourceBucket,
+    infraSourceZip: this.infraSourceZip,
+    previewZone: this.previewZone,
+
+    tagsAll: {
+      ...genTags(null),
+    },
+  });
 
   readonly operateEnv = new OperateEnv(this, 'operateEnv', {
     prefix: 'vio-d-ope',
     logsPrefix: `${this.logsPrefix}/dev-openv`,
-    botSsmPrefix: this.botSsmPrefix,
-    botTable: this.botTable,
+    bot: this.bot,
     sharedEnv: this.options.sharedEnv,
     managerEnv: this.options.managerEnv,
     apiDevRepo: this.apiDevRepo,
@@ -285,15 +280,12 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly updatePRLabels = new RunScript(this, 'updatePRLabels', {
-    name: 'UpLa',
+  readonly updatePRLabels = new UpdatePRLabels(this, 'updatePRLabels', {
     prefix: 'vio-d-upla',
     logsPrefix: `${this.logsPrefix}/dev-openv`,
-    botSsmPrefix: this.botSsmPrefix,
-    botTable: this.botTable,
+    bot: this.bot,
     sharedEnv: this.options.sharedEnv,
     managerEnv: this.options.managerEnv,
-    runScriptName: 'update-pr-labels.ts',
     infraSourceBucket: this.infraSourceBucket,
     infraSourceZip: this.infraSourceZip,
 
@@ -304,15 +296,14 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly bot = new Bot(this, 'bot', {
-    prefix: 'violet-bot',
-    ssmPrefix: this.botSsmPrefix,
-    logsPrefix: `${this.logsPrefix}/bot`,
-    table: this.botTable,
+  // NOTE: buildDictContext is consumed
+  // NOTE: repoDictContext is consumed
+  readonly botAttach = new BotAttach(this, 'botAttach', {
+    prefix: 'vio-bot-a',
+    bot: this.bot,
 
     buildDictContext: this.buildDictContext,
     repoDictContext: this.repoDictContext,
-    previewZone: this.previewZone,
 
     tagsAll: {
       ...genTags(null),
@@ -327,7 +318,10 @@ export class VioletManagerStack extends TerraformStack {
    * ローカルで bot をサーブする場合は、 <project>/pkg/bot/.env.local に追記する
    */
   readonly botEnvFile = new TerraformOutput(this, 'botEnvFile', {
-    value: Object.entries(this.bot.computedBotEnv)
+    value: Object.entries({
+      ...this.bot.computedBotEnv,
+      ...this.botAttach.computedAfterwardBotEnv,
+    })
       .map(([key, value]) => `${key}=${value}`)
       .join('\n'),
   });

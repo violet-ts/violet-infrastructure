@@ -5,7 +5,7 @@ import { Temporal, toTemporalInstant } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
 import { Webhooks } from '@octokit/webhooks';
 import type { IssueCommentEvent } from '@octokit/webhooks-types';
-import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot/env';
+import type { BotSecrets, ComputedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
 import { v4 as uuidv4 } from 'uuid';
 import type { Logger } from 'winston';
 import { z } from 'zod';
@@ -54,7 +54,7 @@ export const constructFullComment = (
 const processRun = async (
   run: Command,
   octokit: Octokit,
-  env: ComputedBotEnv,
+  env: ComputedBotEnv & ComputedAfterwardBotEnv,
   payload: IssueCommentEvent,
   botInstallationId: number,
   credentials: Credentials | Provider<Credentials>,
@@ -143,7 +143,7 @@ const processRun = async (
 
 // Webhook doc: https://docs.github.com/en/developers/webhooks-and-events/webhooks/about-webhooks
 export const createWebhooks = (
-  env: ComputedBotEnv,
+  env: ComputedBotEnv & ComputedAfterwardBotEnv,
   secrets: BotSecrets,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,

@@ -1,4 +1,4 @@
-import type { DynamoDB, S3 } from '@cdktf/provider-aws';
+import type { S3 } from '@cdktf/provider-aws';
 import { IAM } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
@@ -11,7 +11,7 @@ import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import type { Construct } from 'constructs';
 import path from 'path';
 import { z } from 'zod';
-import type { BuildDictContext } from './bot';
+import type { BuildDictContext, Bot } from './bot';
 import { CodeBuildStack } from './codebuild-stack';
 import { sharedScriptsDir } from './values';
 
@@ -25,8 +25,7 @@ export interface RunScriptOptions {
   prefix: string;
   logsPrefix: string;
   runScriptName: string;
-  botSsmPrefix: string;
-  botTable: DynamoDB.DynamodbTable;
+  bot: Bot;
   environmentVariable?: CodeBuildEnv | undefined;
 
   buildDictContext: BuildDictContext;
@@ -47,11 +46,7 @@ export class RunScript extends Resource {
   });
 
   readonly computedRunScriptEnv: ComputedRunScriptEnv = {
-    INFRA_SOURCE_BUCKET: z.string().parse(this.options.infraSourceBucket.bucket),
-    INFRA_SOURCE_ZIP_KEY: this.options.infraSourceZip.key,
     RUN_SCRIPT_NAME: this.options.runScriptName,
-    BOT_SSM_PREFIX: this.options.botSsmPrefix,
-    BOT_TABLE_NAME: this.options.botTable.name,
   };
 
   readonly buildStack = this.options.buildDictContext.add(
@@ -79,12 +74,12 @@ export class RunScript extends Resource {
       {
         effect: 'Allow',
         actions: ['dynamodb:UpdateItem'],
-        resources: [this.options.botTable.arn],
+        resources: [this.options.bot.table.arn],
       },
       {
         effect: 'Allow',
         actions: ['s3:GetObject'],
-        resources: [this.options.infraSourceBucket.arn],
+        resources: [`${this.options.infraSourceBucket.arn}/${this.options.infraSourceZip.key}`],
       },
     ],
   });

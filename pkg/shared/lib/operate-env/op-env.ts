@@ -28,6 +28,7 @@ export const scriptOpCodeBuildEnv = (env: ScriptOpEnv): CodeBuildEnv => toCodeBu
 // dynamic: 実行時にネームスペースごとに指定する
 export const dynamicOpEnvSchema = z.object({
   NAMESPACE: z.string().regex(/[a-z][a-z0-9]*/),
+  TERRAFORM_VERSION: z.string().regex(/\d+\.\d+\.\d/),
   S3BACKEND_PREFIX: z.optional(z.string()),
 
   API_REPO_SHA: z.string(),

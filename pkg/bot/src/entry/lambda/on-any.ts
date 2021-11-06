@@ -10,12 +10,12 @@ import { reEvaluateAndUpdate } from '@self/bot/src/app/update-cmd';
 import { generalEntrySchema } from '@self/bot/src/type/cmd';
 import type { MatcherBasicContext } from '@self/bot/src/type/matcher';
 import { createLambdaLogger } from '@self/bot/src/util/loggers';
-import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
+import { computedAfterwardBotEnvSchema, computedBotEnvSchema } from '@self/shared/lib/bot/env';
 import type { Handler } from 'aws-lambda';
 import 'source-map-support/register';
 
 const handler: Handler = async (event: unknown, context) => {
-  const env = computedBotEnvSchema.parse(process.env);
+  const env = computedBotEnvSchema.merge(computedAfterwardBotEnvSchema).parse(process.env);
 
   const credentials = getLambdaCredentials();
   const logger = createLambdaLogger('on-any');

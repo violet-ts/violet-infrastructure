@@ -1,21 +1,22 @@
-import arg from 'arg';
-import { initEnv } from '@self/shared/lib/def/util/init-env';
+import { getCodeBuildCredentials } from '@self/bot/src/app/aws';
+import { createLambdaLogger } from '@self/bot/src/util/loggers';
+import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
 import { createOctokit } from '@self/shared/lib/bot/octokit';
+import { parsePr, prAnalyze } from '@self/shared/lib/bot/pr-analyze';
+import { getLabelInfo, isManagedLabel } from '@self/shared/lib/bot/pr-label';
+import { requireSecrets } from '@self/shared/lib/bot/secrets';
+import { initEnv } from '@self/shared/lib/def/util/init-env';
+import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
 import type { DynamicUpdatePrLabelsEnv } from '@self/shared/lib/update-pr-labels/env';
 import { dynamicUpdatePrLabelsEnvSchema } from '@self/shared/lib/update-pr-labels/env';
-import { requireSecrets } from '@self/shared/lib/bot/secrets';
-import { createLambdaLogger } from '@self/bot/src/util/loggers';
-import { getLambdaCredentials } from '@self/bot/src/app/aws';
-import { getLabelInfo, isManagedLabel } from '@self/shared/lib/bot/pr-label';
 import { execThrow } from '@self/shared/lib/util/exec';
 import { createTmpdirContext } from '@self/shared/lib/util/tmpdir';
-import { parsePr, prAnalyze } from '@self/shared/lib/bot/pr-analyze';
-import { computedRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
+import arg from 'arg';
 
 const main = async (): Promise<void> => {
   initEnv();
 
-  const credentials = getLambdaCredentials();
+  const credentials = getCodeBuildCredentials();
   const logger = createLambdaLogger('local-tags-pr');
 
   const {
@@ -24,8 +25,13 @@ const main = async (): Promise<void> => {
     UPDATE_LABELS_PR_NUMBER: prNumberStr,
     BOT_INSTALLATION_ID,
   } = dynamicUpdatePrLabelsEnvSchema.parse(process.env);
-  const computedRunScriptEnv = computedRunScriptEnvSchema.parse(process.env);
-  const secrets = await requireSecrets(computedRunScriptEnv, credentials, logger);
+
+  const env = computedBotEnvSchema
+    .merge(dynamicRunScriptEnvSchema)
+    .merge(computedRunScriptEnvSchema)
+    .parse(process.env);
+
+  const secrets = await requireSecrets(env, credentials, logger);
   const botInstallationId = Number.parseInt(BOT_INSTALLATION_ID, 10);
   const octokit = await createOctokit(secrets, botInstallationId);
   const prNumber = Number.parseInt(prNumberStr, 10);

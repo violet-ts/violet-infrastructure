@@ -227,8 +227,8 @@ export class HTTPTask extends Resource {
     statement: [
       {
         // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
-        actions: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
         resources: [this.parent.s3.arn, `${this.parent.s3.arn}/*`],
+        actions: ['s3:Get*', 's3:List*', 's3:CopyObject', 's3:Put*', 's3:HeadObject', 's3:DeleteObject*'],
       },
     ],
   });

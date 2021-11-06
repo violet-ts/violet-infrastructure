@@ -89,6 +89,7 @@ const createCmd = (
             OPERATION: paramsGetter(ctx.env).operation,
           }),
           ...dynamicOpCodeBuildEnv({
+            TERRAFORM_VERSION: '1.0.9',
             NAMESPACE: ctx.namespace,
             API_REPO_SHA: apiImageDetail.imageDigest,
             WEB_REPO_SHA: webImageDetail.imageDigest,

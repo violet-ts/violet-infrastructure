@@ -3,13 +3,12 @@ import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot/env';
 import { botSecretsSchema } from '@self/shared/lib/bot/env';
 import type { Credentials, Provider } from '@aws-sdk/types';
 import type { Logger } from 'winston';
-import type { ComputedRunScriptEnv } from '../run-script/env';
 
 const keys = Object.keys(botSecretsSchema.shape);
 type SecretKeys = keyof BotSecrets;
 
 export const requireSecrets = async (
-  env: ComputedBotEnv | ComputedRunScriptEnv,
+  env: ComputedBotEnv,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,
 ): Promise<BotSecrets> => {

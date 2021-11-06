@@ -150,7 +150,7 @@ export class CodeBuildStack extends Resource {
         // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
         effect: 'Allow',
         resources: [this.cache.arn, `${this.cache.arn}/*`],
-        actions: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
+        actions: ['s3:Get*', 's3:List*', 's3:CopyObject', 's3:Put*', 's3:HeadObject', 's3:DeleteObject*'],
       },
     ],
   });

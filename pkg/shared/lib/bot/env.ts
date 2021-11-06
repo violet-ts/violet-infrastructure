@@ -9,8 +9,14 @@ export type BotSecrets = z.infer<typeof botSecretsSchema>;
 
 export const computedBotEnvSchema = z.object({
   PREVIEW_DOMAIN: z.string(),
+  INFRA_SOURCE_BUCKET: z.string(),
+  INFRA_SOURCE_ZIP_KEY: z.string(),
   BOT_TABLE_NAME: z.string(),
   BOT_SSM_PREFIX: z.string(),
+});
+export type ComputedBotEnv = z.infer<typeof computedBotEnvSchema>;
+
+export const computedAfterwardBotEnvSchema = z.object({
   API_REPO_NAME: z.string(),
   WEB_REPO_NAME: z.string(),
   LAMBDA_REPO_NAME: z.string(),
@@ -20,4 +26,4 @@ export const computedBotEnvSchema = z.object({
   OPERATE_ENV_PROJECT_NAME: z.string(),
   PR_UPDATE_LABELS_PROJECT_NAME: z.string(),
 });
-export type ComputedBotEnv = z.infer<typeof computedBotEnvSchema>;
+export type ComputedAfterwardBotEnv = z.infer<typeof computedAfterwardBotEnvSchema>;

@@ -10,7 +10,7 @@ import { hintHowToPullDocker } from '@self/bot/src/util/hint';
 import { collectLogsOutput } from '@self/bot/src/util/aws/logs-output';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
 import { renderGitHubPRCommit } from '@self/bot/src/util/comment-render/github';
-import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
+import type { ComputedAfterwardBotEnv, ComputedBotEnv } from '@self/shared/lib/bot/env';
 
 // TODO(hardcoded)
 const imageRegion = 'ap-northeast-1';
@@ -58,7 +58,7 @@ interface CreateParams {
 
 const createCmd = (
   st: ReplyCmdStatic,
-  paramsGetter: (env: ComputedBotEnv, namespace: string) => CreateParams,
+  paramsGetter: (env: ComputedBotEnv & ComputedAfterwardBotEnv, namespace: string) => CreateParams,
 ): ReplyCmd<Entry, CommentValues> => {
   const cmd: ReplyCmd<Entry, CommentValues> = {
     ...st,

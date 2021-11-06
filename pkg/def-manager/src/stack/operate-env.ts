@@ -1,4 +1,4 @@
-import type { DynamoDB, ECR } from '@cdktf/provider-aws';
+import type { ECR } from '@cdktf/provider-aws';
 import { IAM, S3 } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
@@ -8,7 +8,8 @@ import type { ComputedOpEnv } from '@self/shared/lib/operate-env/op-env';
 import { computedOpCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
 import type { Construct } from 'constructs';
 import { z } from 'zod';
-import type { BuildDictContext } from './bot';
+import type { Bot } from './bot';
+import type { BuildDictContext } from './bot-attach';
 import { DevNetwork } from './dev-network';
 import { RunScript } from './run-script';
 
@@ -16,8 +17,7 @@ export interface OperateEnvOptions {
   tagsAll: Record<string, string>;
   prefix: string;
   logsPrefix: string;
-  botSsmPrefix: string;
-  botTable: DynamoDB.DynamodbTable;
+  bot: Bot;
   sharedEnv: SharedEnv;
   managerEnv: ManagerEnv;
   apiDevRepo: ECR.EcrRepository;
@@ -81,8 +81,7 @@ export class OperateEnv extends Resource {
     prefix: `${this.options.prefix}-rs`,
     logsPrefix: this.options.logsPrefix,
     runScriptName: 'operate-env.ts',
-    botSsmPrefix: this.options.botSsmPrefix,
-    botTable: this.options.botTable,
+    bot: this.options.bot,
     environmentVariable: [...computedOpCodeBuildEnv(this.computedOpEnv)],
     buildDictContext: this.options.buildDictContext,
     infraSourceBucket: this.options.infraSourceBucket,
@@ -189,13 +188,13 @@ export class OperateEnv extends Resource {
       {
         effect: 'Allow',
         actions: [`dynamodb:UpdateItem`],
-        resources: [this.options.botTable.arn],
+        resources: [this.options.bot.table.arn],
       },
       {
         // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
         effect: 'Allow',
         resources: [this.tfstate.arn, `${this.tfstate.arn}/*`],
-        actions: ['s3:PutObject', 's3:PutObjectAcl', 's3:GetObject', 's3:GetObjectAcl', 's3:DeleteObject'],
+        actions: ['s3:Get*', 's3:List*', 's3:CopyObject', 's3:Put*', 's3:HeadObject', 's3:DeleteObject*'],
       },
     ],
   });
