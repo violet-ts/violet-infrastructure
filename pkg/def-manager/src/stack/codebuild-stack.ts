@@ -11,7 +11,9 @@ import { sharedCodeBuildEnv } from '@self/shared/lib/def/env-vars';
 import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import type { CodeBuildStackEnv } from '@self/shared/lib/codebuild-stack/env';
 import { codeBuildStackCodeBuildEnv } from '@self/shared/lib/codebuild-stack/env';
+import { computedBotCodeBuildEnv } from '@self/shared/lib/bot/env';
 import { dataDir } from './values';
+import type { Bot } from './bot';
 
 // Opinionated CodeBuild stack.
 
@@ -23,6 +25,7 @@ export interface CodeBuildStackOptions {
   prefix: string;
   logsPrefix: string;
   environmentVariable: CodeBuildEnv;
+  bot: Bot;
 }
 
 export class CodeBuildStack extends Resource {
@@ -106,6 +109,7 @@ export class CodeBuildStack extends Resource {
       environmentVariable: [
         ...sharedCodeBuildEnv(this.options.sharedEnv),
         ...codeBuildStackCodeBuildEnv(this.codeBuildStackEnv),
+        ...computedBotCodeBuildEnv(this.options.bot.computedBotEnv),
         ...this.options.environmentVariable,
       ],
     },

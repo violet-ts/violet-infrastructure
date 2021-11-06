@@ -201,7 +201,19 @@ export class VioletManagerStack extends TerraformStack {
     }),
   );
 
-  // ===
+  readonly bot = new Bot(this, 'bot', {
+    prefix: 'vio-bot',
+    logsPrefix: `${this.logsPrefix}/bot`,
+    ssmPrefix: `${this.logsPrefix}/bot`,
+
+    infraSourceBucket: this.infraSourceBucket,
+    infraSourceZip: this.infraSourceZip,
+    previewZone: this.previewZone,
+
+    tagsAll: {
+      ...genTags(null),
+    },
+  });
 
   readonly apiBuild = new ContainerBuild(this, 'apiBuild', {
     name: 'Api',
@@ -210,6 +222,7 @@ export class VioletManagerStack extends TerraformStack {
     managerEnv: this.options.managerEnv,
     logsPrefix: `${this.logsPrefix}/dev-api-build`,
     repo: this.apiDevRepo,
+    bot: this.bot,
 
     buildDictContext: this.buildDictContext,
 
@@ -225,6 +238,7 @@ export class VioletManagerStack extends TerraformStack {
     managerEnv: this.options.managerEnv,
     logsPrefix: `${this.logsPrefix}/dev-web-build`,
     repo: this.webDevRepo,
+    bot: this.bot,
 
     buildDictContext: this.buildDictContext,
 
@@ -240,25 +254,12 @@ export class VioletManagerStack extends TerraformStack {
     prefix: 'violet-dev-lam-build',
     logsPrefix: `${this.logsPrefix}/dev-lam-build`,
     repo: this.lambdaDevRepo,
+    bot: this.bot,
 
     buildDictContext: this.buildDictContext,
 
     tagsAll: {
       ...genTags(null, 'development'),
-    },
-  });
-
-  readonly bot = new Bot(this, 'bot', {
-    prefix: 'vio-bot',
-    logsPrefix: `${this.logsPrefix}/bot`,
-    ssmPrefix: `${this.logsPrefix}/bot`,
-
-    infraSourceBucket: this.infraSourceBucket,
-    infraSourceZip: this.infraSourceZip,
-    previewZone: this.previewZone,
-
-    tagsAll: {
-      ...genTags(null),
     },
   });
 

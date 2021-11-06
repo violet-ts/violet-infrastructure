@@ -57,6 +57,7 @@ export class RunScript extends Resource {
       buildSpecName: 'run-script.yml',
       prefix: `${this.options.prefix}-bs`,
       logsPrefix: this.options.logsPrefix,
+      bot: this.options.bot,
       environmentVariable: [
         ...computedRunScriptCodeBuildEnv(this.computedRunScriptEnv),
         ...(this.options.environmentVariable ?? []),

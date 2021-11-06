@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
+import { toCodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 
 export const botSecretsSchema = z.object({
   WEBHOOKS_SECRET: z.string(),
@@ -15,6 +17,7 @@ export const computedBotEnvSchema = z.object({
   BOT_SSM_PREFIX: z.string(),
 });
 export type ComputedBotEnv = z.infer<typeof computedBotEnvSchema>;
+export const computedBotCodeBuildEnv = (env: ComputedBotEnv): CodeBuildEnv => toCodeBuildEnv<ComputedBotEnv>(env);
 
 export const computedAfterwardBotEnvSchema = z.object({
   API_REPO_NAME: z.string(),

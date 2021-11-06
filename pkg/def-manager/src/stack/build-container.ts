@@ -7,7 +7,7 @@ import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import { z } from 'zod';
 import type { VioletManagerStack } from '.';
-import type { BuildDictContext } from './bot';
+import type { Bot, BuildDictContext } from './bot';
 import { CodeBuildStack } from './codebuild-stack';
 
 export interface ContainerBuildOptions {
@@ -19,6 +19,7 @@ export interface ContainerBuildOptions {
   prefix: string;
   logsPrefix: string;
   environmentVariable?: CodeBuildEnv | undefined;
+  bot: Bot;
 
   buildDictContext: BuildDictContext;
 }
@@ -55,6 +56,7 @@ export class ContainerBuild extends Resource {
       buildSpecName: 'build-container.yml',
       prefix: `${this.options.prefix}-bs`,
       logsPrefix: this.options.logsPrefix,
+      bot: this.options.bot,
       environmentVariable: [
         ...(this.parent.dockerHubCredentials?.codeBuildEnvironmentVariables ?? []),
         ...(this.options.environmentVariable ?? []),
