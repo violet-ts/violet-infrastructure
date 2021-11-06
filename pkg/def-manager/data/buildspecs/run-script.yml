@@ -44,9 +44,9 @@ phases:
   pre_build:
     commands:
       - echo ==== get source from s3 ====
-      - aws s3 cp "s3://${INFRA_SOURCE_BUCKET}/${INFRA_SOURCE_ZIP_KEY}" .
-      - unzip "${INFRA_SOURCE_ZIP_KEY}"
-      - rm -f "${INFRA_SOURCE_ZIP_KEY}"
+      - aws s3api get-object --bucket="${INFRA_SOURCE_BUCKET}" --key="${INFRA_SOURCE_ZIP_KEY}" self.local.zip
+      - unzip self.local.zip
+      - rm -f self.local.zip
       - echo ==== pnpm store status ====
       - pnpm store status || true
       - echo ==== pnpm install ====
