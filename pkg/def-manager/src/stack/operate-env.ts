@@ -22,6 +22,8 @@ export interface OperateEnvOptions {
   managerEnv: ManagerEnv;
   apiDevRepo: ECR.EcrRepository;
   webDevRepo: ECR.EcrRepository;
+  infraSourceBucket: S3.S3Bucket;
+  infraSourceZip: S3.S3BucketObject;
 
   buildDictContext: BuildDictContext;
 }
@@ -83,6 +85,8 @@ export class OperateEnv extends Resource {
     botTable: this.options.botTable,
     environmentVariable: [...computedOpCodeBuildEnv(this.computedOpEnv)],
     buildDictContext: this.options.buildDictContext,
+    infraSourceBucket: this.options.infraSourceBucket,
+    infraSourceZip: this.options.infraSourceZip,
 
     tagsAll: {
       ...this.options.tagsAll,

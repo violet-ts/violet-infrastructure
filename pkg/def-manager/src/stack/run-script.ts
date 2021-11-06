@@ -1,4 +1,4 @@
-import type { DynamoDB } from '@cdktf/provider-aws';
+import type { DynamoDB, S3 } from '@cdktf/provider-aws';
 import { IAM } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
@@ -20,6 +20,8 @@ export interface RunScriptOptions {
   name: string;
   sharedEnv: SharedEnv;
   managerEnv: ManagerEnv;
+  infraSourceBucket: S3.S3Bucket;
+  infraSourceZip: S3.S3BucketObject;
   prefix: string;
   logsPrefix: string;
   runScriptName: string;
@@ -45,7 +47,8 @@ export class RunScript extends Resource {
   });
 
   readonly computedRunScriptEnv: ComputedRunScriptEnv = {
-    ...this.options.sharedEnv,
+    INFRA_SOURCE_BUCKET: z.string().parse(this.options.infraSourceBucket.bucket),
+    INFRA_SOURCE_ZIP_KEY: this.options.infraSourceZip.key,
     RUN_SCRIPT_NAME: this.options.runScriptName,
     BOT_SSM_PREFIX: this.options.botSsmPrefix,
     BOT_TABLE_NAME: this.options.botTable.name,
@@ -75,8 +78,13 @@ export class RunScript extends Resource {
     statement: [
       {
         effect: 'Allow',
-        actions: [`dynamodb:UpdateItem`],
+        actions: ['dynamodb:UpdateItem'],
         resources: [this.options.botTable.arn],
+      },
+      {
+        effect: 'Allow',
+        actions: ['s3:GetObject'],
+        resources: [this.options.infraSourceBucket.arn],
       },
     ],
   });

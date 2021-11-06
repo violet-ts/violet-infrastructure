@@ -1,10 +1,13 @@
-import { AwsProvider, DynamoDB, ECR, ResourceGroups, Route53 } from '@cdktf/provider-aws';
+import * as path from 'path';
+import { AwsProvider, DynamoDB, ECR, ResourceGroups, Route53, S3 } from '@cdktf/provider-aws';
+import { z } from 'zod';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
-import { PROJECT_NAME } from '@self/shared/lib/const';
+import { projectRootDir, PROJECT_NAME } from '@self/shared/lib/const';
 import type { DockerHubCred, ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import { TerraformHclModule, TerraformOutput, TerraformStack } from 'cdktf';
 import type { Construct } from 'constructs';
+import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import type { BuildDictContext, RepoDictContext } from './bot';
 import { Bot } from './bot';
 import { ContainerBuild } from './build-container';
@@ -110,6 +113,22 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly previewZone = new Route53.DataAwsRoute53Zone(this, 'previewZone', {
     zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
+  });
+
+  readonly infraSourceBucket = new S3.S3Bucket(this, 'infraSourceBucket', {
+    bucketPrefix: `vio-infra-source-`,
+    acl: 'private',
+    forceDestroy: true,
+  });
+
+  readonly infraSourceZipPath = ensurePath(path.resolve(projectRootDir, 'self.local.zip'));
+
+  readonly infraSourceZip = new S3.S3BucketObject(this, 'infraSourceZip', {
+    bucket: z.string().parse(this.infraSourceBucket.bucket),
+    key: `self.local.zip`,
+    source: this.infraSourceZipPath,
+    acl: 'private',
+    forceDestroy: true,
   });
 
   // === ECR Repositories ===
@@ -256,6 +275,8 @@ export class VioletManagerStack extends TerraformStack {
     managerEnv: this.options.managerEnv,
     apiDevRepo: this.apiDevRepo,
     webDevRepo: this.webDevRepo,
+    infraSourceBucket: this.infraSourceBucket,
+    infraSourceZip: this.infraSourceZip,
 
     buildDictContext: this.buildDictContext,
 
@@ -273,6 +294,8 @@ export class VioletManagerStack extends TerraformStack {
     sharedEnv: this.options.sharedEnv,
     managerEnv: this.options.managerEnv,
     runScriptName: 'update-pr-labels.ts',
+    infraSourceBucket: this.infraSourceBucket,
+    infraSourceZip: this.infraSourceZip,
 
     buildDictContext: this.buildDictContext,
 

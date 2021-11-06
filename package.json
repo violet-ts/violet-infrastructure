@@ -5,6 +5,10 @@
   "license": "TODO",
   "scripts": {
     "compile": "pnpm run --filter=./pkg/shared compile && pnpm run --filter=./pkg --filter=./pkg/shared",
+    "cdktf-prepare:manager": "run-p cdktf-prepare:_:*",
+    "cdktf-prepare:env": "pnpm run cdktf-prepare:_:compile-bot",
+    "cdktf-prepare:_:compile-bot": "pnpm run --filter=./pkg/bot compile",
+    "cdktf-prepare:_:zip-self": "ts-node -T ./pkg/shared/scripts/local/zip-self.ts",
     "lint": "eslint \"**/*.{js,cjs,mjs,ts,tsx,json}\"",
     "lint-fix": "pnpm run lint -- --fix",
     "lint-quiet": "pnpm run lint -- --quiet",

@@ -34,33 +34,33 @@ const main = async (): Promise<void> => {
     const tmpdirCtx = createTmpdirContext();
     const tmpdir = tmpdirCtx.open();
     try {
-      await execThrow('git', ['init'], true, { cwd: tmpdir });
-      await execThrow('git', ['remote', 'add', 'origin', `https://github.com/${owner}/${repo}.git`], true, {
+      await execThrow('git', ['init'], false, { cwd: tmpdir });
+      await execThrow('git', ['remote', 'add', 'origin', `https://github.com/${owner}/${repo}.git`], false, {
         cwd: tmpdir,
       });
-      await execThrow('git', ['fetch', '--quiet', `origin`, baseRef], true, { cwd: tmpdir });
-      await execThrow('git', ['branch', '--quiet', `base`, 'FETCH_HEAD'], true, { cwd: tmpdir });
-      await execThrow('git', ['fetch', '--quiet', `origin`, targetRef], true, { cwd: tmpdir });
-      await execThrow('git', ['branch', '--quiet', `target`, 'FETCH_HEAD'], true, { cwd: tmpdir });
-      await execThrow('git', ['checkout', '--quiet', `target`], true, { cwd: tmpdir });
-      await execThrow('git', ['diff', `target`], true, { cwd: tmpdir });
+      await execThrow('git', ['fetch', '--quiet', `origin`, baseRef], false, { cwd: tmpdir });
+      await execThrow('git', ['branch', '--quiet', `base`, 'FETCH_HEAD'], false, { cwd: tmpdir });
+      await execThrow('git', ['fetch', '--quiet', `origin`, targetRef], false, { cwd: tmpdir });
+      await execThrow('git', ['branch', '--quiet', `target`, 'FETCH_HEAD'], false, { cwd: tmpdir });
+      await execThrow('git', ['checkout', '--quiet', `target`], false, { cwd: tmpdir });
+      await execThrow('git', ['diff', `target`], false, { cwd: tmpdir });
 
       const parsePRParams = {
         dockerfilesOutput: (
-          await execThrow('find', ['./docker/', '-type', 'f', '-a', '-name', 'Dockerfile'], true, {
+          await execThrow('find', ['./docker/', '-type', 'f', '-a', '-name', 'Dockerfile'], false, {
             cwd: tmpdir,
           })
         ).stdout,
         projectPackagesOutput: (
-          await execThrow('find', ['./pkg/', '-type', 'f', '-a', '-name', 'package.json'], true, {
+          await execThrow('find', ['./pkg/', '-type', 'f', '-a', '-name', 'package.json'], false, {
             cwd: tmpdir,
           })
         ).stdout,
-        diffOutput: (await execThrow('git', ['diff', '--no-color', 'base'], true, { cwd: tmpdir })).stdout,
-        diffNamesOutput: (await execThrow('git', ['diff', '--no-color', '--name-only', 'base'], true, { cwd: tmpdir }))
+        diffOutput: (await execThrow('git', ['diff', '--no-color', 'base'], false, { cwd: tmpdir })).stdout,
+        diffNamesOutput: (await execThrow('git', ['diff', '--no-color', '--name-only', 'base'], false, { cwd: tmpdir }))
           .stdout,
         logOutput: (
-          await execThrow('git', ['log', '--no-color', 'base..HEAD', '--format=format:%s'], true, { cwd: tmpdir })
+          await execThrow('git', ['log', '--no-color', 'base..HEAD', '--format=format:%s'], false, { cwd: tmpdir })
         ).stdout,
       };
 

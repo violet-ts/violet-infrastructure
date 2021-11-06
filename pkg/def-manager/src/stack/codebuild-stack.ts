@@ -7,8 +7,10 @@ import { z } from 'zod';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import type { Construct } from 'constructs';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
+import { sharedCodeBuildEnv } from '@self/shared/lib/def/env-vars';
 import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import type { CodeBuildStackEnv } from '@self/shared/lib/codebuild-stack/env';
+import { codeBuildStackCodeBuildEnv } from '@self/shared/lib/codebuild-stack/env';
 import { dataDir } from './values';
 
 // Opinionated CodeBuild stack.
@@ -101,7 +103,11 @@ export class CodeBuildStack extends Resource {
       image: 'aws/codebuild/standard:5.0',
       imagePullCredentialsType: 'CODEBUILD',
       privilegedMode: true,
-      environmentVariable: [...this.options.environmentVariable],
+      environmentVariable: [
+        ...sharedCodeBuildEnv(this.options.sharedEnv),
+        ...codeBuildStackCodeBuildEnv(this.codeBuildStackEnv),
+        ...this.options.environmentVariable,
+      ],
     },
     source: {
       type: 'NO_SOURCE',

@@ -6,4 +6,5 @@ export const codeBuildStackEnvSchema = z.object({
   SCRIPT_ROLE_NAME: z.string(),
 });
 export type CodeBuildStackEnv = z.infer<typeof codeBuildStackEnvSchema>;
-export const codeBuildStackBuildEnv = (env: CodeBuildStackEnv): CodeBuildEnv => toCodeBuildEnv<CodeBuildStackEnv>(env);
+export const codeBuildStackCodeBuildEnv = (env: CodeBuildStackEnv): CodeBuildEnv =>
+  toCodeBuildEnv<CodeBuildStackEnv>(env);

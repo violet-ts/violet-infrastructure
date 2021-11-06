@@ -35,53 +35,18 @@ phases:
       - echo "INFRA_GIT_FETCH=$INFRA_GIT_FETCH"
       - echo "INFRA_TRUSTED_MERGER_GITHUB_EMAILS=$INFRA_TRUSTED_MERGER_GITHUB_EMAILS"
       - echo "RUN_SCRIPT_NAME=$RUN_SCRIPT_NAME"
+      - echo "INFRA_SOURCE_BUCKET=$INFRA_SOURCE_BUCKET"
+      - echo "INFRA_SOURCE_ZIP_KEY=$INFRA_SOURCE_ZIP_KEY"
       - echo ==== info ====
       - pwd
       - whoami
       - echo ==== finished ====
   pre_build:
     commands:
-      - echo ==== git clone infra repository ====
-      - mkdir infra || true
-      - cd infra
-      - git init || true
-      - git reset --hard HEAD || true
-      - git clean -xdf || true
-      - git remote remove origin || true
-      - git remote add origin "$INFRA_GIT_URL"
-      - git fetch origin "$INFRA_GIT_FETCH"
-      - git checkout FETCH_HEAD
-      - echo ==== git commit verify ====
-      - git show -s HEAD
-      - 'echo "INFO: Check whether signed by GitHub GPG."'
-      - test "$(git show -s --format='%GP' HEAD)" = "5DE3E0509C47EA3CF04A42D34AEE18F83AFDEB23"
-      - git verify-commit HEAD
-      - export AUTHOR_EMAIL="$(git show -s --format='%ae' HEAD)"
-      - echo "AUTHOR_EMAIL=$AUTHOR_EMAIL"
-      - 'echo "INFO: Check whether the inputs are 1 line string."'
-      - test "$(echo "$INFRA_TRUSTED_MERGER_GITHUB_EMAILS" | wc -l)" = 1
-      - test "$(echo "$AUTHOR_EMAIL" | wc -l)" = 1
-      - 'echo "INFO: Verify the email is in trusted list."'
-      - 'echo "INFO: List is separated by commas."'
-      - |
-        awk '
-          NR == 1 {
-            split($0, emails, ",")
-          }
-          NR == 2 {
-            author_email = $0
-          }
-          END {
-            for (i=1; i in emails; i++) {
-              if (author_email == emails[i]) {
-                print "ok"
-                exit 0
-              }
-            }
-            print "no email matched"
-            exit 1
-          }
-        ' <(echo "$INFRA_TRUSTED_MERGER_GITHUB_EMAILS") <(echo "$AUTHOR_EMAIL")
+      - echo ==== get source from s3 ====
+      - aws s3 cp "s3://${INFRA_SOURCE_BUCKET}/${INFRA_SOURCE_ZIP_KEY}" .
+      - unzip "${INFRA_SOURCE_ZIP_KEY}"
+      - rm -f "${INFRA_SOURCE_ZIP_KEY}"
       - echo ==== pnpm store status ====
       - pnpm store status || true
       - echo ==== pnpm install ====
@@ -95,5 +60,4 @@ phases:
 
 cache:
   paths:
-    - "infra/.git/**/*"
     - "/root/.pnpm-store/**/*"
