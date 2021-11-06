@@ -5,14 +5,12 @@ import { Resource } from '@cdktf/provider-null';
 import { Password } from '@cdktf/provider-random';
 import * as fs from 'fs';
 import * as path from 'path';
-import { assertInRange } from '@self/shared/lib/ranged-string';
-import type { RangedString26 } from '@self/shared/lib/ranged-string/util';
-import { len32 } from '@self/shared/lib/ranged-string/util';
 import type { VioletEnvStack } from '.';
 import { dataDir } from './values';
 
 export interface MysqlDbOptions {
-  prefix: RangedString26;
+  /** len <= 26 */
+  prefix: string;
   tagsAll?: Record<string, string>;
   /** e.g. rds:production-2015-06-26-06-05 */
   snapshotIdentifier?: string;
@@ -47,7 +45,7 @@ export class MysqlDb extends Resource {
 
   // https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DBParameterGroup.html
   readonly mysqlParameter = new RDS.DbParameterGroup(this, 'mysqlParameter', {
-    name: assertInRange(this.options.prefix, len32),
+    name: this.options.prefix,
     family: 'mysql8.0',
     parameter: this.parameter,
 
@@ -59,7 +57,7 @@ export class MysqlDb extends Resource {
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/db_subnet_group
   readonly dbSubnetGroup = new RDS.DbSubnetGroup(this, 'dbSubnetGroup', {
-    name: assertInRange(this.options.prefix, len32),
+    name: this.options.prefix,
     subnetIds: this.options.subnets.map((subnet) => subnet.id),
 
     tagsAll: {
@@ -78,7 +76,7 @@ export class MysqlDb extends Resource {
   // TODO(scale): prod: DB usage should be watched
   // TODO(perf): prod: tuning at scale
   readonly db = new RDS.DbInstance(this, 'db', {
-    identifier: assertInRange(this.options.prefix, len32),
+    identifier: this.options.prefix,
     // DB name
     name: `violet`,
     publiclyAccessible: ['development', 'preview', 'staging'].includes(this.parent.options.section),

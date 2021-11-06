@@ -1,15 +1,15 @@
-import { spawn } from 'child_process';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
+import { ECS } from '@aws-sdk/client-ecs';
+import { marshall } from '@aws-sdk/util-dynamodb';
+import { getCodeBuildCredentials } from '@self/shared/lib/aws';
+import { initEnv } from '@self/shared/lib/def/util/init-env';
 import type { GeneralBuildOutput, RunTaskBuildOutput, TfBuildOutput } from '@self/shared/lib/operate-env/build-output';
 import { tfBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
-import { initEnv } from '@self/shared/lib/def/util/init-env';
-import { asyncIter } from 'ballvalve';
-import { PassThrough } from 'stream';
-import { ECS } from '@aws-sdk/client-ecs';
-import { DynamoDB } from '@aws-sdk/client-dynamodb';
-import { marshall } from '@aws-sdk/util-dynamodb';
-import { getCodeBuildCredentials } from '@self/bot/src/app/aws';
+import { computedOpEnvSchema, scriptOpEnvSchema } from '@self/shared/lib/operate-env/op-env';
+import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
+import { exec } from '@self/shared/lib/util/exec';
 import { z } from 'zod';
-import { scriptOpEnvSchema, computedOpEnvSchema } from '../lib/operate-env/op-env';
+import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
 
 const main = async (): Promise<void> => {
   initEnv();
@@ -18,12 +18,16 @@ const main = async (): Promise<void> => {
   // TODO(logging): logger
   // const logger
 
-  const scriptOpEnv = scriptOpEnvSchema.parse(process.env);
-  const computedOpEnv = computedOpEnvSchema.parse(process.env);
+  const env = scriptOpEnvSchema
+    .merge(computedOpEnvSchema)
+    .merge(computedBotEnvSchema)
+    .merge(dynamicRunScriptEnvSchema)
+    .merge(computedRunScriptEnvSchema)
+    .parse(process.env);
 
   // TODO(hardcoded)
   const botTableRegion = 'ap-northeast-1';
-  const entryURL = `https://${botTableRegion}.console.aws.amazon.com/dynamodbv2/home#item-explorer?autoScanAttribute=null&initialTagKey=&table=${computedOpEnv.BOT_TABLE_NAME}`;
+  const entryURL = `https://${botTableRegion}.console.aws.amazon.com/dynamodbv2/home#item-explorer?autoScanAttribute=null&initialTagKey=&table=${env.BOT_TABLE_NAME}`;
 
   const delay = (ms: number): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -39,9 +43,9 @@ const main = async (): Promise<void> => {
     const db = new DynamoDB({ credentials });
     // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html
     await db.updateItem({
-      TableName: computedOpEnv.BOT_TABLE_NAME,
+      TableName: env.BOT_TABLE_NAME,
       Key: {
-        uuid: { S: scriptOpEnv.ENTRY_UUID },
+        uuid: { S: env.ENTRY_UUID },
       },
       UpdateExpression: `SET ${expr}`,
       ExpressionAttributeNames: keys,
@@ -51,30 +55,10 @@ const main = async (): Promise<void> => {
 
   const e = async (file: string, args: string[], silent: boolean): Promise<{ stdout: string; stderr: string }> => {
     console.log(`Running ${[file, ...args].map((a) => JSON.stringify(a)).join(' ')}`);
-    const proc = spawn(file, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    const prom = new Promise<void>((resolve) =>
-      proc.once('exit', () => {
-        resolve();
-      }),
-    );
-    if (!silent) {
-      proc.stdout.pipe(new PassThrough()).pipe(process.stdout);
-      proc.stderr.pipe(new PassThrough()).pipe(process.stderr);
-    }
-    const [stdout, stderr] = await Promise.all([
-      asyncIter<Buffer>(proc.stdout)
-        .collect()
-        .then((b) => `${Buffer.concat(b).toString('utf-8')}\n`),
-      asyncIter<Buffer>(proc.stderr)
-        .collect()
-        .then((b) => `${Buffer.concat(b).toString('utf-8')}\n`),
-    ]);
-    await prom;
-    if (proc.exitCode !== 0) {
+    const { stdout, stderr, exitCode } = await exec(file, args, silent);
+    if (exitCode !== 0) {
       if (silent) console.error({ stdout, stderr });
-      throw new Error(`exit with ${proc.exitCode}`);
+      throw new Error(`exit with ${exitCode}`);
     }
     return { stdout, stderr };
   };
@@ -126,8 +110,8 @@ const main = async (): Promise<void> => {
         cluster: tfBuildOutput.ecsClusterName,
         networkConfiguration: {
           awsvpcConfiguration: {
-            subnets: [computedOpEnv.NETWORK_PUB_ID0, computedOpEnv.NETWORK_PUB_ID1, computedOpEnv.NETWORK_PUB_ID2],
-            securityGroups: [computedOpEnv.NETWORK_SVC_SG_ID],
+            subnets: [env.NETWORK_PUB_ID0, env.NETWORK_PUB_ID1, env.NETWORK_PUB_ID2],
+            securityGroups: [env.NETWORK_SVC_SG_ID],
             // // TODO(security): NAT
             assignPublicIp: 'ENABLED',
           },
@@ -196,7 +180,7 @@ const main = async (): Promise<void> => {
     }
   };
 
-  switch (scriptOpEnv.OPERATION) {
+  switch (env.OPERATION) {
     case 'deploy': {
       // NOTE: 削除含む apply で一発では正常に apply できない事がある
       await operate('apply', ['--auto-approve'], 1, 2);
@@ -244,7 +228,7 @@ const main = async (): Promise<void> => {
       break;
     }
     default: {
-      throw new Error(`not implemented: "${scriptOpEnv.OPERATION}"`);
+      throw new Error(`not implemented: "${env.OPERATION}"`);
     }
   }
 

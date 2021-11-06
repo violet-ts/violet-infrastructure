@@ -4,6 +4,7 @@ import { toTemporalInstant } from '@js-temporal/polyfill';
 import { z } from 'zod';
 import type { ScriptOpEnv } from '@self/shared/lib/operate-env/op-env';
 import { dynamicOpCodeBuildEnv, scriptOpCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
+import { dynamicRunScriptCodeBuildEnv } from '@self/shared/lib/run-script/env';
 import type { BuiltInfo } from '@self/shared/lib/operate-env/build-output';
 import {
   tfBuildOutputSchema,
@@ -15,7 +16,7 @@ import { renderDuration, renderTimestamp } from '@self/bot/src/util/comment-rend
 import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
 import { renderGitHubCommit } from '@self/bot/src/util/comment-render/github';
-import type { ComputedBotEnv } from '@self/shared/lib/bot-env';
+import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
 
 // TODO(hardcoded)
 const imageRegion = 'ap-northeast-1';
@@ -81,11 +82,14 @@ const createCmd = (
       const r = await codeBuild.startBuild({
         projectName: ctx.env.OPERATE_ENV_PROJECT_NAME,
         environmentVariablesOverride: [
-          ...scriptOpCodeBuildEnv({
-            OPERATION: paramsGetter(ctx.env).operation,
+          ...dynamicRunScriptCodeBuildEnv({
             ENTRY_UUID: generalEntry.uuid,
           }),
+          ...scriptOpCodeBuildEnv({
+            OPERATION: paramsGetter(ctx.env).operation,
+          }),
           ...dynamicOpCodeBuildEnv({
+            TERRAFORM_VERSION: '1.0.9',
             NAMESPACE: ctx.namespace,
             API_REPO_SHA: apiImageDetail.imageDigest,
             WEB_REPO_SHA: webImageDetail.imageDigest,

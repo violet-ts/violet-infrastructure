@@ -13,6 +13,7 @@
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
     "allowSyntheticDefaultImports": true,
+    "allowJs": true,
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
@@ -24,6 +25,7 @@
     "strictNullChecks": true,
     "strictPropertyInitialization": true,
     "stripInternal": true,
+    "esModuleInterop": true,
     "target": "ES2018",
     "incremental": true
   },

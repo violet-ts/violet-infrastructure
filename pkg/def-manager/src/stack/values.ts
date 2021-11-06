@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv';
 import { PROJECT_NAME } from '@self/shared/lib/const';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import type { Section } from '@self/shared/lib/def/types';
-import { botSecretsSchema } from '@self/shared/lib/bot-env';
+import { botSecretsSchema } from '@self/shared/lib/bot/env';
 
 export const genTags = (name: string | null, section?: Section | null): Record<string, string> => {
   const tags: Record<string, string> = {
@@ -22,6 +22,7 @@ export const genTags = (name: string | null, section?: Section | null): Record<s
 const rootDir = path.resolve(__dirname, '..', '..', '..', '..');
 export const dataDir = path.resolve(__dirname, '..', '..', 'data');
 export const botBuildDir = ensurePath(path.resolve(rootDir, 'pkg', 'bot', 'build'));
+export const sharedScriptsDir = ensurePath(path.resolve(rootDir, 'pkg', 'shared', 'scripts'));
 export const botPrivateKeyPath = ensurePath(path.resolve(rootDir, 'pkg', 'bot', 'private-key.pem.local'));
 export const botPrivateKey = fs.readFileSync(botPrivateKeyPath).toString();
 export const botEnvFilePath = ensurePath(path.resolve(rootDir, 'pkg', 'bot', '.env.deploy.local'));

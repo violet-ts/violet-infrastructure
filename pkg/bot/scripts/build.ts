@@ -3,7 +3,7 @@ import { build } from 'esbuild';
 import * as fs from 'fs';
 import * as util from 'util';
 import * as childProcess from 'child_process';
-import * as Queue from 'promise-queue';
+import Queue from 'promise-queue';
 import * as chokidar from 'chokidar';
 
 const execFile = util.promisify(childProcess.execFile);

@@ -1,15 +1,22 @@
-import { AwsProvider, DynamoDB, ECR, ResourceGroups, Route53 } from '@cdktf/provider-aws';
+import * as path from 'path';
+import { AwsProvider, ECR, ResourceGroups, Route53, S3 } from '@cdktf/provider-aws';
+import { z } from 'zod';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
-import { TerraformOutput, TerraformStack, TerraformHclModule } from 'cdktf';
-import type { Construct } from 'constructs';
-import { PROJECT_NAME } from '@self/shared/lib/const';
+import { projectRootDir, PROJECT_NAME } from '@self/shared/lib/const';
 import type { DockerHubCred, ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
-import { Bot } from './bot';
+import { Fn, TerraformHclModule, TerraformOutput, TerraformStack } from 'cdktf';
+import type { Construct } from 'constructs';
+import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
+import type { BuildDictContext, RepoDictContext } from './bot-attach';
+import { BotAttach } from './bot-attach';
 import { ContainerBuild } from './build-container';
+import { createDictContext } from './context/dict';
 import { DockerHubCredentials } from './dockerhub-credentials';
 import { OperateEnv } from './operate-env';
 import { genTags } from './values';
+import { UpdatePRLabels } from './update-pr-labels';
+import { Bot } from './bot';
 
 export interface VioletManagerOptions {
   region: string;
@@ -46,6 +53,10 @@ export class VioletManagerStack extends TerraformStack {
     upper: false,
     special: false,
   });
+
+  readonly buildDictContext: BuildDictContext = createDictContext();
+
+  readonly repoDictContext: RepoDictContext = createDictContext();
 
   readonly logsPrefix = `/violet/${this.suffix.result}`;
 
@@ -105,6 +116,22 @@ export class VioletManagerStack extends TerraformStack {
     zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
   });
 
+  readonly infraSourceBucket = new S3.S3Bucket(this, 'infraSourceBucket', {
+    bucketPrefix: `vio-infra-source-`,
+    acl: 'private',
+    forceDestroy: true,
+  });
+
+  readonly infraSourceZipPath = ensurePath(path.resolve(projectRootDir, 'self.local.zip'));
+
+  readonly infraSourceZip = new S3.S3BucketObject(this, 'infraSourceZip', {
+    bucket: z.string().parse(this.infraSourceBucket.bucket),
+    key: `source-${Fn.sha1(Fn.filebase64(this.infraSourceZipPath))}.zip`,
+    source: this.infraSourceZipPath,
+    acl: 'private',
+    forceDestroy: true,
+  });
+
   // === ECR Repositories ===
   // https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_Repository.html
   // 管理方針:
@@ -121,13 +148,16 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly apiDevRepo = new ECR.EcrRepository(this, 'apiDevRepo', {
-    name: `violet-api-dev-${this.suffix.result}`,
-    imageTagMutability: 'MUTABLE',
-    tagsAll: {
-      ...genTags(null, 'development'),
-    },
-  });
+  readonly apiDevRepo = this.repoDictContext.add(
+    'Api',
+    new ECR.EcrRepository(this, 'apiDevRepo', {
+      name: `violet-api-dev-${this.suffix.result}`,
+      imageTagMutability: 'MUTABLE',
+      tagsAll: {
+        ...genTags(null, 'development'),
+      },
+    }),
+  );
 
   readonly webProdRepo = new ECR.EcrRepository(this, 'webProdRepo', {
     name: `violet-web-prod-${this.suffix.result}`,
@@ -139,13 +169,16 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly webDevRepo = new ECR.EcrRepository(this, 'webDevRepo', {
-    name: `violet-web-dev-${this.suffix.result}`,
-    imageTagMutability: 'MUTABLE',
-    tagsAll: {
-      ...genTags(null, 'development'),
-    },
-  });
+  readonly webDevRepo = this.repoDictContext.add(
+    'Web',
+    new ECR.EcrRepository(this, 'webDevRepo', {
+      name: `violet-web-dev-${this.suffix.result}`,
+      imageTagMutability: 'MUTABLE',
+      tagsAll: {
+        ...genTags(null, 'development'),
+      },
+    }),
+  );
 
   readonly lambdaProdRepo = new ECR.EcrRepository(this, 'lambdaProdRepo', {
     name: `violet-lam-prod-${this.suffix.result}`,
@@ -157,20 +190,41 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly lambdaDevRepo = new ECR.EcrRepository(this, 'lambdaDevRepo', {
-    name: `violet-lam-dev-${this.suffix.result}`,
-    imageTagMutability: 'MUTABLE',
+  readonly lambdaDevRepo = this.repoDictContext.add(
+    'Lam',
+    new ECR.EcrRepository(this, 'lambdaDevRepo', {
+      name: `violet-lam-dev-${this.suffix.result}`,
+      imageTagMutability: 'MUTABLE',
+      tagsAll: {
+        ...genTags(null, 'development'),
+      },
+    }),
+  );
+
+  readonly bot = new Bot(this, 'bot', {
+    prefix: 'vio-bot',
+    logsPrefix: `${this.logsPrefix}/bot`,
+    ssmPrefix: `${this.logsPrefix}/bot`,
+
+    infraSourceBucket: this.infraSourceBucket,
+    infraSourceZip: this.infraSourceZip,
+    previewZone: this.previewZone,
+
     tagsAll: {
-      ...genTags(null, 'development'),
+      ...genTags(null),
     },
   });
 
-  // ===
-
   readonly apiBuild = new ContainerBuild(this, 'apiBuild', {
+    name: 'Api',
     prefix: 'violet-dev-api-build',
+    sharedEnv: this.options.sharedEnv,
+    managerEnv: this.options.managerEnv,
     logsPrefix: `${this.logsPrefix}/dev-api-build`,
     repo: this.apiDevRepo,
+    bot: this.bot,
+
+    buildDictContext: this.buildDictContext,
 
     tagsAll: {
       ...genTags(null, 'development'),
@@ -178,9 +232,15 @@ export class VioletManagerStack extends TerraformStack {
   });
 
   readonly webBuild = new ContainerBuild(this, 'webBuild', {
+    name: 'Web',
     prefix: 'violet-dev-web-build',
+    sharedEnv: this.options.sharedEnv,
+    managerEnv: this.options.managerEnv,
     logsPrefix: `${this.logsPrefix}/dev-web-build`,
     repo: this.webDevRepo,
+    bot: this.bot,
+
+    buildDictContext: this.buildDictContext,
 
     tagsAll: {
       ...genTags(null, 'development'),
@@ -188,47 +248,63 @@ export class VioletManagerStack extends TerraformStack {
   });
 
   readonly lambdaBuild = new ContainerBuild(this, 'lambdaBuild', {
+    name: 'Lam',
+    sharedEnv: this.options.sharedEnv,
+    managerEnv: this.options.managerEnv,
     prefix: 'violet-dev-lam-build',
     logsPrefix: `${this.logsPrefix}/dev-lam-build`,
     repo: this.lambdaDevRepo,
+    bot: this.bot,
+
+    buildDictContext: this.buildDictContext,
 
     tagsAll: {
       ...genTags(null, 'development'),
     },
-  });
-
-  // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
-  readonly botTable = new DynamoDB.DynamodbTable(this, 'table', {
-    name: `violet-bot-${this.suffix.result}`,
-    billingMode: 'PAY_PER_REQUEST',
-    ttl: {
-      enabled: true,
-      attributeName: 'ttl',
-    },
-    attribute: [
-      {
-        name: 'uuid',
-        type: 'S',
-      },
-    ],
-    hashKey: 'uuid',
   });
 
   readonly operateEnv = new OperateEnv(this, 'operateEnv', {
-    prefix: 'violet-dev-openv',
+    prefix: 'vio-d-ope',
     logsPrefix: `${this.logsPrefix}/dev-openv`,
-    botTable: this.botTable,
+    bot: this.bot,
+    sharedEnv: this.options.sharedEnv,
+    managerEnv: this.options.managerEnv,
+    apiDevRepo: this.apiDevRepo,
+    webDevRepo: this.webDevRepo,
+    infraSourceBucket: this.infraSourceBucket,
+    infraSourceZip: this.infraSourceZip,
+
+    buildDictContext: this.buildDictContext,
 
     tagsAll: {
       ...genTags(null, 'development'),
     },
   });
 
-  readonly bot = new Bot(this, 'bot', {
-    prefix: 'violet-bot',
-    ssmPrefix: `${this.ssmPrefix}/bot`,
-    logsPrefix: `${this.logsPrefix}/bot`,
-    table: this.botTable,
+  readonly updatePRLabels = new UpdatePRLabels(this, 'updatePRLabels', {
+    prefix: 'vio-d-upla',
+    logsPrefix: `${this.logsPrefix}/dev-openv`,
+    bot: this.bot,
+    sharedEnv: this.options.sharedEnv,
+    managerEnv: this.options.managerEnv,
+    infraSourceBucket: this.infraSourceBucket,
+    infraSourceZip: this.infraSourceZip,
+
+    buildDictContext: this.buildDictContext,
+
+    tagsAll: {
+      ...genTags(null, 'development'),
+    },
+  });
+
+  // NOTE: buildDictContext is consumed
+  // NOTE: repoDictContext is consumed
+  readonly botAttach = new BotAttach(this, 'botAttach', {
+    prefix: 'vio-bot-a',
+    bot: this.bot,
+
+    buildDictContext: this.buildDictContext,
+    repoDictContext: this.repoDictContext,
 
     tagsAll: {
       ...genTags(null),
@@ -243,7 +319,10 @@ export class VioletManagerStack extends TerraformStack {
    * ローカルで bot をサーブする場合は、 <project>/pkg/bot/.env.local に追記する
    */
   readonly botEnvFile = new TerraformOutput(this, 'botEnvFile', {
-    value: Object.entries(this.bot.computedBotEnv)
+    value: Object.entries({
+      ...this.bot.computedBotEnv,
+      ...this.botAttach.computedAfterwardBotEnv,
+    })
       .map(([key, value]) => `${key}=${value}`)
       .join('\n'),
   });

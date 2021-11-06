@@ -3,16 +3,16 @@ import * as http from 'http';
 import * as winston from 'winston';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
-import { computedBotEnvSchema } from '@self/shared/lib/bot-env';
-import { createWebhooks } from '../app/webhooks';
-import { getLambdaCredentials } from '../app/aws';
-import { requireSecrets } from '../app/secrets';
+import { computedAfterwardBotEnvSchema, computedBotEnvSchema } from '@self/shared/lib/bot/env';
+import { requireSecrets } from '@self/shared/lib/bot/secrets';
+import { createWebhooks } from '@self/bot/src/app/webhooks';
+import { getLambdaCredentials } from '@self/shared/lib/aws';
 
 const main = async () => {
   dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
   const port = Number.parseInt(process.env.PORT || '8000', 10);
-  const env = computedBotEnvSchema.parse(process.env);
+  const env = computedBotEnvSchema.merge(computedAfterwardBotEnvSchema).parse(process.env);
 
   const credentials = getLambdaCredentials();
 

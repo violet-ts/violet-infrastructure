@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "_:cdktf": "cdktf --app \"pnpm run --filter=../bot compile && ts-node -T ./src/entry.ts\"",
+    "_:cdktf": "cdktf --app \"pnpm run -w cdktf-prepare:manager && ts-node -T ./src/entry.ts\"",
     "_:tf": "terraform -chdir=./cdktf.out/stacks/violet-infra",
     "cdktf:deploy": "pnpm run _:cdktf -- apply",
     "cdktf:deploy:yes": "pnpm run _:cdktf -- apply --auto-approve",

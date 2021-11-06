@@ -5,16 +5,19 @@ import { Temporal, toTemporalInstant } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
 import { Webhooks } from '@octokit/webhooks';
 import type { IssueCommentEvent } from '@octokit/webhooks-types';
-import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot-env';
+import type { BotSecrets, ComputedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
 import { v4 as uuidv4 } from 'uuid';
 import type { Logger } from 'winston';
 import { z } from 'zod';
+import { createOctokit } from '@self/shared/lib/bot/octokit';
+import { dynamicUpdatePrLabelsEnvCodeBuildEnv } from '@self/shared/lib/update-pr-labels/env';
+import { dynamicRunScriptCodeBuildEnv } from '@self/shared/lib/run-script/env';
+import { CodeBuild } from '@aws-sdk/client-codebuild';
 import type { BasicContext, CommandContext, GeneralEntry, ReplyCmd } from '../type/cmd';
 import { renderCommentBody, renderTimestamp } from '../util/comment-render';
 import type { Command } from '../util/parse-comment';
 import { embedDirective, parseComment } from '../util/parse-comment';
 import { cmds } from './cmds';
-import { createOctokit } from './github-app';
 
 // TODO(hardcoded)
 const botPrefix = '/';
@@ -51,7 +54,7 @@ export const constructFullComment = (
 const processRun = async (
   run: Command,
   octokit: Octokit,
-  env: ComputedBotEnv,
+  env: ComputedBotEnv & ComputedAfterwardBotEnv,
   payload: IssueCommentEvent,
   botInstallationId: number,
   credentials: Credentials | Provider<Credentials>,
@@ -140,7 +143,7 @@ const processRun = async (
 
 // Webhook doc: https://docs.github.com/en/developers/webhooks-and-events/webhooks/about-webhooks
 export const createWebhooks = (
-  env: ComputedBotEnv,
+  env: ComputedBotEnv & ComputedAfterwardBotEnv,
   secrets: BotSecrets,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,
@@ -167,10 +170,49 @@ export const createWebhooks = (
     logger.debug('event received', all);
   });
 
-  webhooks.on('issue_comment', ({ payload }) => {
+  // TODO
+  // webhooks.on('workflow_run.completed', ({ payload }) => {
+  // });
+
+  // TODO
+  const onNewPRCommit = async (owner: string, repo: string, prNumber: number, botInstallationId: number) => {
+    const codeBuild = new CodeBuild({ credentials, logger });
+    const startBuildResult = await codeBuild.startBuild({
+      projectName: env.PR_UPDATE_LABELS_PROJECT_NAME,
+      environmentVariablesOverride: [
+        ...dynamicRunScriptCodeBuildEnv({
+          ENTRY_UUID: '',
+        }),
+        ...dynamicUpdatePrLabelsEnvCodeBuildEnv({
+          UPDATE_LABELS_OWNER: owner,
+          UPDATE_LABELS_REPO: repo,
+          UPDATE_LABELS_PR_NUMBER: prNumber.toString(),
+          BOT_INSTALLATION_ID: botInstallationId.toString(),
+        }),
+      ],
+    });
+    logger.debug('Build started for PR labels update', { startBuildResult });
+  };
+
+  webhooks.on(['pull_request.opened', 'pull_request.edited', 'pull_request.synchronize'], ({ payload }) => {
     const inner = async () => {
-      logger.info('Event issue_comment received.');
-      if (payload.action !== 'created') return;
+      await onNewPRCommit(
+        payload.repository.owner.login,
+        payload.repository.name,
+        payload.pull_request.number,
+        z.number().parse(payload.installation?.id),
+      );
+    };
+    add(
+      inner().catch((e) => {
+        logger.error(`Error while running issue_comment reciever`, e);
+      }),
+    );
+  });
+
+  webhooks.on('issue_comment.created', ({ payload }) => {
+    const inner = async () => {
+      logger.info('Event issue_comment.created received.');
       logger.info('comment created', payload.comment.user);
       if (payload.comment.user.type !== 'User') return;
       // TODO(hardcoded)
@@ -178,7 +220,7 @@ export const createWebhooks = (
       logger.info('Authentication success.');
 
       const botInstallationId = z.number().parse(payload.installation?.id);
-      const octokit = await createOctokit(env, secrets, botInstallationId);
+      const octokit = await createOctokit(secrets, botInstallationId);
       const runs = parseComment(payload.comment.body, botPrefix);
       logger.info(`${runs.length} runs detected.`);
 

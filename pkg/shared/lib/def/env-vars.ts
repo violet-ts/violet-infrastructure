@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { toCodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
+import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 
 const dockerHubCredSchema = z.object({
   USER: z.string(),
@@ -27,6 +29,7 @@ export const sharedEnvSchema = z.object({
 });
 // ローカルからのみ与えることが可能
 export type SharedEnv = z.infer<typeof sharedEnvSchema>;
+export const sharedCodeBuildEnv = (env: SharedEnv): CodeBuildEnv => toCodeBuildEnv<SharedEnv>(env);
 
 export const managerEnvSchema = z.object({
   CIDR_NUM: z.string().regex(/[0-9]+/),

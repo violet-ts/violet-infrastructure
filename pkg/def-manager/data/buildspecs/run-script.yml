@@ -1,0 +1,65 @@
+version: 0.2
+
+env:
+  variables:
+    PNPM_VERSION: "6"
+    HUSKY: "0"
+  shell: bash
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 14
+    commands:
+      - echo ==== tool versions ====
+      - aws --version
+      - git --version
+      - echo ==== environment variables ====
+      - echo "AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION"
+      - echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
+      - echo "TERRAFORM_VERSION=$TERRAFORM_VERSION"
+      - echo "PNPM_VERSION=$PNPM_VERSION"
+      - echo "INFRA_GIT_URL=$INFRA_GIT_URL"
+      - echo "INFRA_GIT_FETCH=$INFRA_GIT_FETCH"
+      - echo "INFRA_TRUSTED_MERGER_GITHUB_EMAILS=$INFRA_TRUSTED_MERGER_GITHUB_EMAILS"
+      - echo "RUN_SCRIPT_NAME=$RUN_SCRIPT_NAME"
+      - echo "INFRA_SOURCE_BUCKET=$INFRA_SOURCE_BUCKET"
+      - echo "INFRA_SOURCE_ZIP_KEY=$INFRA_SOURCE_ZIP_KEY"
+      - echo ==== install terraform ====
+      - |
+        if -n "$TERRAFORM_VERSION"; then
+          curl "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o terraform.zip
+          unzip -q terraform.zip
+          install terraform /usr/local/bin
+          rm terraform.zip terraform
+          terraform -version
+        else
+          echo "Skipped installing terraform."
+        fi
+      - echo ==== install pnpm ====
+      - npm i -g "pnpm@${PNPM_VERSION}"
+      - pnpm --version
+      - echo ==== info ====
+      - pwd
+      - whoami
+      - echo ==== finished ====
+  pre_build:
+    commands:
+      - echo ==== get source from s3 ====
+      - aws s3api get-object --bucket="${INFRA_SOURCE_BUCKET}" --key="${INFRA_SOURCE_ZIP_KEY}" self.local.zip
+      - unzip self.local.zip
+      - rm -f self.local.zip
+      - echo ==== pnpm store status ====
+      - pnpm store status || true
+      - echo ==== pnpm install ====
+      - pnpm install --recursive --frozen-lockfile --prefer-offline
+      - echo ==== finished ====
+  build:
+    commands:
+      - echo ==== terraform operation ====
+      - pnpm exec ts-node -T "./pkg/shared/scripts/$RUN_SCRIPT_NAME"
+      - echo ==== finished ====
+
+cache:
+  paths:
+    - "/root/.pnpm-store/**/*"
