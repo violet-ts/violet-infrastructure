@@ -1,3 +1,4 @@
+import { Fn } from 'cdktf';
 import { SNS, IAM, CodeBuild, CodeStar, S3, CloudWatch } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
@@ -115,7 +116,7 @@ export class CodeBuildStack extends Resource {
     },
     source: {
       type: 'NO_SOURCE',
-      buildspec: `\${file("${ensurePath(path.resolve(dataDir, 'buildspecs', this.options.buildSpecName))}")}`,
+      buildspec: Fn.file(ensurePath(path.resolve(dataDir, 'buildspecs', this.options.buildSpecName))),
     },
     // NOTE: minutes
     buildTimeout: 60,
