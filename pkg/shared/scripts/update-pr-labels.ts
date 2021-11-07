@@ -40,19 +40,25 @@ const main = async (): Promise<void> => {
     const tmpdirCtx = createTmpdirContext();
     const tmpdir = tmpdirCtx.open();
     try {
-      await execThrow('git', ['init'], false, { cwd: tmpdir });
-      await execThrow('git', ['remote', 'add', 'origin', `https://github.com/${owner}/${repo}.git`], false, {
-        cwd: tmpdir,
-      });
-      await execThrow('git', ['fetch', '--quiet', `origin`, baseRef], false, { cwd: tmpdir });
-      await execThrow('git', ['branch', '--quiet', `base`, 'FETCH_HEAD'], false, { cwd: tmpdir });
-      await execThrow('git', ['fetch', '--quiet', `origin`, targetRef], false, { cwd: tmpdir });
-      await execThrow('git', ['branch', '--quiet', `target`, 'FETCH_HEAD'], false, { cwd: tmpdir });
-      await execThrow('git', ['checkout', '--quiet', `target`], false, { cwd: tmpdir });
-      await execThrow('git', ['checkout', `base`], false, { cwd: tmpdir });
-      await execThrow('git', ['checkout', '-b', `merged`], false, { cwd: tmpdir });
-      await execThrow('git', ['merge', '--quiet', `target`, '-Xours'], false, { cwd: tmpdir });
-      await execThrow('git', ['diff', `base`], false, { cwd: tmpdir });
+      const gitConfigArgs = ['-c', 'user.email=you@example.com', '-c', 'user.name=Your Name'];
+      await execThrow('git', [...gitConfigArgs, 'init'], false, { cwd: tmpdir });
+      await execThrow(
+        'git',
+        [...gitConfigArgs, 'remote', 'add', 'origin', `https://github.com/${owner}/${repo}.git`],
+        false,
+        {
+          cwd: tmpdir,
+        },
+      );
+      await execThrow('git', [...gitConfigArgs, 'fetch', '--quiet', `origin`, baseRef], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'branch', '--quiet', `base`, 'FETCH_HEAD'], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'fetch', '--quiet', `origin`, targetRef], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'branch', '--quiet', `target`, 'FETCH_HEAD'], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'checkout', '--quiet', `target`], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'checkout', `base`], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'checkout', '-b', `merged`], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'merge', '--quiet', `target`, '-Xours'], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'diff', `base`], false, { cwd: tmpdir });
 
       const parsePRParams = {
         dockerfilesOutput: (
@@ -65,11 +71,17 @@ const main = async (): Promise<void> => {
             cwd: tmpdir,
           })
         ).stdout,
-        diffOutput: (await execThrow('git', ['diff', '--no-color', 'base'], false, { cwd: tmpdir })).stdout,
-        diffNamesOutput: (await execThrow('git', ['diff', '--no-color', '--name-only', 'base'], false, { cwd: tmpdir }))
+        diffOutput: (await execThrow('git', [...gitConfigArgs, 'diff', '--no-color', 'base'], false, { cwd: tmpdir }))
           .stdout,
+        diffNamesOutput: (
+          await execThrow('git', [...gitConfigArgs, 'diff', '--no-color', '--name-only', 'base'], false, {
+            cwd: tmpdir,
+          })
+        ).stdout,
         logOutput: (
-          await execThrow('git', ['log', '--no-color', 'base..HEAD', '--format=format:%s'], false, { cwd: tmpdir })
+          await execThrow('git', [...gitConfigArgs, 'log', '--no-color', 'base..HEAD', '--format=format:%s'], false, {
+            cwd: tmpdir,
+          })
         ).stdout,
       };
 
