@@ -15,7 +15,6 @@ import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
 import { renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
 import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
-import { renderGitHubCommit } from '@self/bot/src/util/comment-render/github';
 import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
 
 // TODO(hardcoded)
@@ -132,32 +131,23 @@ const createCmd = (
       const { builtInfo } = values;
       return {
         main: [
-          `- ビルドID: [${entry.buildId}](${buildUrl})`,
           `- ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
           builtInfo && `- ビルド時間: ${builtInfo.timeRange}`,
           ...(entry.tfBuildOutput
-            ? [
-                `- api: ${entry.tfBuildOutput.apiURL}`,
-                `- web: ${entry.tfBuildOutput.webURL}`,
-                `- ECS Cluster Name: [\`${entry.tfBuildOutput.ecsClusterName}\`](https://${entry.tfBuildOutput.envRegion}.console.aws.amazon.com/ecs/home#/clusters/${entry.tfBuildOutput.ecsClusterName}/services)`,
-              ]
+            ? [`- api: ${entry.tfBuildOutput.apiURL}`, `- web: ${entry.tfBuildOutput.webURL}`]
             : []),
-          ...(entry.tfBuildOutput && entry.runTaskBuildOutput
-            ? [
-                `[RunTask の詳細ログ (CloudWatch Logs)](https://${
-                  entry.tfBuildOutput.envRegion
-                }.console.aws.amazon.com/cloudwatch/home#logsV2:log-groups/log-group/${
-                  entry.tfBuildOutput.apiTaskLogGroupName
-                }/log-events/api${'$252F'}api${'$252F'}${entry.runTaskBuildOutput})`,
-              ]
-            : []),
-          values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
         ],
         hints: [
           {
             title: '詳細',
             body: {
               main: [
+                `- ビルドID: [${entry.buildId}](${buildUrl})`,
+                ...(entry.tfBuildOutput
+                  ? [
+                      `- ECS Cluster Name: [\`${entry.tfBuildOutput.ecsClusterName}\`](https://${entry.tfBuildOutput.envRegion}.console.aws.amazon.com/ecs/home#/clusters/${entry.tfBuildOutput.ecsClusterName}/services)`,
+                    ]
+                  : []),
                 `- 使用した Web イメージダイジェスト: ${renderECRImageDigest({
                   imageRegion,
                   imageDigest: entry.webImageDigest,
@@ -169,11 +159,17 @@ const createCmd = (
                   imageRepoName: ctx.env.API_REPO_NAME,
                 })}`,
                 entry.generalBuildOutput &&
-                  `- 使用したインフラ定義バージョン: ${renderGitHubCommit({
-                    owner: 'violet-ts',
-                    repo: 'violet-infrastructure',
-                    rev: entry.generalBuildOutput.rev,
-                  })}`,
+                  `- 使用したインフラ定義バージョン: ${entry.generalBuildOutput.sourceZipKey}`,
+                ...(entry.tfBuildOutput && entry.runTaskBuildOutput
+                  ? [
+                      `[RunTask の詳細ログ (CloudWatch Logs)](https://${
+                        entry.tfBuildOutput.envRegion
+                      }.console.aws.amazon.com/cloudwatch/home#logsV2:log-groups/log-group/${
+                        entry.tfBuildOutput.apiTaskLogGroupName
+                      }/log-events/api${'$252F'}api${'$252F'}${entry.runTaskBuildOutput})`,
+                    ]
+                  : []),
+                values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
               ],
             },
           },

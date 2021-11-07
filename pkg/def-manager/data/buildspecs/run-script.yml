@@ -28,7 +28,7 @@ phases:
       - echo "INFRA_SOURCE_ZIP_KEY=$INFRA_SOURCE_ZIP_KEY"
       - echo ==== install terraform ====
       - |
-        if -n "$TERRAFORM_VERSION"; then
+        if test -n "$TERRAFORM_VERSION"; then
           curl "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o terraform.zip
           unzip -q terraform.zip
           install terraform /usr/local/bin

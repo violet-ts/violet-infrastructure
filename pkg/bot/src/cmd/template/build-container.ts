@@ -117,12 +117,7 @@ const createCmd = (
       }/build/${encodeURIComponent(entry.buildId)}/`;
       return {
         main: [
-          `- ビルドID: [${entry.buildId}](${buildUrl})`,
           `- ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
-          builtInfo && `- イメージタグ: \`${entry.imageTag}\``,
-          builtInfo &&
-            imageDetail &&
-            `- イメージダイジェスト: ${renderECRImageDigest({ ...imageDetail, ...builtInfo })}`,
           imageDetail && `- イメージサイズ: ${renderBytes(imageDetail.imageSizeInBytes)}`,
           builtInfo &&
             `- 使用コミット: ${renderGitHubPRCommit({
@@ -132,9 +127,20 @@ const createCmd = (
               repo: entry.commentRepo,
             })}`,
           builtInfo && `- ビルド時間: ${builtInfo.timeRange}`,
-          values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
         ],
         hints: [
+          {
+            title: '',
+            body: {
+              main: [
+                builtInfo &&
+                  imageDetail &&
+                  `- イメージダイジェスト: ${renderECRImageDigest({ ...imageDetail, ...builtInfo })}`,
+                `- ビルドID: [${entry.buildId}](${buildUrl})`,
+                values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
+              ],
+            },
+          },
           builtInfo &&
             imageDetail && {
               title: 'Docker イメージの取得方法',
