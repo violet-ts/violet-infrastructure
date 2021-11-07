@@ -3,8 +3,10 @@ import { RDS } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { Password } from '@cdktf/provider-random';
+import { Fn } from 'cdktf';
 import * as fs from 'fs';
 import * as path from 'path';
+import { z } from 'zod';
 import type { VioletEnvStack } from '.';
 import { dataDir } from './values';
 
@@ -101,5 +103,7 @@ export class MysqlDb extends Resource {
     },
   });
 
-  readonly dbURL = `mysql://${this.db.username}:\${urlencode(${this.db.fqn}.password)}@${this.db.address}:${this.db.port}/${this.db.name}`;
+  readonly dbURL = `mysql://${this.db.username}:${Fn.urlencode(z.string().parse(this.db.password))}@${
+    this.db.address
+  }:${this.db.port}/${this.db.name}`;
 }

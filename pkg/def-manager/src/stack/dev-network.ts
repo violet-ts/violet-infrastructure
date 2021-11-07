@@ -2,6 +2,7 @@ import { VPC } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
+import { Fn } from 'cdktf';
 import type { Construct } from 'constructs';
 
 export interface ApiBuildOptions {
@@ -177,7 +178,7 @@ export class DevNetwork extends Resource {
       new VPC.Subnet(this, `privateSubnets-${i}`, {
         // TODO(hardcoded)
         cidrBlock: `10.${this.options.cidrNum}.${num}.0/24`,
-        ipv6CidrBlock: `\${cidrsubnet(${this.vpc.fqn}.ipv6_cidr_block,8,${num})}`,
+        ipv6CidrBlock: Fn.cidrsubnet(this.vpc.ipv6CidrBlock, 8, num),
         assignIpv6AddressOnCreation: true,
         availabilityZone: this.azs[i],
         vpcId: this.vpc.id,

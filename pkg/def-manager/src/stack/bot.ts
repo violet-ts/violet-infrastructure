@@ -5,6 +5,7 @@ import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
 import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
+import { Fn } from 'cdktf';
 import type { Construct } from 'constructs';
 import * as path from 'path';
 import { z } from 'zod';
@@ -148,7 +149,7 @@ export class Bot extends Resource {
 
   readonly githubBotZip = new S3.S3BucketObject(this, 'githubBotZip', {
     bucket: z.string().parse(this.ghWebhookBucket.bucket),
-    key: `github-bot-\${sha1(filebase64("${this.githubBotZipPath}"))}.zip`,
+    key: `github-bot-${Fn.sha1(Fn.filebase64(this.githubBotZipPath))}.zip`,
     source: this.githubBotZipPath,
     forceDestroy: true,
 
@@ -161,7 +162,7 @@ export class Bot extends Resource {
 
   readonly onAnyZip = new S3.S3BucketObject(this, 'onAnyZip', {
     bucket: z.string().parse(this.ghWebhookBucket.bucket),
-    key: `on-any-\${sha1(filebase64("${this.onAnyZipPath}"))}.zip`,
+    key: `on-any-${Fn.sha1(Fn.filebase64(this.onAnyZipPath))}.zip`,
     source: this.onAnyZipPath,
     forceDestroy: true,
 
