@@ -49,7 +49,10 @@ const main = async (): Promise<void> => {
       await execThrow('git', ['fetch', '--quiet', `origin`, targetRef], false, { cwd: tmpdir });
       await execThrow('git', ['branch', '--quiet', `target`, 'FETCH_HEAD'], false, { cwd: tmpdir });
       await execThrow('git', ['checkout', '--quiet', `target`], false, { cwd: tmpdir });
-      await execThrow('git', ['diff', `target`], false, { cwd: tmpdir });
+      await execThrow('git', ['checkout', `base`], false, { cwd: tmpdir });
+      await execThrow('git', ['checkout', '-b', `merged`], false, { cwd: tmpdir });
+      await execThrow('git', ['merge', '--quiet', `target`, '-Xours'], false, { cwd: tmpdir });
+      await execThrow('git', ['diff', `base`], false, { cwd: tmpdir });
 
       const parsePRParams = {
         dockerfilesOutput: (
@@ -84,7 +87,7 @@ const main = async (): Promise<void> => {
   };
 
   const pr = await octokit.pulls.get({ repo, owner, pull_number: prNumber });
-  const baseRef = pr.data.base.sha;
+  const baseRef = pr.data.base.ref;
 
   logger.info('Got baseRef.', { baseRef });
 

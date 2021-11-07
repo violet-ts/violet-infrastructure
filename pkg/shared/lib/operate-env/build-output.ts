@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const generalBuildOutputSchema = z.object({
   generalBuildOutput: z.optional(
     z.object({
-      rev: z.string(),
+      sourceZipKey: z.string(),
     }),
   ),
 });

@@ -65,7 +65,7 @@ const main = async (): Promise<void> => {
 
   await updateTable<GeneralBuildOutput>({
     generalBuildOutput: {
-      rev: (await e('git', ['rev-parse', 'HEAD'], false)).stdout.trim(),
+      sourceZipKey: env.INFRA_SOURCE_ZIP_KEY,
     },
   });
 
