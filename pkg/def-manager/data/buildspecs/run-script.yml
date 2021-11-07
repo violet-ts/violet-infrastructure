@@ -15,6 +15,7 @@ phases:
       - aws --version
       - git --version
       - echo ==== environment variables ====
+      - echo "HOME=$HOME"
       - echo "AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION"
       - echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
       - echo "TERRAFORM_VERSION=$TERRAFORM_VERSION"
@@ -62,4 +63,4 @@ phases:
 
 cache:
   paths:
-    - "/root/.pnpm-store/**/*"
+    - "/codebuild/output/.pnpm-store/**/*"
