@@ -3,7 +3,7 @@ import { APIGatewayV2, IAM, LambdaFunction, SNS } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
-import type { ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
+import type { AccumuratedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
 import { accumuratedBotEnvSchema } from '@self/shared/lib/bot/env';
 import type { SharedEnv } from '@self/shared/lib/def/env-vars';
 import type { Construct } from 'constructs';
@@ -125,6 +125,12 @@ export class BotAttach extends Resource {
     policyArn: this.policy.arn,
   });
 
+  readonly accumuratedBotEnv: AccumuratedBotEnv = {
+    ...this.options.sharedEnv,
+    ...this.options.bot.computedBotEnv,
+    ...this.computedAfterwardBotEnv,
+  };
+
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function
   // TODO(logging): retention
   readonly ghWebhookFunction = new LambdaFunction.LambdaFunction(this, 'ghWebhookFunction', {
@@ -134,10 +140,7 @@ export class BotAttach extends Resource {
     role: this.options.bot.role.arn,
     memorySize: 256,
     environment: {
-      variables: {
-        ...this.options.bot.computedBotEnv,
-        ...this.computedAfterwardBotEnv,
-      },
+      variables: accumuratedBotEnvSchema.parse(this.accumuratedBotEnv),
     },
     timeout: 20,
     handler: 'github-bot.handler',
@@ -156,11 +159,7 @@ export class BotAttach extends Resource {
     role: this.options.bot.role.arn,
     memorySize: 256,
     environment: {
-      variables: accumuratedBotEnvSchema.parse({
-        ...this.options.sharedEnv,
-        ...this.options.bot.computedBotEnv,
-        ...this.computedAfterwardBotEnv,
-      }),
+      variables: accumuratedBotEnvSchema.parse(this.accumuratedBotEnv),
     },
     timeout: 20,
     handler: 'on-any.handler',
