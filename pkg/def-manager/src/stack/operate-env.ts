@@ -1,4 +1,4 @@
-import type { ECR, S3 } from '@cdktf/provider-aws';
+import type { S3 } from '@cdktf/provider-aws';
 import { IAM } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
@@ -11,6 +11,7 @@ import { z } from 'zod';
 import type { Bot } from './bot';
 import type { BuildDictContext } from './bot-attach';
 import { DevNetwork } from './dev-network';
+import type { RepoStack } from './repo-stack';
 import { RunScript } from './run-script';
 
 export interface OperateEnvOptions {
@@ -20,8 +21,10 @@ export interface OperateEnvOptions {
   bot: Bot;
   sharedEnv: SharedEnv;
   managerEnv: ManagerEnv;
-  apiDevRepo: ECR.EcrRepository;
-  webDevRepo: ECR.EcrRepository;
+  apiRepo: RepoStack;
+  webRepo: RepoStack;
+  lambdaConv2imgRepo: RepoStack;
+  lambdaApiexecRepo: RepoStack;
   infraSourceBucket: S3.S3Bucket;
   infraSourceZip: S3.S3BucketObject;
 
@@ -49,8 +52,10 @@ export class OperateEnv extends Resource {
   });
 
   readonly computedOpEnv: ComputedOpEnv = {
-    API_REPO_NAME: this.options.apiDevRepo.name,
-    WEB_REPO_NAME: this.options.webDevRepo.name,
+    API_REPO_NAME: this.options.apiRepo.devRepo.name,
+    WEB_REPO_NAME: this.options.webRepo.devRepo.name,
+    LAMBDA_CONV2IMG_REPO_NAME: this.options.lambdaConv2imgRepo.devRepo.name,
+    LAMBDA_APIEXEC_REPO_NAME: this.options.lambdaConv2imgRepo.devRepo.name,
     NETWORK_VPC_ID: this.devNetwork.vpc.id,
     NETWORK_DB_SG_ID: this.devNetwork.dbSg.id,
     NETWORK_LB_SG_ID: this.devNetwork.lbSg.id,

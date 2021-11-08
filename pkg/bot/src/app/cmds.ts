@@ -2,6 +2,7 @@ import { z } from 'zod';
 import buildApi from '../cmd/build-api';
 import buildWeb from '../cmd/build-web';
 import buildLambdaConv2img from '../cmd/build-lambda-conv2img';
+import buildLambdaApiExec from '../cmd/build-lambda-apiexec';
 import ping from '../cmd/ping';
 import previewStart from '../cmd/preview-start';
 import previewStatus from '../cmd/preview-status';
@@ -50,6 +51,7 @@ export const cmds: ReplyCmd[] = [
   buildApi,
   buildWeb,
   buildLambdaConv2img,
+  buildLambdaApiExec,
   previewStart,
   previewStatus,
   previewRecreate,

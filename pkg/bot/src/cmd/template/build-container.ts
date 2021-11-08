@@ -18,7 +18,6 @@ const imageRegion = 'ap-northeast-1';
 const entrySchema = z.object({
   prNumber: z.number(),
   buildId: z.string(),
-  buildArn: z.string(),
   imageTag: z.string(),
   imageRepoName: z.string(),
 });
@@ -97,7 +96,6 @@ const createCmd = (
       const entry: Entry = {
         prNumber,
         buildId: build.id,
-        buildArn: build.arn,
         imageTag,
         imageRepoName: params.imageRepoName,
       };
@@ -111,6 +109,7 @@ const createCmd = (
         status: 'undone',
         entry,
         values,
+        watchArns: new Set(build.arn),
       };
     },
     constructComment(entry, values, ctx) {

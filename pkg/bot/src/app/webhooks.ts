@@ -1,57 +1,29 @@
+import { CodeBuild } from '@aws-sdk/client-codebuild';
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import type { Credentials, Provider } from '@aws-sdk/types';
-import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
-import { Temporal, toTemporalInstant } from '@js-temporal/polyfill';
+import { unmarshall } from '@aws-sdk/util-dynamodb';
+import { toTemporalInstant } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
 import { Webhooks } from '@octokit/webhooks';
 import type { IssueCommentEvent } from '@octokit/webhooks-types';
-import type { BotSecrets, AccumuratedBotEnv } from '@self/shared/lib/bot/env';
+import { runMain } from '@self/bot/src/app/cmd';
+import { issueMapEntrySchema } from '@self/bot/src/type/issue-map';
+import type { AccumuratedBotEnv, BotSecrets } from '@self/shared/lib/bot/env';
+import { createOctokit } from '@self/shared/lib/bot/octokit';
+import { dynamicRunScriptCodeBuildEnv } from '@self/shared/lib/run-script/env';
+import { dynamicUpdatePrLabelsEnvCodeBuildEnv } from '@self/shared/lib/update-pr-labels/env';
+import arg from 'arg';
 import { v4 as uuidv4 } from 'uuid';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import { createOctokit } from '@self/shared/lib/bot/octokit';
-import { dynamicUpdatePrLabelsEnvCodeBuildEnv } from '@self/shared/lib/update-pr-labels/env';
-import { dynamicRunScriptCodeBuildEnv } from '@self/shared/lib/run-script/env';
-import { CodeBuild } from '@aws-sdk/client-codebuild';
-import arg from 'arg';
-import { issueMapEntrySchema } from '@self/bot/src/type/issue-map';
-import type { BasicContext, CommandContext, GeneralEntry, ReplyCmd } from '../type/cmd';
-import { renderCommentBody, renderTimestamp } from '../util/comment-render';
+import type { CommandContext, GeneralEntry } from '../type/cmd';
+import { renderCommentBody } from '../util/comment-render';
 import type { Command } from '../util/parse-comment';
-import { embedDirective, parseComment } from '../util/parse-comment';
+import { parseComment } from '../util/parse-comment';
 import { cmds } from './cmds';
 
 // TODO(hardcoded)
 const botPrefix = '/';
-
-export const constructFullComment = (
-  cmd: ReplyCmd,
-  entry: GeneralEntry & Parameters<ReplyCmd['constructComment']>[0],
-  values: unknown,
-  ctx: BasicContext,
-): string => {
-  const commentHead = [embedDirective(`mark:${cmd.name}:${entry.uuid}`), `@${entry.callerName}`, '', ''].join('\n');
-  const commentBodyStruct = cmd.constructComment(entry, values, ctx);
-  const comment = renderCommentBody({
-    main: commentBodyStruct.main,
-    hints: [
-      ...(commentBodyStruct.hints ?? []),
-      {
-        title: 'メタ情報',
-        body: {
-          main: [
-            `- 最終更新: ${renderTimestamp(Temporal.Instant.fromEpochSeconds(entry.lastUpdate))}`,
-            `- ネームスペース: \`${entry.namespace}\``,
-            `- uuid: \`${entry.uuid}\``,
-          ],
-        },
-      },
-    ],
-  });
-
-  const full = commentHead + comment;
-  return full;
-};
 
 const processRun = async (
   run: Command,
@@ -63,7 +35,7 @@ const processRun = async (
   logger: Logger,
 ) => {
   logger.info('Trying to run', run.args);
-  const [cmdName, ...args] = run.args;
+  const [cmdName, ...argv] = run.args;
   const cmd = cmds.find((cmd) => cmd.name === cmdName);
   const { id: callerId, login: callerName } = payload.comment.user;
 
@@ -91,14 +63,6 @@ const processRun = async (
     return;
   }
 
-  const parsedArgs = arg(
-    {
-      ...cmd.argSchema,
-      '--ns': String,
-    },
-    { argv: args },
-  );
-
   const prNumber = payload.issue.number;
   const db = new DynamoDB({ credentials, logger });
   const item = (
@@ -110,18 +74,21 @@ const processRun = async (
   const i = item && issueMapEntrySchema.parse(unmarshall(item));
   const defaultNamespace = payload.issue.user.login.toLowerCase();
   const setNamespace = i?.namespace;
-  const namespace = parsedArgs['--ns'] ?? setNamespace ?? defaultNamespace;
+  const parsedArgs = arg({ '--ns': String }, { argv, permissive: true });
+  const namespace = parsedArgs['--ns'] || setNamespace || defaultNamespace;
   const ctx: CommandContext = {
     octokit,
     env,
-    originalArgs: args,
+    originalArgs: argv,
     commentPayload: payload,
     namespace,
     credentials,
     logger,
   };
+
   const uuid = uuidv4();
   const date = new Date();
+
   const generalEntry: GeneralEntry = {
     uuid,
     ttl: toTemporalInstant.call(date).add({ hours: 24 * 7 }).epochSeconds,
@@ -136,30 +103,8 @@ const processRun = async (
     commentId: -1,
     botInstallationId,
   };
-  const { status, entry, values } = await cmd.main(ctx, parsedArgs, generalEntry);
-  logger.info('Command main process done.', { status, entry, values });
 
-  const fullEntry = { ...entry, ...generalEntry };
-  const full = constructFullComment(cmd, fullEntry, values, ctx);
-
-  logger.info('Creating comment for success...');
-  const createdComment = await octokit.issues.createComment({
-    owner: payload.repository.owner.login,
-    repo: payload.repository.name,
-    issue_number: payload.issue.number,
-    body: full,
-  });
-  logger.info('Comment created', createdComment);
-  fullEntry.commentId = createdComment.data.id;
-
-  if (status === 'undone') {
-    logger.info('Saving result...');
-    const db = new DynamoDB({ credentials, logger });
-    await db.putItem({
-      TableName: env.BOT_TABLE_NAME,
-      Item: marshall(fullEntry),
-    });
-  }
+  await runMain(cmd, ctx, argv, generalEntry);
 };
 
 // Webhook doc: https://docs.github.com/en/developers/webhooks-and-events/webhooks/about-webhooks

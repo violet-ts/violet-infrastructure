@@ -39,11 +39,13 @@ export class BotAttach extends Resource {
   readonly computedAfterwardBotEnv: ComputedAfterwardBotEnv = {
     API_REPO_NAME: this.options.repoDictContext.get('Api').name,
     WEB_REPO_NAME: this.options.repoDictContext.get('Web').name,
-    LAMBDA_REPO_NAME: this.options.repoDictContext.get('Lam').name,
+    LAMBDA_CONV2IMG_REPO_NAME: this.options.repoDictContext.get('LamC2i').name,
+    LAMBDA_APIEXEC_REPO_NAME: this.options.repoDictContext.get('LamAe').name,
 
     API_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Api').build.name,
     WEB_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Web').build.name,
-    LAMBDA_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Lam').build.name,
+    LAMBDA_CONV2IMG_BUILD_PROJECT_NAME: this.options.buildDictContext.get('LamC2i').build.name,
+    LAMBDA_APIEXEC_BUILD_PROJECT_NAME: this.options.repoDictContext.get('LamAe').name,
     OPERATE_ENV_PROJECT_NAME: this.options.buildDictContext.get('Ope').build.name,
     PR_UPDATE_LABELS_PROJECT_NAME: this.options.buildDictContext.get('UpLa').build.name,
   };

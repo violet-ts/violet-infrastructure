@@ -36,6 +36,8 @@ export const dynamicOpEnvSchema = z.object({
 
   API_REPO_SHA: z.string(),
   WEB_REPO_SHA: z.string(),
+  LAMBDA_CONV2IMG_REPO_SHA: z.string(),
+  LAMBDA_APIEXEC_REPO_SHA: z.string(),
 });
 
 export type DynamicOpEnv = z.infer<typeof dynamicOpEnvSchema>;
@@ -47,6 +49,8 @@ export const dynamicOpCodeBuildEnv = (env: DynamicOpEnv): CodeBuildEnv =>
 export const computedOpEnvSchema = z.object({
   API_REPO_NAME: z.string(),
   WEB_REPO_NAME: z.string(),
+  LAMBDA_CONV2IMG_REPO_NAME: z.string(),
+  LAMBDA_APIEXEC_REPO_NAME: z.string(),
   NETWORK_VPC_ID: z.string(),
   NETWORK_DB_SG_ID: z.string(),
   NETWORK_LB_SG_ID: z.string(),

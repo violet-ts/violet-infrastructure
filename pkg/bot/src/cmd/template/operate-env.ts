@@ -24,7 +24,6 @@ const entrySchema = z
   .object({
     prNumber: z.number(),
     buildId: z.string(),
-    buildArn: z.string(),
     webImageDigest: z.string(),
     apiImageDigest: z.string(),
   })
@@ -59,6 +58,8 @@ const createCmd = (
       const { number: prNumber } = ctx.commentPayload.issue;
       const { credentials, logger } = ctx;
 
+      // TODO: repeated
+
       const apiImageDetail = await getImageDetailByTag(
         {
           imageRegion,
@@ -81,6 +82,28 @@ const createCmd = (
       );
       if (!webImageDetail) throw new Error('Image for WEB not found.');
 
+      const lambdaConv2imgImageDetail = await getImageDetailByTag(
+        {
+          imageRegion,
+          imageRepoName: ctx.env.LAMBDA_CONV2IMG_REPO_NAME,
+          imageTag: ctx.namespace,
+        },
+        credentials,
+        logger,
+      );
+      if (!lambdaConv2imgImageDetail) throw new Error('Image for Lambda for Conv2Img not found.');
+
+      const lambdaApiexecImageDetail = await getImageDetailByTag(
+        {
+          imageRegion,
+          imageRepoName: ctx.env.LAMBDA_APIEXEC_REPO_NAME,
+          imageTag: ctx.namespace,
+        },
+        credentials,
+        logger,
+      );
+      if (!lambdaApiexecImageDetail) throw new Error('Image for Lambda for ApiExec not found.');
+
       const codeBuild = new CodeBuild({ credentials, logger });
       const r = await codeBuild.startBuild({
         projectName: ctx.env.OPERATE_ENV_PROJECT_NAME,
@@ -97,6 +120,8 @@ const createCmd = (
             TF_ENV_BACKEND_WORKSPACE: `violet-env-${ctx.env.MANAGER_NAMEPACE}-${ctx.namespace}`,
             API_REPO_SHA: apiImageDetail.imageDigest,
             WEB_REPO_SHA: webImageDetail.imageDigest,
+            LAMBDA_CONV2IMG_REPO_SHA: lambdaConv2imgImageDetail.imageDigest,
+            LAMBDA_APIEXEC_REPO_SHA: lambdaApiexecImageDetail.imageDigest,
           }),
         ],
       });
@@ -111,7 +136,6 @@ const createCmd = (
       const entry: Entry = {
         prNumber,
         buildId: build.id,
-        buildArn: build.arn,
         webImageDigest: webImageDetail.imageDigest,
         apiImageDigest: apiImageDetail.imageDigest,
       };
@@ -125,6 +149,7 @@ const createCmd = (
         status: 'undone',
         entry,
         values,
+        watchArns: new Set(build.arn),
       };
     },
     constructComment(entry, values, ctx) {

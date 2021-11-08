@@ -170,7 +170,7 @@ const main = async (): Promise<void> => {
   };
 
   const apiTaskRunPnpm = async (args: string[]) => {
-    await apiTaskRun(['pnpm', '--dir=./pkg/api', 'exec', ...args]);
+    await apiTaskRun(['pnpm', '--dir=./pkg/api', ...args]);
   };
 
   const operate = async (tfCmd: string, tfArgs: string[], minTryCount: number, maxTryCount: number): Promise<void> => {

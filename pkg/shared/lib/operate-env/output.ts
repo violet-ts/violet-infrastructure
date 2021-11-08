@@ -11,6 +11,8 @@ export const opTfOutputSchema = z.object({
   ecsClusterName: z.string(),
   apiTaskLogGroupName: z.string(),
   webTaskLogGroupName: z.string(),
+  conv2imgFunctionName: z.string(),
+  apiExecFunctionName: z.string(),
 });
 
 export type OpTfOutput = z.infer<typeof opTfOutputSchema>;

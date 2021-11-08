@@ -2,13 +2,11 @@ import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import type { Credentials, Provider } from '@aws-sdk/types';
 import { toTemporalInstant } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
-import { cmds } from '@self/bot/src/app/cmds';
-import { constructFullComment } from '@self/bot/src/app/webhooks';
 import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
-import type { BasicContext as CommandBasicContext, CmdStatus } from '@self/bot/src/type/cmd';
+import type { BasicContext as CommandBasicContext, CmdStatus, GeneralEntry } from '@self/bot/src/type/cmd';
 import { generalEntrySchema } from '@self/bot/src/type/cmd';
 import type { Logger } from 'winston';
-import type { GeneralEntry } from '../type/cmd';
+import { constructFullComment, findCmdByName } from '@self/bot/src/app/cmd';
 
 interface ReEvaluated {
   fullComment: string;
@@ -22,10 +20,7 @@ export const reEvaluateCommentEntry = async (
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,
 ): Promise<ReEvaluated> => {
-  const cmd = cmds.find((cmd) => cmd.name === oldEntry.name);
-  if (cmd == null) {
-    throw new Error(`Command not found for ${oldEntry.name}`);
-  }
+  const cmd = findCmdByName(oldEntry.name);
   if (cmd.update == null) {
     throw new Error(`No need to update for command ${oldEntry.name}`);
   }

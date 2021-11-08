@@ -1,4 +1,4 @@
-import { AwsProvider, ResourceGroups, S3, Route53, ECS, ECR, ACM, IAM } from '@cdktf/provider-aws';
+import { AwsProvider, ResourceGroups, S3, Route53, ECS, ACM, IAM, LambdaFunction } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
 import { TerraformLocal, TerraformOutput, TerraformStack } from 'cdktf';
 import type { Construct } from 'constructs';
@@ -16,6 +16,7 @@ import { HTTPTask } from './http-task';
 import { MysqlDb } from './mysql';
 import { genTags } from './values';
 import { DataNetwork } from './data-network';
+import { RepoImage } from './repo-image';
 
 export interface VioletEnvOptions {
   region: string;
@@ -55,24 +56,32 @@ export class VioletEnvStack extends TerraformStack {
     },
   });
 
-  readonly apiRepo = new ECR.DataAwsEcrRepository(this, 'apiRepo', {
-    name: this.options.computedOpEnv.API_REPO_NAME,
-  });
-
-  readonly apiImage = new ECR.DataAwsEcrImage(this, 'apiImage', {
-    repositoryName: this.apiRepo.name,
-    // TODO(hardcoded)
+  readonly apiRepoImage = new RepoImage(this, 'apiRepoImage', {
+    aws: this.aws,
+    sharedEnv: this.options.sharedEnv,
+    repoName: this.options.computedOpEnv.API_REPO_NAME,
     imageDigest: this.options.dynamicOpEnv.API_REPO_SHA,
   });
 
-  readonly webRepo = new ECR.DataAwsEcrRepository(this, 'webRepo', {
-    name: this.options.computedOpEnv.WEB_REPO_NAME,
+  readonly webRepoImage = new RepoImage(this, 'webRepoImage', {
+    aws: this.aws,
+    sharedEnv: this.options.sharedEnv,
+    repoName: this.options.computedOpEnv.WEB_REPO_NAME,
+    imageDigest: this.options.dynamicOpEnv.WEB_REPO_SHA,
   });
 
-  readonly webImage = new ECR.DataAwsEcrImage(this, 'webImage', {
-    repositoryName: this.webRepo.name,
-    // TODO(hardcoded)
-    imageDigest: this.options.dynamicOpEnv.WEB_REPO_SHA,
+  readonly lambdaConv2ImgRepoImage = new RepoImage(this, 'lambdaConv2ImgRepoImage', {
+    aws: this.aws,
+    sharedEnv: this.options.sharedEnv,
+    repoName: this.options.computedOpEnv.LAMBDA_CONV2IMG_REPO_NAME,
+    imageDigest: this.options.dynamicOpEnv.LAMBDA_CONV2IMG_REPO_SHA,
+  });
+
+  readonly lambdaApiexecRepoImage = new RepoImage(this, 'lambdaApiexecRepoImage', {
+    aws: this.aws,
+    sharedEnv: this.options.sharedEnv,
+    repoName: this.options.computedOpEnv.LAMBDA_APIEXEC_REPO_NAME,
+    imageDigest: this.options.dynamicOpEnv.LAMBDA_APIEXEC_REPO_SHA,
   });
 
   readonly zone = new Route53.DataAwsRoute53Zone(this, 'zone', {
@@ -151,8 +160,7 @@ export class VioletEnvStack extends TerraformStack {
     prefix: `${this.prefix}-api`,
     ipv6interfaceIdPrefix: 10,
 
-    repo: this.apiRepo,
-    image: this.apiImage,
+    repoImage: this.apiRepoImage,
     healthcheckPath: '/healthz',
 
     env: {
@@ -162,6 +170,18 @@ export class VioletEnvStack extends TerraformStack {
       S3_BUCKET: z.string().parse(this.s3.bucket),
       S3_REGION: this.s3.region,
     },
+  });
+
+  readonly conv2imgFunction = new LambdaFunction.LambdaFunction(this, 'conv2imgFunction', {
+    functionName: `${this.prefix}-conv2img`,
+    role: this.apiTask.taskRole.arn,
+    imageUri: this.lambdaConv2ImgRepoImage.imageUri,
+  });
+
+  readonly apiExecFunction = new LambdaFunction.LambdaFunction(this, 'apiExecFunction', {
+    functionName: `${this.prefix}-apiexec`,
+    role: this.apiTask.taskRole.arn,
+    imageUri: this.lambdaApiexecRepoImage.imageUri,
   });
 
   readonly operateEnvRole = new IAM.DataAwsIamRole(this, 'operateEnvRole', {
@@ -180,8 +200,7 @@ export class VioletEnvStack extends TerraformStack {
     prefix: `${this.prefix}-web`,
     ipv6interfaceIdPrefix: 20,
 
-    repo: this.webRepo,
-    image: this.webImage,
+    repoImage: this.webRepoImage,
     healthcheckPath: '/',
 
     env: {
@@ -198,6 +217,8 @@ export class VioletEnvStack extends TerraformStack {
     ecsClusterName: this.cluster.name,
     apiTaskLogGroupName: z.string().parse(this.apiTask.logGroup.name),
     webTaskLogGroupName: z.string().parse(this.webTask.logGroup.name),
+    conv2imgFunctionName: z.string().parse(this.conv2imgFunction.functionName),
+    apiExecFunctionName: z.string().parse(this.apiExecFunction.functionName),
   };
 
   readonly opOutputs = Object.entries(this.opTfOutput).map(

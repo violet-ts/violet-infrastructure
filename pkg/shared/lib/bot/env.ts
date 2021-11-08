@@ -26,10 +26,12 @@ export const computedBotCodeBuildEnv = (env: ComputedBotEnv): CodeBuildEnv =>
 export const computedAfterwardBotEnvSchema = z.object({
   API_REPO_NAME: z.string(),
   WEB_REPO_NAME: z.string(),
-  LAMBDA_REPO_NAME: z.string(),
+  LAMBDA_CONV2IMG_REPO_NAME: z.string(),
+  LAMBDA_APIEXEC_REPO_NAME: z.string(),
   API_BUILD_PROJECT_NAME: z.string(),
   WEB_BUILD_PROJECT_NAME: z.string(),
-  LAMBDA_BUILD_PROJECT_NAME: z.string(),
+  LAMBDA_CONV2IMG_BUILD_PROJECT_NAME: z.string(),
+  LAMBDA_APIEXEC_BUILD_PROJECT_NAME: z.string(),
   OPERATE_ENV_PROJECT_NAME: z.string(),
   PR_UPDATE_LABELS_PROJECT_NAME: z.string(),
 });

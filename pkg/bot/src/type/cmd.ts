@@ -32,13 +32,15 @@ export const generalEntrySchema = z.object({
   commentId: z.number(),
   namespace: z.string(),
   botInstallationId: z.number(),
+  watchArns: z.optional(z.set(z.string())),
 });
 export type GeneralEntry = z.infer<typeof generalEntrySchema>;
 
-type ReplyCmdMainResult<Entry = Record<never, never>, CommentValues = undefined> = {
+export type ReplyCmdMainResult<Entry = { _keyForTypeCheck: string }, CommentValues = unknown> = {
   status: CmdStatus;
   entry: Entry;
   values: CommentValues;
+  watchArns?: Set<string>;
 };
 
 export interface CommentHint {
@@ -89,4 +91,10 @@ export type ReplyCmd<
   ) => UpdateResult<Entry, CommentValues> | Promise<UpdateResult<Entry, CommentValues>>;
 };
 
-export type CmdStatus = 'undone' | 'success' | 'failure';
+export type BoundReplyCmd = {
+  cmd: ReplyCmd;
+  boundArgs: string[];
+};
+
+export const cmdStatusSchema = z.union([z.literal('undone'), z.literal('success'), z.literal('failure')]);
+export type CmdStatus = z.infer<typeof cmdStatusSchema>;
