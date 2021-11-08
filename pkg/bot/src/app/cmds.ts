@@ -11,6 +11,7 @@ import prismaMigrateDeploy from '../cmd/prisma-migrate-deploy';
 import prismaMigrateReset from '../cmd/prisma-migrate-reset';
 import prismaDbSeed from '../cmd/prisma-db-seed';
 import debugReEval from '../cmd/debug/re-eval';
+import switchCmd from '../cmd/switch';
 import type { ReplyCmd } from '../type/cmd';
 
 const entrySchema = z.object({});
@@ -41,6 +42,7 @@ const help: ReplyCmd<Entry> = {
 export const cmds: ReplyCmd[] = [
   ping,
   help,
+  switchCmd,
   buildApi,
   buildWeb,
   buildLambdaConv2img,
