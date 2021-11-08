@@ -11,11 +11,10 @@ import {
   generalBuildOutputSchema,
   runTaskBuildOutputSchema,
 } from '@self/shared/lib/operate-env/build-output';
-import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
+import type { AccumuratedBotEnv, ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
 import { renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
 import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
-import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
 
 // TODO(hardcoded)
 const imageRegion = 'ap-northeast-1';
@@ -49,7 +48,7 @@ export type ArgSchema = typeof argSchema;
 
 const createCmd = (
   st: ReplyCmdStatic,
-  paramsGetter: (env: ComputedBotEnv) => CreateParams,
+  paramsGetter: (env: AccumuratedBotEnv) => CreateParams,
 ): ReplyCmd<Entry, CommentValues, ArgSchema> => {
   const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
     ...st,
@@ -94,7 +93,7 @@ const createCmd = (
           ...dynamicOpCodeBuildEnv({
             TERRAFORM_VERSION: '1.0.9',
             NAMESPACE: ctx.namespace,
-            TF_ENV_BACKEND_WORKSAPCE: `violet-env-${ctx.env.MANAGER_NAMEPACE}-${ctx.namespace}`,
+            TF_ENV_BACKEND_WORKSPACE: `violet-env-${ctx.env.MANAGER_NAMEPACE}-${ctx.namespace}`,
             API_REPO_SHA: apiImageDetail.imageDigest,
             WEB_REPO_SHA: webImageDetail.imageDigest,
           }),

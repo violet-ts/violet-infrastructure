@@ -7,11 +7,12 @@ import { createLambdaLogger } from '@self/shared/lib/loggers';
 import { requireSecrets } from '@self/shared/lib/bot/secrets';
 import { computedBotEnvSchema, computedAfterwardBotEnvSchema } from '@self/shared/lib/bot/env';
 import { getLambdaCredentials } from '@self/shared/lib/aws';
+import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
 
 const handler: APIGatewayProxyHandlerV2 = async (event, _context) => {
   const credentials = getLambdaCredentials();
   const logger = createLambdaLogger('github-bot');
-  const env = computedBotEnvSchema.merge(computedAfterwardBotEnvSchema).parse(process.env);
+  const env = sharedEnvSchema.merge(computedBotEnvSchema).merge(computedAfterwardBotEnvSchema).parse(process.env);
   const secrets = await requireSecrets(env, credentials, logger);
   const { body } = event;
   if (typeof body !== 'string') throw new Error('no body found');

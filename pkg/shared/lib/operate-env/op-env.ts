@@ -29,7 +29,7 @@ export const scriptOpCodeBuildEnv = (env: ScriptOpEnv): CodeBuildEnv =>
 // dynamic: 実行時にネームスペースごとに指定する
 export const dynamicOpEnvSchema = z.object({
   NAMESPACE: z.string(),
-  TF_ENV_BACKEND_WORKSAPCE: z.string().regex(/^violet-env-.*/),
+  TF_ENV_BACKEND_WORKSPACE: z.string().regex(/^violet-env-.*/),
   TERRAFORM_VERSION: z.string().regex(/\d+\.\d+\.\d/),
 
   API_REPO_SHA: z.string(),

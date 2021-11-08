@@ -4,9 +4,8 @@ import { toTemporalInstant } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
 import { cmds } from '@self/bot/src/app/cmds';
 import { constructFullComment } from '@self/bot/src/app/webhooks';
-import type { BasicContext as CommandBasicContext, CmdStatus } from '@self/bot/src/type/cmd';
+import type { AccumuratedBotEnv, BasicContext as CommandBasicContext, CmdStatus } from '@self/bot/src/type/cmd';
 import { generalEntrySchema } from '@self/bot/src/type/cmd';
-import type { ComputedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
 import type { Logger } from 'winston';
 import type { GeneralEntry } from '../type/cmd';
 
@@ -17,7 +16,7 @@ interface ReEvaluated {
 }
 export const reEvaluateCommentEntry = async (
   oldEntry: GeneralEntry,
-  env: ComputedBotEnv & ComputedAfterwardBotEnv,
+  env: AccumuratedBotEnv,
   octokit: Octokit,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,
@@ -66,7 +65,7 @@ export const reEvaluateCommentEntry = async (
 
 export const reEvaluateAndUpdate = async (
   oldEntry: GeneralEntry,
-  env: ComputedBotEnv & ComputedAfterwardBotEnv,
+  env: AccumuratedBotEnv,
   octokit: Octokit,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,
