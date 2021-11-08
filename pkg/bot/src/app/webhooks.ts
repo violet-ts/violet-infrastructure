@@ -5,7 +5,7 @@ import { Temporal, toTemporalInstant } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
 import { Webhooks } from '@octokit/webhooks';
 import type { IssueCommentEvent } from '@octokit/webhooks-types';
-import type { BotSecrets, ComputedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
+import type { BotSecrets } from '@self/shared/lib/bot/env';
 import { v4 as uuidv4 } from 'uuid';
 import type { Logger } from 'winston';
 import { z } from 'zod';
