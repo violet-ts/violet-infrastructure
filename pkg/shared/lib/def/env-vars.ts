@@ -20,16 +20,19 @@ export const extractDockerHubCred = (from: Record<string, string | undefined>): 
 };
 
 export const sharedEnvSchema = z.object({
+  MANAGER_NAMEPACE: z.union([z.literal('prod'), z.string().regex(/^dev-[\w-]*/)]),
   AWS_ACCOUNT_ID: z.string(),
   /** 事前に作成した AWS Route53 Zone */
   PREVIEW_ZONE_ID: z.string(),
   INFRA_GIT_URL: z.string(),
   INFRA_GIT_FETCH: z.string(),
   INFRA_TRUSTED_MERGER_GITHUB_EMAILS: z.string(),
+  TF_BACKEND_ORGANIZATION: z.string(),
 });
 // ローカルからのみ与えることが可能
 export type SharedEnv = z.infer<typeof sharedEnvSchema>;
-export const sharedCodeBuildEnv = (env: SharedEnv): CodeBuildEnv => toCodeBuildEnv<SharedEnv>(env);
+export const sharedCodeBuildEnv = (env: SharedEnv): CodeBuildEnv =>
+  toCodeBuildEnv<SharedEnv>(sharedEnvSchema.parse(env));
 
 export const managerEnvSchema = z.object({
   CIDR_NUM: z.string().regex(/[0-9]+/),

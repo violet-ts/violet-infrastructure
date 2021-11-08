@@ -4,6 +4,8 @@ import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
 import type { ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
+import { accumuratedBotEnvSchema } from '@self/shared/lib/bot/env';
+import type { SharedEnv } from '@self/shared/lib/def/env-vars';
 import type { Construct } from 'constructs';
 import { z } from 'zod';
 import type { Bot } from './bot';
@@ -17,6 +19,7 @@ export interface BotAttachOptions {
   tagsAll?: Record<string, string>;
   prefix: string;
   bot: Bot;
+  sharedEnv: SharedEnv;
 
   buildDictContext: BuildDictContext;
   repoDictContext: RepoDictContext;
@@ -71,7 +74,7 @@ export class BotAttach extends Resource {
           `dynamodb:Query`,
           `dynamodb:Scan`,
         ],
-        resources: [this.options.bot.table.arn],
+        resources: [this.options.bot.table.arn, this.options.bot.issueMap.arn],
       },
       {
         // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerregistry.html
@@ -153,10 +156,11 @@ export class BotAttach extends Resource {
     role: this.options.bot.role.arn,
     memorySize: 256,
     environment: {
-      variables: {
+      variables: accumuratedBotEnvSchema.parse({
+        ...this.options.sharedEnv,
         ...this.options.bot.computedBotEnv,
         ...this.computedAfterwardBotEnv,
-      },
+      }),
     },
     timeout: 20,
     handler: 'on-any.handler',

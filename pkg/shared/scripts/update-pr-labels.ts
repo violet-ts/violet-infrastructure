@@ -17,7 +17,8 @@ const main = async (): Promise<void> => {
   initEnv();
 
   const credentials = getCodeBuildCredentials();
-  const logger = createLambdaLogger('local-tags-pr');
+  // TODO: not lambda
+  const logger = createLambdaLogger('update-pr-labels');
 
   const {
     UPDATE_LABELS_REPO: repo,

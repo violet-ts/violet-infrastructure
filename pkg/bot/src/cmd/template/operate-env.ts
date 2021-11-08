@@ -12,10 +12,10 @@ import {
   runTaskBuildOutputSchema,
 } from '@self/shared/lib/operate-env/build-output';
 import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
+import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
 import { renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
 import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
-import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
 
 // TODO(hardcoded)
 const imageRegion = 'ap-northeast-1';
@@ -44,13 +44,17 @@ interface CreateParams {
   operation: ScriptOpEnv['OPERATION'];
 }
 
+export const argSchema = {} as const;
+export type ArgSchema = typeof argSchema;
+
 const createCmd = (
   st: ReplyCmdStatic,
-  paramsGetter: (env: ComputedBotEnv) => CreateParams,
-): ReplyCmd<Entry, CommentValues> => {
-  const cmd: ReplyCmd<Entry, CommentValues> = {
+  paramsGetter: (env: AccumuratedBotEnv) => CreateParams,
+): ReplyCmd<Entry, CommentValues, ArgSchema> => {
+  const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
     ...st,
     entrySchema,
+    argSchema,
     async main(ctx, _args, generalEntry) {
       const { number: prNumber } = ctx.commentPayload.issue;
       const { credentials, logger } = ctx;
@@ -90,6 +94,7 @@ const createCmd = (
           ...dynamicOpCodeBuildEnv({
             TERRAFORM_VERSION: '1.0.9',
             NAMESPACE: ctx.namespace,
+            TF_ENV_BACKEND_WORKSPACE: `violet-env-${ctx.env.MANAGER_NAMEPACE}-${ctx.namespace}`,
             API_REPO_SHA: apiImageDetail.imageDigest,
             WEB_REPO_SHA: webImageDetail.imageDigest,
           }),

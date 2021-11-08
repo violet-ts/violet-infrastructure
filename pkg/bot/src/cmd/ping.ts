@@ -8,17 +8,20 @@ interface CommentValues {
   args: string[];
 }
 
-const cmd: ReplyCmd<Entry, CommentValues> = {
+export const argSchema = {} as const;
+export type ArgSchema = typeof argSchema;
+
+const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   name: 'ping',
-  where: 'any',
   description: '',
   hidden: true,
   entrySchema,
-  main(_ctx, args) {
+  argSchema,
+  main(ctx, _args) {
     return {
       status: 'success',
       entry: {},
-      values: { args },
+      values: { args: ctx.originalArgs },
     };
   },
   constructComment(_entry, values) {

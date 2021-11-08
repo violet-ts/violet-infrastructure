@@ -14,4 +14,4 @@ export const computedRunScriptEnvSchema = z.object({
 });
 export type ComputedRunScriptEnv = z.infer<typeof computedRunScriptEnvSchema>;
 export const computedRunScriptCodeBuildEnv = (env: ComputedRunScriptEnv): CodeBuildEnv =>
-  toCodeBuildEnv<ComputedRunScriptEnv>(env);
+  toCodeBuildEnv<ComputedRunScriptEnv>(computedRunScriptEnvSchema.parse(env));

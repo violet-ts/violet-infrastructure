@@ -8,13 +8,13 @@ import type { DockerHubCred, ManagerEnv, SharedEnv } from '@self/shared/lib/def/
 import { Fn, TerraformHclModule, TerraformOutput, TerraformStack } from 'cdktf';
 import type { Construct } from 'constructs';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
+import type { Section } from '@self/shared/lib/def/types';
 import type { BuildDictContext, RepoDictContext } from './bot-attach';
 import { BotAttach } from './bot-attach';
 import { ContainerBuild } from './build-container';
 import { createDictContext } from './context/dict';
 import { DockerHubCredentials } from './dockerhub-credentials';
 import { OperateEnv } from './operate-env';
-import { genTags } from './values';
 import { UpdatePRLabels } from './update-pr-labels';
 import { Bot } from './bot';
 
@@ -27,12 +27,22 @@ export interface VioletManagerOptions {
 }
 
 export class VioletManagerStack extends TerraformStack {
-  get uniqueName(): string {
-    return `manager-${this.options.region}`;
-  }
-
   constructor(scope: Construct, name: string, public options: VioletManagerOptions) {
     super(scope, name);
+  }
+
+  private genTags(name: string | null, section?: Section | null): Record<string, string> {
+    const tags: Record<string, string> = {
+      Project: PROJECT_NAME,
+      /** マネージャ層であることを示すフラグ */
+      Manager: 'true',
+      /** IaC で管理している、というフラグ */
+      Managed: 'true',
+    };
+    if (name != null) tags.Name = name;
+    if (section != null) tags.Section = section;
+    if (this.options.sharedEnv.MANAGER_NAMEPACE !== 'prod') tags.Section = 'development';
+    return tags;
   }
 
   readonly nullProvider = new NullProvider(this, 'nullProvider', {});
@@ -43,7 +53,7 @@ export class VioletManagerStack extends TerraformStack {
     region: this.options.region,
     profile: process.env.AWS_PROFILE || undefined,
     defaultTags: {
-      tags: genTags(null),
+      tags: this.genTags(null),
     },
   });
 
@@ -95,7 +105,7 @@ export class VioletManagerStack extends TerraformStack {
       }),
     },
     tagsAll: {
-      ...genTags('Project Violet Manager Resources'),
+      ...this.genTags('Project Violet Manager Resources'),
     },
   });
 
@@ -106,7 +116,7 @@ export class VioletManagerStack extends TerraformStack {
       prefix: 'violet',
 
       tagsAll: {
-        ...genTags(null),
+        ...this.genTags(null),
       },
     });
 
@@ -144,7 +154,7 @@ export class VioletManagerStack extends TerraformStack {
     // TODO(security): for production
     // imageScanningConfiguration,
     tagsAll: {
-      ...genTags(null, 'production'),
+      ...this.genTags(null, 'production'),
     },
   });
 
@@ -154,7 +164,7 @@ export class VioletManagerStack extends TerraformStack {
       name: `violet-api-dev-${this.suffix.result}`,
       imageTagMutability: 'MUTABLE',
       tagsAll: {
-        ...genTags(null, 'development'),
+        ...this.genTags(null, 'development'),
       },
     }),
   );
@@ -165,7 +175,7 @@ export class VioletManagerStack extends TerraformStack {
     // TODO(security): for production
     // imageScanningConfiguration,
     tagsAll: {
-      ...genTags(null, 'production'),
+      ...this.genTags(null, 'production'),
     },
   });
 
@@ -175,7 +185,7 @@ export class VioletManagerStack extends TerraformStack {
       name: `violet-web-dev-${this.suffix.result}`,
       imageTagMutability: 'MUTABLE',
       tagsAll: {
-        ...genTags(null, 'development'),
+        ...this.genTags(null, 'development'),
       },
     }),
   );
@@ -186,7 +196,7 @@ export class VioletManagerStack extends TerraformStack {
     // TODO(security): for production
     // imageScanningConfiguration,
     tagsAll: {
-      ...genTags(null, 'production'),
+      ...this.genTags(null, 'production'),
     },
   });
 
@@ -196,7 +206,7 @@ export class VioletManagerStack extends TerraformStack {
       name: `violet-lam-dev-${this.suffix.result}`,
       imageTagMutability: 'MUTABLE',
       tagsAll: {
-        ...genTags(null, 'development'),
+        ...this.genTags(null, 'development'),
       },
     }),
   );
@@ -211,7 +221,7 @@ export class VioletManagerStack extends TerraformStack {
     previewZone: this.previewZone,
 
     tagsAll: {
-      ...genTags(null),
+      ...this.genTags(null),
     },
   });
 
@@ -227,7 +237,7 @@ export class VioletManagerStack extends TerraformStack {
     buildDictContext: this.buildDictContext,
 
     tagsAll: {
-      ...genTags(null, 'development'),
+      ...this.genTags(null, 'development'),
     },
   });
 
@@ -243,7 +253,7 @@ export class VioletManagerStack extends TerraformStack {
     buildDictContext: this.buildDictContext,
 
     tagsAll: {
-      ...genTags(null, 'development'),
+      ...this.genTags(null, 'development'),
     },
   });
 
@@ -259,7 +269,7 @@ export class VioletManagerStack extends TerraformStack {
     buildDictContext: this.buildDictContext,
 
     tagsAll: {
-      ...genTags(null, 'development'),
+      ...this.genTags(null, 'development'),
     },
   });
 
@@ -277,7 +287,7 @@ export class VioletManagerStack extends TerraformStack {
     buildDictContext: this.buildDictContext,
 
     tagsAll: {
-      ...genTags(null, 'development'),
+      ...this.genTags(null, 'development'),
     },
   });
 
@@ -293,7 +303,7 @@ export class VioletManagerStack extends TerraformStack {
     buildDictContext: this.buildDictContext,
 
     tagsAll: {
-      ...genTags(null, 'development'),
+      ...this.genTags(null, 'development'),
     },
   });
 
@@ -302,12 +312,13 @@ export class VioletManagerStack extends TerraformStack {
   readonly botAttach = new BotAttach(this, 'botAttach', {
     prefix: 'vio-bot-a',
     bot: this.bot,
+    sharedEnv: this.options.sharedEnv,
 
     buildDictContext: this.buildDictContext,
     repoDictContext: this.repoDictContext,
 
     tagsAll: {
-      ...genTags(null),
+      ...this.genTags(null),
     },
   });
 

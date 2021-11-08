@@ -13,9 +13,10 @@ import { createLambdaLogger } from '@self/shared/lib/loggers';
 import { computedAfterwardBotEnvSchema, computedBotEnvSchema } from '@self/shared/lib/bot/env';
 import type { Handler } from 'aws-lambda';
 import 'source-map-support/register';
+import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
 
 const handler: Handler = async (event: unknown, context) => {
-  const env = computedBotEnvSchema.merge(computedAfterwardBotEnvSchema).parse(process.env);
+  const env = sharedEnvSchema.merge(computedBotEnvSchema).merge(computedAfterwardBotEnvSchema).parse(process.env);
 
   const credentials = getLambdaCredentials();
   const logger = createLambdaLogger('on-any');

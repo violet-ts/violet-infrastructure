@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import { toCodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
+import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
 
 export const botSecretsSchema = z.object({
   WEBHOOKS_SECRET: z.string(),
   BOT_APP_ID: z.string(),
+  TF_ENV_BACKEND_TOKEN: z.string(),
   BOT_PRIVATE_KEY: z.string(),
 });
 export type BotSecrets = z.infer<typeof botSecretsSchema>;
@@ -14,10 +16,12 @@ export const computedBotEnvSchema = z.object({
   INFRA_SOURCE_BUCKET: z.string(),
   INFRA_SOURCE_ZIP_KEY: z.string(),
   BOT_TABLE_NAME: z.string(),
+  BOT_ISSUE_MAP_TABLE_NAME: z.string(),
   BOT_SSM_PREFIX: z.string(),
 });
 export type ComputedBotEnv = z.infer<typeof computedBotEnvSchema>;
-export const computedBotCodeBuildEnv = (env: ComputedBotEnv): CodeBuildEnv => toCodeBuildEnv<ComputedBotEnv>(env);
+export const computedBotCodeBuildEnv = (env: ComputedBotEnv): CodeBuildEnv =>
+  toCodeBuildEnv<ComputedBotEnv>(computedBotEnvSchema.parse(env));
 
 export const computedAfterwardBotEnvSchema = z.object({
   API_REPO_NAME: z.string(),
@@ -30,3 +34,6 @@ export const computedAfterwardBotEnvSchema = z.object({
   PR_UPDATE_LABELS_PROJECT_NAME: z.string(),
 });
 export type ComputedAfterwardBotEnv = z.infer<typeof computedAfterwardBotEnvSchema>;
+
+export const accumuratedBotEnvSchema = sharedEnvSchema.merge(computedBotEnvSchema).merge(computedAfterwardBotEnvSchema);
+export type AccumuratedBotEnv = z.infer<typeof accumuratedBotEnvSchema>;

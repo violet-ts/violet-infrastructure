@@ -22,12 +22,15 @@ interface CommentValues {
   builtInfo?: BuiltInfo | null;
 }
 
-const cmd: ReplyCmd<Entry, CommentValues> = {
-  name: 'upd-pr',
-  where: 'pr',
+export const argSchema = {} as const;
+export type ArgSchema = typeof argSchema;
+
+const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
+  name: 'upla',
   description: '',
   hidden: true,
   entrySchema,
+  argSchema,
   async main(ctx, _args, generalEntry) {
     const { number: prNumber } = ctx.commentPayload.issue;
     const { credentials, logger } = ctx;

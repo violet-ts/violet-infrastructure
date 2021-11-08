@@ -1,11 +1,11 @@
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import type { Credentials, Provider } from '@aws-sdk/types';
-import { marshall } from '@aws-sdk/util-dynamodb';
+import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { Temporal, toTemporalInstant } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
 import { Webhooks } from '@octokit/webhooks';
 import type { IssueCommentEvent } from '@octokit/webhooks-types';
-import type { BotSecrets, ComputedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
+import type { BotSecrets, AccumuratedBotEnv } from '@self/shared/lib/bot/env';
 import { v4 as uuidv4 } from 'uuid';
 import type { Logger } from 'winston';
 import { z } from 'zod';
@@ -13,6 +13,8 @@ import { createOctokit } from '@self/shared/lib/bot/octokit';
 import { dynamicUpdatePrLabelsEnvCodeBuildEnv } from '@self/shared/lib/update-pr-labels/env';
 import { dynamicRunScriptCodeBuildEnv } from '@self/shared/lib/run-script/env';
 import { CodeBuild } from '@aws-sdk/client-codebuild';
+import arg from 'arg';
+import { issueMapEntrySchema } from '@self/bot/src/type/issue-map';
 import type { BasicContext, CommandContext, GeneralEntry, ReplyCmd } from '../type/cmd';
 import { renderCommentBody, renderTimestamp } from '../util/comment-render';
 import type { Command } from '../util/parse-comment';
@@ -54,7 +56,7 @@ export const constructFullComment = (
 const processRun = async (
   run: Command,
   octokit: Octokit,
-  env: ComputedBotEnv & ComputedAfterwardBotEnv,
+  env: AccumuratedBotEnv,
   payload: IssueCommentEvent,
   botInstallationId: number,
   credentials: Credentials | Provider<Credentials>,
@@ -89,11 +91,30 @@ const processRun = async (
     return;
   }
 
-  const namespace = `${payload.repository.owner.login.toLowerCase()}-pr-${payload.issue.number}`;
+  const parsedArgs = arg(
+    {
+      ...cmd.argSchema,
+      '--ns': String,
+    },
+    { argv: args },
+  );
+
+  const prNumber = payload.issue.number;
+  const db = new DynamoDB({ credentials, logger });
+  const item = (
+    await db.getItem({
+      TableName: env.BOT_ISSUE_MAP_TABLE_NAME,
+      Key: { number: { N: prNumber.toString() } },
+    })
+  ).Item;
+  const i = item && issueMapEntrySchema.parse(unmarshall(item));
+  const defaultNamespace = payload.issue.user.login.toLowerCase();
+  const setNamespace = i?.namespace;
+  const namespace = parsedArgs['--ns'] ?? setNamespace ?? defaultNamespace;
   const ctx: CommandContext = {
     octokit,
     env,
-    originalArgs: run.args,
+    originalArgs: args,
     commentPayload: payload,
     namespace,
     credentials,
@@ -115,7 +136,7 @@ const processRun = async (
     commentId: -1,
     botInstallationId,
   };
-  const { status, entry, values } = await cmd.main(ctx, args, generalEntry);
+  const { status, entry, values } = await cmd.main(ctx, parsedArgs, generalEntry);
   logger.info('Command main process done.', { status, entry, values });
 
   const fullEntry = { ...entry, ...generalEntry };
@@ -143,7 +164,7 @@ const processRun = async (
 
 // Webhook doc: https://docs.github.com/en/developers/webhooks-and-events/webhooks/about-webhooks
 export const createWebhooks = (
-  env: ComputedBotEnv & ComputedAfterwardBotEnv,
+  env: AccumuratedBotEnv,
   secrets: BotSecrets,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,
@@ -174,7 +195,6 @@ export const createWebhooks = (
   // webhooks.on('workflow_run.completed', ({ payload }) => {
   // });
 
-  // TODO
   const onNewPRCommit = async (owner: string, repo: string, prNumber: number, botInstallationId: number) => {
     const codeBuild = new CodeBuild({ credentials, logger });
     const startBuildResult = await codeBuild.startBuild({
@@ -193,6 +213,25 @@ export const createWebhooks = (
     });
     logger.debug('Build started for PR labels update', { startBuildResult });
   };
+
+  webhooks.on(['pull_request.opened', 'issues.opened'], ({ payload }) => {
+    const inner = async () => {
+      const db = new DynamoDB({ credentials, logger });
+      await db.putItem({
+        TableName: env.BOT_ISSUE_MAP_TABLE_NAME,
+        Item: {
+          number: {
+            N: ('issue' in payload ? payload.issue.number : payload.pull_request.number).toString(),
+          },
+        },
+      });
+    };
+    add(
+      inner().catch((e) => {
+        logger.error(`Error while running issue_comment reciever`, e);
+      }),
+    );
+  });
 
   webhooks.on(['pull_request.opened', 'pull_request.edited', 'pull_request.synchronize'], ({ payload }) => {
     const inner = async () => {

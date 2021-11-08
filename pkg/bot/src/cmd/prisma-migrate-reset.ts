@@ -3,8 +3,7 @@ import createCmd from './template/operate-env';
 const cmd = createCmd(
   {
     name: 'prisma/migrate/reset',
-    where: 'pr',
-    description: '先に /preview/start が必要',
+    description: '',
     hidden: false,
   },
   (_env) => ({

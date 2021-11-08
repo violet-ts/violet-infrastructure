@@ -5,25 +5,32 @@ import { getCodeBuildCredentials } from '@self/shared/lib/aws';
 import { initEnv } from '@self/shared/lib/def/util/init-env';
 import type { GeneralBuildOutput, RunTaskBuildOutput, TfBuildOutput } from '@self/shared/lib/operate-env/build-output';
 import { tfBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
-import { computedOpEnvSchema, scriptOpEnvSchema } from '@self/shared/lib/operate-env/op-env';
+import { computedOpEnvSchema, dynamicOpEnvSchema, scriptOpEnvSchema } from '@self/shared/lib/operate-env/op-env';
 import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
 import { exec } from '@self/shared/lib/util/exec';
 import { z } from 'zod';
 import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
+import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
+import { requireSecrets } from '@self/shared/lib/bot/secrets';
+import { createLambdaLogger } from '@self/shared/lib/loggers';
 
 const main = async (): Promise<void> => {
   initEnv();
 
-  const credentials = getCodeBuildCredentials();
-  // TODO(logging): logger
-  // const logger
-
   const env = scriptOpEnvSchema
+    .merge(sharedEnvSchema)
     .merge(computedOpEnvSchema)
+    .merge(dynamicOpEnvSchema)
     .merge(computedBotEnvSchema)
     .merge(dynamicRunScriptEnvSchema)
     .merge(computedRunScriptEnvSchema)
     .parse(process.env);
+
+  const credentials = getCodeBuildCredentials();
+  // TODO(logging): not lambda
+  const logger = createLambdaLogger('operate-env');
+
+  const secrets = await requireSecrets(env, credentials, logger);
 
   // TODO(hardcoded)
   const botTableRegion = 'ap-northeast-1';
@@ -71,9 +78,9 @@ const main = async (): Promise<void> => {
 
   const tfOutput = async (name: string): Promise<string> => {
     const output = (
-      await e(
+      await exec(
         'terraform',
-        ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'output', '-raw', `opOutputs-${name}`],
+        ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'output', '-no-color', '-raw', `opOutputs-${name}`],
         true,
       )
     ).stdout.trim();
@@ -96,10 +103,27 @@ const main = async (): Promise<void> => {
 
   const tfSynthInit = async (): Promise<void> => {
     await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth'], false);
-    await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init'], false);
+    await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init', '-no-color'], false);
+    // NOTE: https://github.com/hashicorp/terraform/issues/23261
+    // https://www.terraform.io/docs/cloud/api/workspaces.html
+    await e(
+      'curl',
+      [
+        '--header',
+        `Authorization: Bearer ${secrets.TF_ENV_BACKEND_TOKEN}`,
+        '--header',
+        'Content-Type: application/vnd.api+json',
+        '--request',
+        'PATCH',
+        '--data',
+        '{"data":{"type":"workspaces","attributes":{"execution-mode":"local"}}}',
+        `https://app.terraform.io/api/v2/organizations/${env.TF_BACKEND_ORGANIZATION}/workspaces/${env.TF_ENV_BACKEND_WORKSPACE}`,
+      ],
+      false,
+    );
   };
 
-  const apiPrismaTaskRun = async (prismaArgs: string[]) => {
+  const apiTaskRun = async (command: string[]) => {
     await tfSynthInit();
     const tfBuildOutput = await getTfBuildOutput();
 
@@ -123,7 +147,7 @@ const main = async (): Promise<void> => {
           containerOverrides: [
             {
               name: 'api',
-              command: ['pnpm', '--dir=./pkg/api', 'exec', 'prisma', ...prismaArgs],
+              command,
               cpu: 256,
               memory: 512,
             },
@@ -145,6 +169,10 @@ const main = async (): Promise<void> => {
     return task;
   };
 
+  const apiTaskRunPnpm = async (args: string[]) => {
+    await apiTaskRun(['pnpm', '--dir=./pkg/api', 'exec', ...args]);
+  };
+
   const operate = async (tfCmd: string, tfArgs: string[], minTryCount: number, maxTryCount: number): Promise<void> => {
     await tfSynthInit();
     let success = 0;
@@ -163,7 +191,11 @@ const main = async (): Promise<void> => {
       lastFailed = false;
       try {
         console.log(`${i + 1}-th run... (success=${success}, failure=${failure})`);
-        await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', tfCmd, ...tfArgs], false);
+        await e(
+          'terraform',
+          ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', tfCmd, '-no-color', ...tfArgs],
+          false,
+        );
         success += 1;
       } catch (err: unknown) {
         console.error(`${i + 1}-th run failed`);
@@ -191,8 +223,24 @@ const main = async (): Promise<void> => {
       break;
     }
     case 'destroy': {
+      if (secrets.TF_ENV_BACKEND_TOKEN === 'violet-prodenv-prod') {
+        throw new Error(`not allowed to destroy workspace "${secrets.TF_ENV_BACKEND_TOKEN}"`);
+      }
       await operate('destroy', ['--auto-approve'], 1, 2);
       const tfBuildOutput = await getTfBuildOutput();
+      await e(
+        'curl',
+        [
+          '--header',
+          `Authorization: Bearer ${secrets.TF_ENV_BACKEND_TOKEN}`,
+          '--header',
+          'Content-Type: application/vnd.api+json',
+          '--request',
+          'DELETE',
+          `https://app.terraform.io/api/v2/organizations/${env.TF_BACKEND_ORGANIZATION}/workspaces/${env.TF_ENV_BACKEND_WORKSPACE}`,
+        ],
+        false,
+      );
       await updateTable<TfBuildOutput>({
         tfBuildOutput,
       });
@@ -216,15 +264,16 @@ const main = async (): Promise<void> => {
       break;
     }
     case 'prisma/migrate/deploy': {
-      await apiPrismaTaskRun(['migrate', 'deploy']);
+      await apiTaskRunPnpm(['exec', 'prisma', 'migrate', 'deploy']);
       break;
     }
     case 'prisma/migrate/reset': {
-      await apiPrismaTaskRun(['migrate', 'reset']);
+      await apiTaskRunPnpm(['exec', 'prisma', 'migrate', 'reset']);
       break;
     }
     case 'prisma/db/seed': {
-      await apiPrismaTaskRun(['db', 'seed']);
+      // TODO: other seeds
+      await apiTaskRunPnpm(['run', 'prisma:seed', '--', 'dev']);
       break;
     }
     default: {

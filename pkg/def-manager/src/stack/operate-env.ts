@@ -1,5 +1,5 @@
-import type { ECR } from '@cdktf/provider-aws';
-import { IAM, S3 } from '@cdktf/provider-aws';
+import type { ECR, S3 } from '@cdktf/provider-aws';
+import { IAM } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
@@ -43,15 +43,6 @@ export class OperateEnv extends Resource {
     special: false,
   });
 
-  readonly tfstate = new S3.S3Bucket(this, 'tfstate', {
-    bucket: `${this.options.prefix}-tfstate-${this.suffix.result}`,
-    acl: 'private',
-    forceDestroy: true,
-    tagsAll: {
-      ...this.options.tagsAll,
-    },
-  });
-
   readonly devNetwork = new DevNetwork(this, 'devNetwork', {
     prefix: `${this.options.prefix}-net`,
     cidrNum: this.options.managerEnv.CIDR_NUM,
@@ -60,8 +51,6 @@ export class OperateEnv extends Resource {
   readonly computedOpEnv: ComputedOpEnv = {
     API_REPO_NAME: this.options.apiDevRepo.name,
     WEB_REPO_NAME: this.options.webDevRepo.name,
-    S3BACKEND_REGION: this.tfstate.region,
-    S3BACKEND_BUCKET: z.string().parse(this.tfstate.bucket),
     NETWORK_VPC_ID: this.devNetwork.vpc.id,
     NETWORK_DB_SG_ID: this.devNetwork.dbSg.id,
     NETWORK_LB_SG_ID: this.devNetwork.lbSg.id,
@@ -181,20 +170,6 @@ export class OperateEnv extends Resource {
           'codestar-notifications:ListTargets',
         ],
         resources: ['*'],
-      },
-
-      // ここからは、個別に指定した必須の権限
-
-      {
-        effect: 'Allow',
-        actions: [`dynamodb:UpdateItem`],
-        resources: [this.options.bot.table.arn],
-      },
-      {
-        // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
-        effect: 'Allow',
-        resources: [this.tfstate.arn, `${this.tfstate.arn}/*`],
-        actions: ['s3:Get*', 's3:List*', 's3:CopyObject', 's3:Put*', 's3:HeadObject', 's3:DeleteObject*'],
       },
     ],
   });

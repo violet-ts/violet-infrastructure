@@ -30,10 +30,6 @@ export interface VioletEnvOptions {
 }
 
 export class VioletEnvStack extends TerraformStack {
-  get uniqueName(): string {
-    return `env-${this.options.region}-${this.options.dynamicOpEnv.NAMESPACE}-${this.options.section}`;
-  }
-
   private readonly nsPattern = /[a-zA-Z-]+/;
 
   constructor(scope: Construct, name: string, public options: VioletEnvOptions) {

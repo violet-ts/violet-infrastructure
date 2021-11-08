@@ -7,4 +7,4 @@ export const codeBuildStackEnvSchema = z.object({
 });
 export type CodeBuildStackEnv = z.infer<typeof codeBuildStackEnvSchema>;
 export const codeBuildStackCodeBuildEnv = (env: CodeBuildStackEnv): CodeBuildEnv =>
-  toCodeBuildEnv<CodeBuildStackEnv>(env);
+  toCodeBuildEnv<CodeBuildStackEnv>(codeBuildStackEnvSchema.parse(env));

@@ -14,15 +14,19 @@ interface CommentValues {
   targetStatus: CmdStatus | null;
 }
 
-const cmd: ReplyCmd<Entry, CommentValues> = {
+export const argSchema = {} as const;
+export type ArgSchema = typeof argSchema;
+
+const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   name: 're-eval',
-  where: 'any',
   description: 'Usage: uuid',
   hidden: true,
   entrySchema,
+  argSchema,
   async main(ctx, args) {
     const { env, octokit, credentials, logger } = ctx;
-    const targetUUID = args[0];
+    const targetUUID = args._[0] as string | undefined;
+    if (!targetUUID) throw new Error('target uuid is not specified');
     const db = new DynamoDB({ credentials, logger });
     const targetOldEntry: GeneralEntry | null = await (async () => {
       try {
