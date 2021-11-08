@@ -114,7 +114,9 @@ const main = async (): Promise<void> => {
         '--header',
         'Content-Type: application/vnd.api+json',
         '--request',
-        'DELETE',
+        'PATCH',
+        '--data',
+        '{"data":{"type":"workspaces","attributes":{"execution-mode":"local"}}}',
         `https://app.terraform.io/api/v2/organizations/${env.TF_BACKEND_ORGANIZATION}/workspaces/${env.TF_ENV_BACKEND_WORKSPACE}`,
       ],
       false,
@@ -219,9 +221,6 @@ const main = async (): Promise<void> => {
     case 'destroy': {
       await operate('destroy', ['--auto-approve'], 1, 2);
       const tfBuildOutput = await getTfBuildOutput();
-      await updateTable<TfBuildOutput>({
-        tfBuildOutput,
-      });
       await e(
         'curl',
         [
@@ -230,13 +229,14 @@ const main = async (): Promise<void> => {
           '--header',
           'Content-Type: application/vnd.api+json',
           '--request',
-          'PATCH',
-          '--data',
-          '{"data":{"type":"workspaces","attributes":{"execution-mode":"local"}}}',
+          'DELETE',
           `https://app.terraform.io/api/v2/organizations/${env.TF_BACKEND_ORGANIZATION}/workspaces/${env.TF_ENV_BACKEND_WORKSPACE}`,
         ],
         false,
       );
+      await updateTable<TfBuildOutput>({
+        tfBuildOutput,
+      });
       break;
     }
     case 'status': {
