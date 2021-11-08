@@ -186,11 +186,6 @@ export class OperateEnv extends Resource {
       // ここからは、個別に指定した必須の権限
 
       {
-        effect: 'Allow',
-        actions: [`dynamodb:UpdateItem`],
-        resources: [this.options.bot.table.arn],
-      },
-      {
         // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
         effect: 'Allow',
         resources: [this.tfstate.arn, `${this.tfstate.arn}/*`],

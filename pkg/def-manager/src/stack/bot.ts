@@ -44,6 +44,19 @@ export class Bot extends Resource {
   readonly ssmPrefix = this.options.ssmPrefix;
 
   // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
+  readonly issueMap = new DynamoDB.DynamodbTable(this, 'issueMap', {
+    name: `vio-botpr-${this.suffix.result}`,
+    billingMode: 'PAY_PER_REQUEST',
+    attribute: [
+      {
+        name: 'number',
+        type: 'N',
+      },
+    ],
+    hashKey: 'number',
+  });
+
+  // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
   readonly table = new DynamoDB.DynamodbTable(this, 'table', {
     name: `violet-bot-${this.suffix.result}`,
     billingMode: 'PAY_PER_REQUEST',
@@ -66,6 +79,7 @@ export class Bot extends Resource {
     INFRA_SOURCE_ZIP_KEY: this.options.infraSourceZip.key,
     BOT_SSM_PREFIX: this.ssmPrefix,
     BOT_TABLE_NAME: this.table.name,
+    BOT_ISSUE_MAP_TABLE_NAME: this.issueMap.name,
   };
 
   readonly parameters = botEnv.map(

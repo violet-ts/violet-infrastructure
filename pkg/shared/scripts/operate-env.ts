@@ -71,9 +71,9 @@ const main = async (): Promise<void> => {
 
   const tfOutput = async (name: string): Promise<string> => {
     const output = (
-      await e(
+      await exec(
         'terraform',
-        ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'output', '-raw', `opOutputs-${name}`],
+        ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'output', '-no-color', '-raw', `opOutputs-${name}`],
         true,
       )
     ).stdout.trim();
@@ -96,7 +96,7 @@ const main = async (): Promise<void> => {
 
   const tfSynthInit = async (): Promise<void> => {
     await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth'], false);
-    await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init'], false);
+    await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init', '-no-color'], false);
   };
 
   const apiPrismaTaskRun = async (prismaArgs: string[]) => {
@@ -163,7 +163,11 @@ const main = async (): Promise<void> => {
       lastFailed = false;
       try {
         console.log(`${i + 1}-th run... (success=${success}, failure=${failure})`);
-        await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', tfCmd, ...tfArgs], false);
+        await e(
+          'terraform',
+          ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', tfCmd, '-no-color', ...tfArgs],
+          false,
+        );
         success += 1;
       } catch (err: unknown) {
         console.error(`${i + 1}-th run failed`);

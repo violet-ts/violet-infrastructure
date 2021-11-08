@@ -5,6 +5,7 @@ import { toCodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 export const botSecretsSchema = z.object({
   WEBHOOKS_SECRET: z.string(),
   BOT_APP_ID: z.string(),
+  TF_ENV_BACKEND_TOKEN: z.string(),
   BOT_PRIVATE_KEY: z.string(),
 });
 export type BotSecrets = z.infer<typeof botSecretsSchema>;
@@ -14,6 +15,7 @@ export const computedBotEnvSchema = z.object({
   INFRA_SOURCE_BUCKET: z.string(),
   INFRA_SOURCE_ZIP_KEY: z.string(),
   BOT_TABLE_NAME: z.string(),
+  BOT_ISSUE_MAP_TABLE_NAME: z.string(),
   BOT_SSM_PREFIX: z.string(),
 });
 export type ComputedBotEnv = z.infer<typeof computedBotEnvSchema>;

@@ -27,7 +27,7 @@ export const scriptOpCodeBuildEnv = (env: ScriptOpEnv): CodeBuildEnv => toCodeBu
 
 // dynamic: 実行時にネームスペースごとに指定する
 export const dynamicOpEnvSchema = z.object({
-  NAMESPACE: z.string().regex(/[a-z][a-z0-9]*/),
+  NAMESPACE: z.string(),
   TERRAFORM_VERSION: z.string().regex(/\d+\.\d+\.\d/),
   S3BACKEND_PREFIX: z.optional(z.string()),
 
@@ -37,7 +37,8 @@ export const dynamicOpEnvSchema = z.object({
 
 export type DynamicOpEnv = z.infer<typeof dynamicOpEnvSchema>;
 
-export const dynamicOpCodeBuildEnv = (env: DynamicOpEnv): CodeBuildEnv => toCodeBuildEnv<DynamicOpEnv>(env);
+export const dynamicOpCodeBuildEnv = (env: DynamicOpEnv): CodeBuildEnv =>
+  toCodeBuildEnv<DynamicOpEnv>(dynamicOpEnvSchema.parse(env));
 
 // computed: Manager 環境を作ったときに自動で計算して固定して設定する
 export const computedOpEnvSchema = z.object({

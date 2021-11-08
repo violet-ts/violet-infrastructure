@@ -44,13 +44,17 @@ interface CreateParams {
   operation: ScriptOpEnv['OPERATION'];
 }
 
+export const argSchema = {} as const;
+export type ArgSchema = typeof argSchema;
+
 const createCmd = (
   st: ReplyCmdStatic,
   paramsGetter: (env: ComputedBotEnv) => CreateParams,
-): ReplyCmd<Entry, CommentValues> => {
-  const cmd: ReplyCmd<Entry, CommentValues> = {
+): ReplyCmd<Entry, CommentValues, ArgSchema> => {
+  const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
     ...st,
     entrySchema,
+    argSchema,
     async main(ctx, _args, generalEntry) {
       const { number: prNumber } = ctx.commentPayload.issue;
       const { credentials, logger } = ctx;

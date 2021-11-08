@@ -4,6 +4,7 @@ import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Credentials, Provider } from '@aws-sdk/types';
 import type { ComputedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
+import type arg from 'arg';
 
 export type BasicContext = {
   octokit: Octokit;
@@ -61,16 +62,24 @@ export interface UpdateResult<Entry = Record<never, never>, CommentValues = unde
 
 export type ReplyCmdStatic = {
   name: string;
-  where: 'any' | 'pr' | 'issue';
   description: string;
   hidden: boolean;
 };
 
-export type ReplyCmd<Entry = { _keyForTypeCheck: string }, CommentValues = unknown> = ReplyCmdStatic & {
+export type GeneralArgSchema = {
+  '--ns': StringConstructor;
+};
+
+export type ReplyCmd<
+  Entry = { _keyForTypeCheck: string },
+  CommentValues = unknown,
+  ArgSchema = { ['--keyForTypeCheck']: StringConstructor },
+> = ReplyCmdStatic & {
   entrySchema: z.ZodTypeAny;
+  argSchema: ArgSchema;
   main: (
     ctx: CommandContext,
-    args: string[],
+    args: arg.Result<GeneralArgSchema & ArgSchema>,
     generalEntry: GeneralEntry,
   ) => ReplyCmdMainResult<Entry, CommentValues> | Promise<ReplyCmdMainResult<Entry, CommentValues>>;
   constructComment: (entry: Entry & GeneralEntry, commentValues: CommentValues, ctx: BasicContext) => CommentBody;

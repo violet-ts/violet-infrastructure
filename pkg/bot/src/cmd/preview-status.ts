@@ -2,9 +2,8 @@ import createCmd from './template/operate-env';
 
 const cmd = createCmd(
   {
-    name: 'preview/force-destroy',
-    where: 'pr',
-    description: '先に /build が必要',
+    name: 'preview/status',
+    description: '',
     hidden: false,
   },
   (_env) => ({

@@ -3,7 +3,6 @@ import createCmd from './template/build-container';
 const cmd = createCmd(
   {
     name: 'build/api',
-    where: 'pr',
     description: 'API イメージをビルド',
     hidden: false,
   },

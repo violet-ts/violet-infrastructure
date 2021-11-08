@@ -11,30 +11,34 @@ import prismaMigrateDeploy from '../cmd/prisma-migrate-deploy';
 import prismaMigrateReset from '../cmd/prisma-migrate-reset';
 import prismaDbSeed from '../cmd/prisma-db-seed';
 import debugReEval from '../cmd/debug/re-eval';
+import debugUpdatePRLabels from '../cmd/debug/update-pr-labels';
 import switchCmd from '../cmd/switch';
 import type { ReplyCmd } from '../type/cmd';
 
 const entrySchema = z.object({});
 export type Entry = z.infer<typeof entrySchema>;
+export type CommentValues = { all: boolean };
+export const argSchema = {
+  '--all': Boolean,
+} as const;
+export type ArgSchema = typeof argSchema;
 
-const help: ReplyCmd<Entry> = {
+const help: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   name: 'help',
-  where: 'any',
-  description: 'help を表示する',
+  description: '[--all: すべて表示]',
   hidden: false,
   entrySchema,
-  main(_ctx, _args) {
+  argSchema,
+  main(_ctx, args) {
     return {
       status: 'success',
       entry: {},
-      values: undefined,
+      values: { all: Boolean(args['--all']) },
     };
   },
-  constructComment() {
+  constructComment(_entry, values) {
     return {
-      main: cmds
-        .filter((cmd) => !cmd.hidden)
-        .map((cmd) => `- **${cmd.name}**: ${cmd.description} ${cmd.where !== 'any' ? `[${cmd.where}]` : ''}`),
+      main: cmds.filter((cmd) => values.all || !cmd.hidden).map((cmd) => `- **${cmd.name}**: ${cmd.description}`),
     };
   },
 };
@@ -54,5 +58,6 @@ export const cmds: ReplyCmd[] = [
   prismaMigrateReset,
   prismaDbSeed,
   debugReEval,
+  debugUpdatePRLabels,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ] as any;

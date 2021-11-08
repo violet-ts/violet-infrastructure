@@ -3,7 +3,6 @@ import createCmd from './template/build-container';
 const cmd = createCmd(
   {
     name: 'build/lambda/conv2img',
-    where: 'pr',
     description: 'Lambda for conv2img イメージをビルド',
     hidden: false,
   },

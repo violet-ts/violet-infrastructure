@@ -4,7 +4,6 @@ import createCmd from './template/build-container';
 const cmd = createCmd(
   {
     name: 'build/web',
-    where: 'pr',
     description: 'Web イメージをビルド',
     hidden: false,
   },

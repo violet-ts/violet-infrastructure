@@ -26,6 +26,8 @@ export const sharedEnvSchema = z.object({
   INFRA_GIT_URL: z.string(),
   INFRA_GIT_FETCH: z.string(),
   INFRA_TRUSTED_MERGER_GITHUB_EMAILS: z.string(),
+  DEV_NAMESPACE: z.string(),
+  TF_BACKEND_ORGANIZATION: z.string(),
 });
 // ローカルからのみ与えることが可能
 export type SharedEnv = z.infer<typeof sharedEnvSchema>;

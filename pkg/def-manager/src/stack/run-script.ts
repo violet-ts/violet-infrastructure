@@ -74,8 +74,17 @@ export class RunScript extends Resource {
     statement: [
       {
         effect: 'Allow',
-        actions: ['dynamodb:UpdateItem'],
-        resources: [this.options.bot.table.arn],
+        actions: [
+          `dynamodb:PutItem`,
+          `dynamodb:BatchPutItem`,
+          `dynamodb:GetItem`,
+          `dynamodb:BatchWriteItem`,
+          `dynamodb:UpdateItem`,
+          `dynamodb:DeleteItem`,
+          `dynamodb:Query`,
+          `dynamodb:Scan`,
+        ],
+        resources: [this.options.bot.table.arn, this.options.bot.issueMap.arn],
       },
       {
         effect: 'Allow',

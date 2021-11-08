@@ -71,7 +71,7 @@ export class BotAttach extends Resource {
           `dynamodb:Query`,
           `dynamodb:Scan`,
         ],
-        resources: [this.options.bot.table.arn],
+        resources: [this.options.bot.table.arn, this.options.bot.issueMap.arn],
       },
       {
         // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerregistry.html
