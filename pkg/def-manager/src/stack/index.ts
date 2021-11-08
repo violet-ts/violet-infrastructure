@@ -41,7 +41,7 @@ export class VioletManagerStack extends TerraformStack {
     };
     if (name != null) tags.Name = name;
     if (section != null) tags.Section = section;
-    if (this.options.sharedEnv.DEV_NAMESPACE) tags.Section = 'development';
+    if (this.options.sharedEnv.MANAGER_NAMEPACE !== 'prod') tags.Section = 'development';
     return tags;
   }
 
@@ -312,6 +312,7 @@ export class VioletManagerStack extends TerraformStack {
   readonly botAttach = new BotAttach(this, 'botAttach', {
     prefix: 'vio-bot-a',
     bot: this.bot,
+    sharedEnv: this.options.sharedEnv,
 
     buildDictContext: this.buildDictContext,
     repoDictContext: this.repoDictContext,

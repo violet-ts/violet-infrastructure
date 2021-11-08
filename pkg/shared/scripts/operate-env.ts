@@ -123,7 +123,7 @@ const main = async (): Promise<void> => {
     );
   };
 
-  const apiPrismaTaskRun = async (prismaArgs: string[]) => {
+  const apiTaskRun = async (command: string[]) => {
     await tfSynthInit();
     const tfBuildOutput = await getTfBuildOutput();
 
@@ -147,7 +147,7 @@ const main = async (): Promise<void> => {
           containerOverrides: [
             {
               name: 'api',
-              command: ['pnpm', '--dir=./pkg/api', 'exec', 'prisma', ...prismaArgs],
+              command,
               cpu: 256,
               memory: 512,
             },
@@ -167,6 +167,10 @@ const main = async (): Promise<void> => {
     });
 
     return task;
+  };
+
+  const apiTaskRunPnpm = async (args: string[]) => {
+    await apiTaskRun(['pnpm', '--dir=./pkg/api', 'exec', ...args]);
   };
 
   const operate = async (tfCmd: string, tfArgs: string[], minTryCount: number, maxTryCount: number): Promise<void> => {
@@ -260,15 +264,16 @@ const main = async (): Promise<void> => {
       break;
     }
     case 'prisma/migrate/deploy': {
-      await apiPrismaTaskRun(['migrate', 'deploy']);
+      await apiTaskRunPnpm(['exec', 'prisma', 'migrate', 'deploy']);
       break;
     }
     case 'prisma/migrate/reset': {
-      await apiPrismaTaskRun(['migrate', 'reset']);
+      await apiTaskRunPnpm(['exec', 'prisma', 'migrate', 'reset']);
       break;
     }
     case 'prisma/db/seed': {
-      await apiPrismaTaskRun(['db', 'seed']);
+      // TODO: other seeds
+      await apiTaskRunPnpm(['run', 'prisma:seed', '--', 'dev']);
       break;
     }
     default: {

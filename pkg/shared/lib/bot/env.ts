@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import { toCodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
+import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
 
 export const botSecretsSchema = z.object({
   WEBHOOKS_SECRET: z.string(),
@@ -33,3 +34,6 @@ export const computedAfterwardBotEnvSchema = z.object({
   PR_UPDATE_LABELS_PROJECT_NAME: z.string(),
 });
 export type ComputedAfterwardBotEnv = z.infer<typeof computedAfterwardBotEnvSchema>;
+
+export const accumuratedBotEnvSchema = sharedEnvSchema.merge(computedBotEnvSchema).merge(computedAfterwardBotEnvSchema);
+export type AccumuratedBotEnv = z.infer<typeof accumuratedBotEnvSchema>;

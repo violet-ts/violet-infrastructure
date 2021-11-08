@@ -3,11 +3,8 @@ import type { IssueCommentEvent } from '@octokit/webhooks-types';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Credentials, Provider } from '@aws-sdk/types';
-import type { ComputedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
-import type { SharedEnv } from '@self/shared/lib/def/env-vars';
+import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
 import type arg from 'arg';
-
-export type AccumuratedBotEnv = SharedEnv & ComputedBotEnv & ComputedAfterwardBotEnv;
 
 export type BasicContext = {
   octokit: Octokit;

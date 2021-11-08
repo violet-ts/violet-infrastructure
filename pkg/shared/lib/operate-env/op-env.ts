@@ -19,6 +19,8 @@ export const scriptOpEnvSchema = z.object({
     z.literal('prisma/migrate/status'), // TODO: wip
     z.literal('prisma/db/seed'),
   ]),
+  // TODO: ope args for seed
+  // OPERATION_AREGS: z.optional(z.string()),
 });
 
 export type ScriptOpEnv = z.infer<typeof scriptOpEnvSchema>;

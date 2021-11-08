@@ -11,7 +11,8 @@ import {
   generalBuildOutputSchema,
   runTaskBuildOutputSchema,
 } from '@self/shared/lib/operate-env/build-output';
-import type { AccumuratedBotEnv, ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
+import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
+import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
 import { renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
 import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
