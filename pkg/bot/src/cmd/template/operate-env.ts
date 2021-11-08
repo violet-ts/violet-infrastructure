@@ -94,6 +94,7 @@ const createCmd = (
           ...dynamicOpCodeBuildEnv({
             TERRAFORM_VERSION: '1.0.9',
             NAMESPACE: ctx.namespace,
+            TF_ENV_BACKEND_WORKSAPCE: `violet-env-${ctx.env.MANAGER_NAMEPACE}-${ctx.namespace}`,
             API_REPO_SHA: apiImageDetail.imageDigest,
             WEB_REPO_SHA: webImageDetail.imageDigest,
           }),

@@ -1,10 +1,10 @@
 import type { Context as LambdaContext } from 'aws-lambda';
 import type { Logger } from 'winston';
-import type { ComputedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
 import type { Credentials, Provider } from '@aws-sdk/types';
+import type { AccumuratedBotEnv } from '@self/bot/src/type/cmd';
 
 export type MatcherBasicContext = {
-  env: ComputedBotEnv & ComputedAfterwardBotEnv;
+  env: AccumuratedBotEnv;
   credentials: Credentials | Provider<Credentials>;
   logger: Logger;
 };

@@ -44,7 +44,7 @@ const main = async () => {
 
   const app = new App();
   const stack = new VioletEnvStack(app, 'violet-infra', options);
-  configureEnvBackend(stack, stack.uniqueName, sharedEnv, secrets);
+  configureEnvBackend(stack, dynamicOpEnv.TF_ENV_BACKEND_WORKSAPCE, sharedEnv, secrets);
   app.synth();
 };
 

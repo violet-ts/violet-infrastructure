@@ -27,12 +27,6 @@ export interface VioletManagerOptions {
 }
 
 export class VioletManagerStack extends TerraformStack {
-  get uniqueName(): string {
-    return `violet-manager-${
-      this.options.sharedEnv.DEV_NAMESPACE ? `dev-${this.options.sharedEnv.DEV_NAMESPACE}` : 'prod'
-    }-${this.options.region}`;
-  }
-
   constructor(scope: Construct, name: string, public options: VioletManagerOptions) {
     super(scope, name);
   }

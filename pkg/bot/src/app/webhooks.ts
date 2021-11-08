@@ -15,6 +15,7 @@ import { dynamicRunScriptCodeBuildEnv } from '@self/shared/lib/run-script/env';
 import { CodeBuild } from '@aws-sdk/client-codebuild';
 import arg from 'arg';
 import { issueMapEntrySchema } from '@self/bot/src/type/issue-map';
+import type { AccumuratedBotEnv } from '@self/bot/src/type/cmd';
 import type { BasicContext, CommandContext, GeneralEntry, ReplyCmd } from '../type/cmd';
 import { renderCommentBody, renderTimestamp } from '../util/comment-render';
 import type { Command } from '../util/parse-comment';
@@ -56,7 +57,7 @@ export const constructFullComment = (
 const processRun = async (
   run: Command,
   octokit: Octokit,
-  env: ComputedBotEnv & ComputedAfterwardBotEnv,
+  env: AccumuratedBotEnv,
   payload: IssueCommentEvent,
   botInstallationId: number,
   credentials: Credentials | Provider<Credentials>,
@@ -164,7 +165,7 @@ const processRun = async (
 
 // Webhook doc: https://docs.github.com/en/developers/webhooks-and-events/webhooks/about-webhooks
 export const createWebhooks = (
-  env: ComputedBotEnv & ComputedAfterwardBotEnv,
+  env: AccumuratedBotEnv,
   secrets: BotSecrets,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,

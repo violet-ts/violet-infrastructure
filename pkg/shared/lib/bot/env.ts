@@ -19,7 +19,8 @@ export const computedBotEnvSchema = z.object({
   BOT_SSM_PREFIX: z.string(),
 });
 export type ComputedBotEnv = z.infer<typeof computedBotEnvSchema>;
-export const computedBotCodeBuildEnv = (env: ComputedBotEnv): CodeBuildEnv => toCodeBuildEnv<ComputedBotEnv>(env);
+export const computedBotCodeBuildEnv = (env: ComputedBotEnv): CodeBuildEnv =>
+  toCodeBuildEnv<ComputedBotEnv>(computedBotEnvSchema.parse(env));
 
 export const computedAfterwardBotEnvSchema = z.object({
   API_REPO_NAME: z.string(),

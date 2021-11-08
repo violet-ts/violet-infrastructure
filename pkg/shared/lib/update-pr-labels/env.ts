@@ -10,4 +10,4 @@ export const dynamicUpdatePrLabelsEnvSchema = z.object({
 });
 export type DynamicUpdatePrLabelsEnv = z.infer<typeof dynamicUpdatePrLabelsEnvSchema>;
 export const dynamicUpdatePrLabelsEnvCodeBuildEnv = (env: DynamicUpdatePrLabelsEnv): CodeBuildEnv =>
-  toCodeBuildEnv<DynamicUpdatePrLabelsEnv>(env);
+  toCodeBuildEnv<DynamicUpdatePrLabelsEnv>(dynamicUpdatePrLabelsEnvSchema.parse(env));

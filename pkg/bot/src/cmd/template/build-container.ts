@@ -3,14 +3,13 @@ import type { Temporal } from '@js-temporal/polyfill';
 import { toTemporalInstant } from '@js-temporal/polyfill';
 import { z } from 'zod';
 import { dynamicBuildCodeBuildEnv } from '@self/shared/lib/build-env';
-import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
+import type { ReplyCmd, ReplyCmdStatic, AccumuratedBotEnv } from '@self/bot/src/type/cmd';
 import { renderTimestamp, renderDuration, renderBytes } from '@self/bot/src/util/comment-render';
 import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
 import { hintHowToPullDocker } from '@self/bot/src/util/hint';
 import { collectLogsOutput } from '@self/bot/src/util/aws/logs-output';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
 import { renderGitHubPRCommit } from '@self/bot/src/util/comment-render/github';
-import type { ComputedAfterwardBotEnv, ComputedBotEnv } from '@self/shared/lib/bot/env';
 
 // TODO(hardcoded)
 const imageRegion = 'ap-northeast-1';
@@ -61,7 +60,7 @@ export type ArgSchema = typeof argSchema;
 
 const createCmd = (
   st: ReplyCmdStatic,
-  paramsGetter: (env: ComputedBotEnv & ComputedAfterwardBotEnv, namespace: string) => CreateParams,
+  paramsGetter: (env: AccumuratedBotEnv, namespace: string) => CreateParams,
 ): ReplyCmd<Entry, CommentValues, ArgSchema> => {
   const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
     ...st,

@@ -23,13 +23,14 @@ export const scriptOpEnvSchema = z.object({
 
 export type ScriptOpEnv = z.infer<typeof scriptOpEnvSchema>;
 
-export const scriptOpCodeBuildEnv = (env: ScriptOpEnv): CodeBuildEnv => toCodeBuildEnv<ScriptOpEnv>(env);
+export const scriptOpCodeBuildEnv = (env: ScriptOpEnv): CodeBuildEnv =>
+  toCodeBuildEnv<ScriptOpEnv>(scriptOpEnvSchema.parse(env));
 
 // dynamic: 実行時にネームスペースごとに指定する
 export const dynamicOpEnvSchema = z.object({
   NAMESPACE: z.string(),
+  TF_ENV_BACKEND_WORKSAPCE: z.string().regex(/^violet-env-.*/),
   TERRAFORM_VERSION: z.string().regex(/\d+\.\d+\.\d/),
-  S3BACKEND_PREFIX: z.optional(z.string()),
 
   API_REPO_SHA: z.string(),
   WEB_REPO_SHA: z.string(),
@@ -44,9 +45,6 @@ export const dynamicOpCodeBuildEnv = (env: DynamicOpEnv): CodeBuildEnv =>
 export const computedOpEnvSchema = z.object({
   API_REPO_NAME: z.string(),
   WEB_REPO_NAME: z.string(),
-  S3BACKEND_REGION: z.string(),
-  S3BACKEND_BUCKET: z.string(),
-  S3BACKEND_PREFIX: z.optional(z.string()),
   NETWORK_VPC_ID: z.string(),
   NETWORK_DB_SG_ID: z.string(),
   NETWORK_LB_SG_ID: z.string(),
@@ -61,4 +59,5 @@ export const computedOpEnvSchema = z.object({
 
 export type ComputedOpEnv = z.infer<typeof computedOpEnvSchema>;
 
-export const computedOpCodeBuildEnv = (env: ComputedOpEnv): CodeBuildEnv => toCodeBuildEnv<ComputedOpEnv>(env);
+export const computedOpCodeBuildEnv = (env: ComputedOpEnv): CodeBuildEnv =>
+  toCodeBuildEnv<ComputedOpEnv>(computedOpEnvSchema.parse(env));

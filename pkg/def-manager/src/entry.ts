@@ -21,5 +21,5 @@ const options: VioletManagerOptions = {
 };
 
 const stack = new VioletManagerStack(app, 'violet-infra', options);
-configureManagerBackend(stack, stack.uniqueName, sharedEnv);
+configureManagerBackend(stack, `violet-manager-${sharedEnv.MANAGER_NAMEPACE}`, sharedEnv);
 app.synth();

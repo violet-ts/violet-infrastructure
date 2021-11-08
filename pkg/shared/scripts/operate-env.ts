@@ -5,25 +5,32 @@ import { getCodeBuildCredentials } from '@self/shared/lib/aws';
 import { initEnv } from '@self/shared/lib/def/util/init-env';
 import type { GeneralBuildOutput, RunTaskBuildOutput, TfBuildOutput } from '@self/shared/lib/operate-env/build-output';
 import { tfBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
-import { computedOpEnvSchema, scriptOpEnvSchema } from '@self/shared/lib/operate-env/op-env';
+import { computedOpEnvSchema, dynamicOpEnvSchema, scriptOpEnvSchema } from '@self/shared/lib/operate-env/op-env';
 import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
 import { exec } from '@self/shared/lib/util/exec';
 import { z } from 'zod';
 import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
+import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
+import { requireSecrets } from '@self/shared/lib/bot/secrets';
+import { createLambdaLogger } from '@self/shared/lib/loggers';
 
 const main = async (): Promise<void> => {
   initEnv();
 
-  const credentials = getCodeBuildCredentials();
-  // TODO(logging): logger
-  // const logger
-
   const env = scriptOpEnvSchema
+    .merge(sharedEnvSchema)
     .merge(computedOpEnvSchema)
+    .merge(dynamicOpEnvSchema)
     .merge(computedBotEnvSchema)
     .merge(dynamicRunScriptEnvSchema)
     .merge(computedRunScriptEnvSchema)
     .parse(process.env);
+
+  const credentials = getCodeBuildCredentials();
+  // TODO(logging): not lambda
+  const logger = createLambdaLogger('operate-env');
+
+  const secrets = await requireSecrets(env, credentials, logger);
 
   // TODO(hardcoded)
   const botTableRegion = 'ap-northeast-1';
@@ -97,6 +104,23 @@ const main = async (): Promise<void> => {
   const tfSynthInit = async (): Promise<void> => {
     await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth'], false);
     await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init', '-no-color'], false);
+    // NOTE: https://github.com/hashicorp/terraform/issues/23261
+    // https://www.terraform.io/docs/cloud/api/workspaces.html
+    await e(
+      'curl',
+      [
+        '--header',
+        `Authorization: Bearer ${secrets.TF_ENV_BACKEND_TOKEN}`,
+        '--header',
+        'Content-Type: application/vnd.api+json',
+        '--request',
+        'PATCH',
+        '--data',
+        '{"data":{"type":"workspaces","attributes":{"execution-mode":"local"}}}',
+        `https://app.terraform.io/api/v2/organizations/${env.TF_BACKEND_ORGANIZATION}/workspaces/${env.TF_ENV_BACKEND_WORKSAPCE}`,
+      ],
+      false,
+    );
   };
 
   const apiPrismaTaskRun = async (prismaArgs: string[]) => {

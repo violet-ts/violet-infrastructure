@@ -8,7 +8,8 @@ export const computedBuildEnvSchema = z.object({
 
 export type ComputedBuildEnv = z.infer<typeof computedBuildEnvSchema>;
 
-export const computedBuildCodeBuildEnv = (env: ComputedBuildEnv): CodeBuildEnv => toCodeBuildEnv<ComputedBuildEnv>(env);
+export const computedBuildCodeBuildEnv = (env: ComputedBuildEnv): CodeBuildEnv =>
+  toCodeBuildEnv<ComputedBuildEnv>(computedBuildEnvSchema.parse(env));
 
 export const dynamicBuildEnvSchema = z.object({
   GIT_URL: z.string(),
@@ -21,4 +22,5 @@ export const dynamicBuildEnvSchema = z.object({
 
 export type DynamicBuildEnv = z.infer<typeof dynamicBuildEnvSchema>;
 
-export const dynamicBuildCodeBuildEnv = (env: DynamicBuildEnv): CodeBuildEnv => toCodeBuildEnv<DynamicBuildEnv>(env);
+export const dynamicBuildCodeBuildEnv = (env: DynamicBuildEnv): CodeBuildEnv =>
+  toCodeBuildEnv<DynamicBuildEnv>(dynamicBuildEnvSchema.parse(env));
