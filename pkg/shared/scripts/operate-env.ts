@@ -219,6 +219,9 @@ const main = async (): Promise<void> => {
       break;
     }
     case 'destroy': {
+      if (secrets.TF_ENV_BACKEND_TOKEN === 'violet-prodenv-prod') {
+        throw new Error(`not allowed to destroy workspace "${secrets.TF_ENV_BACKEND_TOKEN}"`);
+      }
       await operate('destroy', ['--auto-approve'], 1, 2);
       const tfBuildOutput = await getTfBuildOutput();
       await e(
