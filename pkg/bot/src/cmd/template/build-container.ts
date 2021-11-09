@@ -109,7 +109,7 @@ const createCmd = (
         status: 'undone',
         entry,
         values,
-        watchArns: new Set(build.arn),
+        watchArns: new Set([build.arn]),
       };
     },
     constructComment(entry, values, ctx) {

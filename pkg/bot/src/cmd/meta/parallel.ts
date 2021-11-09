@@ -1,9 +1,10 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { constructFullCommentBody, findCmdByName, runMain } from '@self/bot/src/app/cmd';
-import type { CmdStatus, ReplyCmd } from '@self/bot/src/type/cmd';
+import type { CmdStatus, CommentValuesForTypeCheck, ReplyCmd } from '@self/bot/src/type/cmd';
 import { cmdStatusSchema } from '@self/bot/src/type/cmd';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
+import { reEvaluateCommentEntry } from '@self/bot/src/app/update-cmd';
 import { emojiStatus, unmarshallMetaArgs } from './util';
 
 const entrySchema = z.object({
@@ -14,8 +15,6 @@ const entrySchema = z.object({
       entry: z.any(),
       status: cmdStatusSchema,
       lastComment: z.string(),
-      startTime: z.number(),
-      endTime: z.optional(z.number()),
     }),
   ),
 });
@@ -24,7 +23,7 @@ export type Entry = z.infer<typeof entrySchema>;
 export interface CommentValues {
   childValues: Array<
     | {
-        values: unknown;
+        values: CommentValuesForTypeCheck;
       }
     | {
         comment: string;
@@ -36,13 +35,19 @@ export const argSchema = {} as const;
 export type ArgSchema = typeof argSchema;
 
 const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
-  name: 'prallel',
+  name: 'parallel',
   hidden: true,
   description: '',
   entrySchema,
   argSchema,
   async main(ctx, args, generalEntry) {
     const collectedArns = new Set<string>();
+    const touchResult = ({ watchArns }: { watchArns?: Set<string> | null | undefined }) => {
+      if (watchArns) {
+        [...watchArns].forEach((arn) => collectedArns.add(arn));
+        watchArns.clear();
+      }
+    };
     const boundCmds = unmarshallMetaArgs(args._);
     const statusCount = {
       undone: 0,
@@ -50,36 +55,31 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
       failure: 0,
     };
     const childrenEntriesValues = await Promise.all(
-      boundCmds.map(async (child) => {
-        const startTime = Temporal.Now.instant().epochMilliseconds;
-        let endTime: number | undefined;
+      boundCmds.map(async (boundCmd) => {
+        const startedAt = Temporal.Now.instant().epochMilliseconds;
         const uuid = uuidv4();
         const { entry, status, values, comment } = await runMain(
-          child.cmd,
+          boundCmd.cmd,
           ctx,
-          child.boundArgs,
+          boundCmd.boundArgs,
           {
             ...generalEntry,
+            name: boundCmd.cmd.name,
             uuid,
+            startedAt,
+            updatedAt: startedAt,
           },
-          ({ watchArns }) => {
-            if (watchArns) {
-              [...watchArns].forEach((arn) => collectedArns.add(arn));
-              watchArns.clear();
-            }
-          },
+          false,
+          touchResult,
         );
         statusCount[status] += 1;
-        if (status !== 'undone') endTime = Temporal.Now.instant().epochMilliseconds;
         return {
           entry: {
-            name: child.cmd.name,
-            boundArgs: child.boundArgs,
+            name: boundCmd.cmd.name,
+            boundArgs: boundCmd.boundArgs,
             entry,
             status,
             lastComment: comment,
-            startTime,
-            endTime,
           },
           values: { values },
         };
@@ -107,6 +107,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   constructComment(entry, values, ctx) {
     return {
       main: [],
+      mode: 'ul',
       hints: entry.children.map((child, i) => {
         const childValues = values.childValues[i];
         return {
@@ -120,6 +121,13 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
     };
   },
   async update(entry, ctx) {
+    const collectedArns = new Set<string>();
+    const touchResult = ({ watchArns }: { watchArns?: Set<string> | null | undefined }) => {
+      if (watchArns) {
+        [...watchArns].forEach((arn) => collectedArns.add(arn));
+        watchArns.clear();
+      }
+    };
     const statusCount = {
       undone: 0,
       success: 0,
@@ -130,12 +138,21 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
         async (child): Promise<{ entry: Entry['children'][number]; values: CommentValues['childValues'][number] }> => {
           const cmd = findCmdByName(child.name);
           if (cmd.update) {
-            const { entry, status, values } = await cmd.update(child.entry, ctx);
+            const { status, newEntry, fullComment, values } = await reEvaluateCommentEntry(
+              child.entry,
+              ctx.env,
+              ctx.octokit,
+              ctx.credentials,
+              ctx.logger,
+              touchResult,
+            );
+
             statusCount[status] += 1;
             return {
               entry: {
                 ...child,
-                entry,
+                entry: newEntry,
+                lastComment: fullComment,
               },
               values: {
                 values,
@@ -148,7 +165,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
       ),
     );
     const children = childrenEntriesValues.map((c) => c.entry);
-    const childValues = childrenEntriesValues;
+    const childValues = childrenEntriesValues.map((c) => c.values);
     const status = ((): CmdStatus => {
       if (statusCount.failure) return 'failure';
       if (statusCount.undone) return 'undone';
@@ -158,6 +175,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
       status,
       entry: { children },
       values: { childValues },
+      watchArns: collectedArns,
     };
   },
 };

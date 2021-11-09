@@ -45,7 +45,7 @@ export class BotAttach extends Resource {
     API_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Api').build.name,
     WEB_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Web').build.name,
     LAMBDA_CONV2IMG_BUILD_PROJECT_NAME: this.options.buildDictContext.get('LamC2i').build.name,
-    LAMBDA_APIEXEC_BUILD_PROJECT_NAME: this.options.repoDictContext.get('LamAe').name,
+    LAMBDA_APIEXEC_BUILD_PROJECT_NAME: this.options.buildDictContext.get('LamAe').build.name,
     OPERATE_ENV_PROJECT_NAME: this.options.buildDictContext.get('Ope').build.name,
     PR_UPDATE_LABELS_PROJECT_NAME: this.options.buildDictContext.get('UpLa').build.name,
   };

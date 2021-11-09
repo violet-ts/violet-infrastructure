@@ -36,7 +36,7 @@ const handler: CallbackMatcher = {
     return scanOne(
       {
         TableName: ctx.env.BOT_TABLE_NAME,
-        FilterExpression: 'buildArn = :arn',
+        FilterExpression: 'contains(watchArns, :arn)',
         ExpressionAttributeValues: { ':arn': { S: message.detail['build-id'] } },
       },
       ctx.credentials,

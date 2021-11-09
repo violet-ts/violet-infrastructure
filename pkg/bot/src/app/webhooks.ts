@@ -16,53 +16,23 @@ import arg from 'arg';
 import { v4 as uuidv4 } from 'uuid';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import type { CommandContext, GeneralEntry } from '../type/cmd';
-import { renderCommentBody } from '../util/comment-render';
-import type { Command } from '../util/parse-comment';
+import { toBoundCmd } from '../cmd/meta/construct';
+import type { BoundReplyCmd, CommandContext, GeneralEntry } from '../type/cmd';
 import { parseComment } from '../util/parse-comment';
-import { cmds } from './cmds';
 
 // TODO(hardcoded)
 const botPrefix = '/';
 
-const processRun = async (
-  run: Command,
+export const processBoundCmd = async (
+  boundCmd: BoundReplyCmd,
   octokit: Octokit,
   env: AccumuratedBotEnv,
   payload: IssueCommentEvent,
   botInstallationId: number,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,
-) => {
-  logger.info('Trying to run', run.args);
-  const [cmdName, ...argv] = run.args;
-  const cmd = cmds.find((cmd) => cmd.name === cmdName);
+): Promise<void> => {
   const { id: callerId, login: callerName } = payload.comment.user;
-
-  if (cmd == null) {
-    logger.info('Not found');
-    const mes = renderCommentBody({
-      main: [`@${payload.comment.user.login} エラー。コマンド ${cmdName} は存在しません。`],
-      hints: [
-        {
-          title: 'ヒント',
-          body: {
-            main: [`- <code>${botPrefix}help</code> でヘルプを表示できます。`],
-          },
-        },
-      ],
-    });
-
-    logger.info('Creating comment for failure...');
-    await octokit.issues.createComment({
-      owner: payload.repository.owner.login,
-      repo: payload.repository.name,
-      issue_number: payload.issue.number,
-      body: mes,
-    });
-    return;
-  }
-
   const prNumber = payload.issue.number;
   const db = new DynamoDB({ credentials, logger });
   const item = (
@@ -74,12 +44,11 @@ const processRun = async (
   const i = item && issueMapEntrySchema.parse(unmarshall(item));
   const defaultNamespace = payload.issue.user.login.toLowerCase();
   const setNamespace = i?.namespace;
-  const parsedArgs = arg({ '--ns': String }, { argv, permissive: true });
+  const parsedArgs = arg({ '--ns': String }, { argv: boundCmd.boundArgs, permissive: true });
   const namespace = parsedArgs['--ns'] || setNamespace || defaultNamespace;
   const ctx: CommandContext = {
     octokit,
     env,
-    originalArgs: argv,
     commentPayload: payload,
     namespace,
     credentials,
@@ -89,14 +58,16 @@ const processRun = async (
   const uuid = uuidv4();
   const date = new Date();
 
+  const startedAt = toTemporalInstant.call(date).epochMilliseconds;
   const generalEntry: GeneralEntry = {
     uuid,
-    ttl: toTemporalInstant.call(date).add({ hours: 24 * 7 }).epochSeconds,
-    name: cmd.name,
+    ttl: toTemporalInstant.call(date).add({ hours: 24 * 7 }).epochMilliseconds,
+    name: boundCmd.cmd.name,
     callerId,
     callerName,
     namespace,
-    lastUpdate: toTemporalInstant.call(date).epochSeconds,
+    startedAt,
+    updatedAt: startedAt,
     commentOwner: payload.repository.owner.login,
     commentRepo: payload.repository.name,
     commentIssueNumber: payload.issue.number,
@@ -104,7 +75,7 @@ const processRun = async (
     botInstallationId,
   };
 
-  await runMain(cmd, ctx, argv, generalEntry);
+  await runMain(boundCmd.cmd, ctx, boundCmd.boundArgs, generalEntry, true);
 };
 
 // Webhook doc: https://docs.github.com/en/developers/webhooks-and-events/webhooks/about-webhooks
@@ -205,14 +176,12 @@ export const createWebhooks = (
 
       const botInstallationId = z.number().parse(payload.installation?.id);
       const octokit = await createOctokit(secrets, botInstallationId);
-      const runs = parseComment(payload.comment.body, botPrefix);
-      logger.info(`${runs.length} runs detected.`);
+      const parsed = parseComment(payload.comment.body, botPrefix);
+      logger.debug(`Comment parsed.`, { parsed });
+      if (parsed.length) {
+        const boundCmd = toBoundCmd(parsed);
 
-      // eslint-disable-next-line no-restricted-syntax
-      for await (const run of runs) {
-        await processRun(run, octokit, env, payload, botInstallationId, credentials, logger).catch((e) => {
-          logger.error(`Error while running ${run.args}`, e);
-        });
+        await processBoundCmd(boundCmd, octokit, env, payload, botInstallationId, credentials, logger);
       }
     };
     add(

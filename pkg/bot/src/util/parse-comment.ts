@@ -1,16 +1,16 @@
-export interface Command {
-  args: string[];
-}
-
-export const parseComment = (body: string, botPrefix: string): Command[] => {
+export const parseComment = (body: string, botPrefix: string): string[][][] => {
   const lines = body.split(/[\r\n]+/);
   if (lines.length === 0) return [];
   if (parseDirective(lines[0]) === 'ignore') return [];
-  const cmds: Command[] = lines
-    .filter((line) => line.startsWith(botPrefix))
-    .map((line) => line.slice(botPrefix.length))
-    .map((line) => ({ args: line.split(/\s+/) }));
-  return cmds;
+  const cmds: string[][][] = [[]];
+  lines.forEach((line) => {
+    if (line.trim() === '') {
+      cmds.push([]);
+    } else if (line.startsWith(botPrefix)) {
+      cmds[cmds.length - 1].push(line.slice(botPrefix.length).split(/\s+/));
+    }
+  });
+  return cmds.filter((cmd) => cmd.length);
 };
 
 export const parseDirective = (line: string): string | null => {

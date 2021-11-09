@@ -26,12 +26,29 @@ export const renderBytes = (bytes: number): string => {
 };
 
 export const renderCommentBody = (body: CommentBody): string => {
+  const mode = body.mode ?? 'plain';
   return [
     ...body.main.filter((e) => typeof e === 'string'),
+    { ul: '<ul>', ol: '<ol>', plain: '', 'li-only': '' }[mode],
     ...(body.hints
       ?.filter((e): e is CommentHint => e != null && typeof e === 'object')
-      .map(
-        (hint) => `\n<details><summary>${hint.title}</summary>\n\n${renderCommentBody(hint.body)}\n\n</details>\n`,
+      .map((hint) =>
+        [
+          '',
+          { ul: '<li>', ol: '<li>', plain: '', 'li-only': '<li>' }[mode],
+          '',
+          `<details><summary>${hint.title}</summary>`,
+          '',
+          '',
+          `${renderCommentBody(hint.body)}`,
+          '',
+          '',
+          `</details>`,
+          '',
+          { ul: '</li>', ol: '</li>', plain: '', 'li-only': '</li>' }[mode],
+          '',
+        ].join('\n'),
       ) ?? []),
+    { ul: '<ul>', ol: '<ol>', plain: '', 'li-only': '' }[mode],
   ].join('\n');
 };

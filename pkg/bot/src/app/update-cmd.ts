@@ -1,9 +1,14 @@
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import type { Credentials, Provider } from '@aws-sdk/types';
-import { toTemporalInstant } from '@js-temporal/polyfill';
+import { Temporal } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
 import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
-import type { BasicContext as CommandBasicContext, CmdStatus, GeneralEntry } from '@self/bot/src/type/cmd';
+import type {
+  BasicContext as CommandBasicContext,
+  CmdStatus,
+  GeneralEntry,
+  UpdateResult,
+} from '@self/bot/src/type/cmd';
 import { generalEntrySchema } from '@self/bot/src/type/cmd';
 import type { Logger } from 'winston';
 import { constructFullComment, findCmdByName } from '@self/bot/src/app/cmd';
@@ -12,6 +17,7 @@ interface ReEvaluated {
   fullComment: string;
   newEntry: GeneralEntry;
   status: CmdStatus;
+  values: UpdateResult['values'];
 }
 export const reEvaluateCommentEntry = async (
   oldEntry: GeneralEntry,
@@ -19,6 +25,7 @@ export const reEvaluateCommentEntry = async (
   octokit: Octokit,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,
+  touchResult?: (result: UpdateResult) => void,
 ): Promise<ReEvaluated> => {
   const cmd = findCmdByName(oldEntry.name);
   if (cmd.update == null) {
@@ -33,9 +40,11 @@ export const reEvaluateCommentEntry = async (
     logger,
   };
 
-  const { status, entry, values } = await cmd.update(cmd.entrySchema.and(generalEntrySchema).parse(oldEntry), cmdCtx);
+  const result = await cmd.update(cmd.entrySchema.and(generalEntrySchema).parse(oldEntry), cmdCtx);
+  touchResult?.(result);
+  const { status, entry, values, watchArns } = result;
   logger.debug('Command update processed.', { status, entry, values });
-  const date = new Date();
+  const updatedAt = Temporal.Now.instant().epochMilliseconds;
   const newEntry = {
     ...oldEntry,
     ...entry,
@@ -47,7 +56,9 @@ export const reEvaluateCommentEntry = async (
     commentOwner: oldEntry.commentOwner,
     commentIssueNumber: oldEntry.commentIssueNumber,
     commentId: oldEntry.commentId,
-    lastUpdate: toTemporalInstant.call(date).epochSeconds,
+    startedAt: oldEntry.startedAt,
+    watchArns: new Set([...(oldEntry.watchArns ?? []), ...(watchArns ?? [])]),
+    updatedAt,
     botInstallationId: oldEntry.botInstallationId,
   };
   logger.debug('New entry computed.', { newEntry });
@@ -56,6 +67,7 @@ export const reEvaluateCommentEntry = async (
     fullComment,
     newEntry,
     status,
+    values,
   };
 };
 

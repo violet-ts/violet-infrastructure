@@ -45,7 +45,9 @@ const main = async (): Promise<void> => {
     const expr = entries.map((_entry, i) => `#key${i} = :value${i}`).join(', ');
     const keys = Object.fromEntries(entries.map(([key], i) => [`#key${i}`, key]));
     const values = Object.fromEntries(
-      entries.flatMap(([_key, value], i) => Object.entries(marshall({ [`:value${i}`]: value }))),
+      entries.flatMap(([_key, value], i) =>
+        Object.entries(marshall({ [`:value${i}`]: value }, { convertEmptyValues: true })),
+      ),
     );
     const db = new DynamoDB({ credentials });
     // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html
