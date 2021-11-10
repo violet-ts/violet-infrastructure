@@ -1,4 +1,3 @@
-import type { Context as LambdaContext } from 'aws-lambda';
 import type { Logger } from 'winston';
 import type { Credentials, Provider } from '@aws-sdk/types';
 import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
@@ -9,7 +8,12 @@ export type MatcherBasicContext = {
   logger: Logger;
 };
 
+export interface MatchResult {
+  messages: unknown[];
+  triggers: string[];
+}
+
 export interface CallbackMatcher {
   name: string;
-  handle(ctx: MatcherBasicContext, event: unknown, context: LambdaContext): Promise<unknown>;
+  match(ctx: MatcherBasicContext, message: unknown): Promise<MatchResult>;
 }

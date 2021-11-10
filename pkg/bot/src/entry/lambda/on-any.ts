@@ -7,14 +7,18 @@ import { createOctokit } from '@self/shared/lib/bot/octokit';
 import { matchers } from '@self/bot/src/app/matchers';
 import { requireSecrets } from '@self/shared/lib/bot/secrets';
 import { reEvaluateAndUpdate } from '@self/bot/src/app/update-cmd';
-import { generalEntrySchema } from '@self/bot/src/type/cmd';
+import type { FullEntryForTypeCheck } from '@self/bot/src/type/cmd';
 import type { MatcherBasicContext } from '@self/bot/src/type/matcher';
 import { createLambdaLogger } from '@self/shared/lib/loggers';
 import { computedAfterwardBotEnvSchema, computedBotEnvSchema } from '@self/shared/lib/bot/env';
 import type { Handler } from 'aws-lambda';
 import 'source-map-support/register';
 import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
+import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+import { parseFullEntryForTypeCheck } from '@self/bot/src/util/parse-entry';
 
+/* eslint-disable no-restricted-syntax,no-await-in-loop */
 const handler: Handler = async (event: unknown, context) => {
   const env = sharedEnvSchema.merge(computedBotEnvSchema).merge(computedAfterwardBotEnvSchema).parse(process.env);
 
@@ -27,32 +31,63 @@ const handler: Handler = async (event: unknown, context) => {
     logger,
   };
 
-  const oldEntry = await (async () => {
-    // eslint-disable-next-line no-restricted-syntax
-    for (const handler of matchers) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const entry = await handler.handle(handlerCtx, event, context);
-        return generalEntrySchema.passthrough().parse(entry);
-      } catch (err: unknown) {
-        logger.info(`Checking for "${handler.name}" was failed because ${err}`, { err });
+  const oldEntries = await (async (): Promise<FullEntryForTypeCheck[]> => {
+    let messagesStack = [event];
+    const triggersSet = new Set<string>();
+    while (messagesStack.length) {
+      const message = messagesStack.pop();
+      logger.debug('Popped message from stack.', { poppedMessage: message, messagesStackLength: messagesStack.length });
+      for (const matcher of matchers) {
+        try {
+          const { messages, triggers } = await matcher.match(handlerCtx, message);
+          messagesStack = [...messagesStack, ...messages];
+          triggers.forEach((trigger) => triggersSet.add(trigger));
+          logger.debug(`Checking for "${matcher.name}" was succeeded.`, { messagesLength: messages.length, triggers });
+          break;
+        } catch (err: unknown) {
+          logger.debug(`Checking for "${matcher.name}" was failed.`, { err });
+        }
       }
     }
-    return null;
+    logger.debug('Finished message matching.', { triggersSet });
+
+    const triggers = [...triggersSet];
+
+    if (triggers.length === 0) return [];
+
+    const db = new DynamoDB({ credentials, logger });
+
+    const expr = triggers.map((_trigger, i) => `contains(watchTriggers, :trigger${i})`).join(' OR ');
+    const values = marshall(Object.fromEntries(triggers.map((trigger, i) => [`:trigger${i}`, trigger])), {
+      convertEmptyValues: true,
+    });
+
+    const res = await db.scan({
+      TableName: env.BOT_TABLE_NAME,
+      // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ConditionExpressions.html
+      FilterExpression: expr,
+      ExpressionAttributeValues: values,
+    });
+
+    const items = (res.Items ?? []).map((item) => unmarshall(item));
+    const entries = items.map(parseFullEntryForTypeCheck);
+    return entries;
   })();
 
-  if (oldEntry == null) {
+  if (oldEntries.length === 0) {
     logger.warn('Unknown event.', { event, context });
-    return;
   }
 
-  logger.info('Entry found.', { oldEntry });
+  for (const oldEntry of oldEntries) {
+    logger.info('Entry found.', { oldEntry });
 
-  const secrets = await requireSecrets(env, credentials, logger);
-  const octokit = await createOctokit(secrets, oldEntry.botInstallationId);
-  await reEvaluateAndUpdate(oldEntry, env, octokit, credentials, logger);
+    const secrets = await requireSecrets(env, credentials, logger);
+    const octokit = await createOctokit(secrets, oldEntry.botInstallationId);
+    await reEvaluateAndUpdate(oldEntry, env, octokit, credentials, logger, true);
+  }
 
   logger.info('Finishing...');
 };
+/* eslint-enable no-restricted-syntax,no-await-in-loop */
 
 export { handler };

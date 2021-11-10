@@ -1,5 +1,5 @@
 export const parseComment = (body: string, botPrefix: string): string[][][] => {
-  const lines = body.split(/[\r\n]+/);
+  const lines = body.split(/\r\n|\n|\r/);
   if (lines.length === 0) return [];
   if (parseDirective(lines[0]) === 'ignore') return [];
   const cmds: string[][][] = [[]];

@@ -83,11 +83,12 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
     }/build/${encodeURIComponent(entry.buildId)}/?region=${region}`;
     const { builtInfo } = values;
     return {
+      mode: 'ul',
       main: [
-        `- ビルドID: [${entry.buildId}](${buildUrl})`,
-        `- ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
-        builtInfo && `- ビルド時間: ${builtInfo.timeRange}`,
-        values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
+        `ビルドID: [${entry.buildId}](${buildUrl})`,
+        `ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
+        builtInfo && `ビルド時間: ${builtInfo.timeRange}`,
+        values.deepLogLink && `[ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
       ],
     };
   },

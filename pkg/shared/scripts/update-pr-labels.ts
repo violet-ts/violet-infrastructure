@@ -142,7 +142,4 @@ const dynamicEnv: Partial<DynamicUpdatePrLabelsEnv> = {
 };
 process.env = { ...dynamicEnv, ...process.env };
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+void main();

@@ -1,22 +1,24 @@
-import { AwsProvider, ResourceGroups, S3, Route53, ECS, ACM, IAM, LambdaFunction } from '@cdktf/provider-aws';
+import { ACM, AwsProvider, ECS, IAM, ResourceGroups, Route53, S3, SNS } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
+import { RandomProvider } from '@cdktf/provider-random';
+import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
+import type { CodeBuildStackEnv } from '@self/shared/lib/codebuild-stack/env';
+import { PROJECT_NAME } from '@self/shared/lib/const';
+import type { SharedEnv } from '@self/shared/lib/def/env-vars';
+import type { Section } from '@self/shared/lib/def/types';
+import type { ComputedOpEnv, DynamicOpEnv } from '@self/shared/lib/operate-env/op-env';
+import type { OpTfOutput } from '@self/shared/lib/operate-env/output';
+import type { ComputedRunScriptEnv, DynamicRunScriptEnv } from '@self/shared/lib/run-script/env';
+import { getHash6 } from '@self/shared/lib/util/string';
 import { TerraformLocal, TerraformOutput, TerraformStack } from 'cdktf';
 import type { Construct } from 'constructs';
-import type { ComputedOpEnv, DynamicOpEnv } from '@self/shared/lib/operate-env/op-env';
-import type { SharedEnv } from '@self/shared/lib/def/env-vars';
-import { PROJECT_NAME } from '@self/shared/lib/const';
-import type { Section } from '@self/shared/lib/def/types';
 import { z } from 'zod';
-import type { OpTfOutput } from '@self/shared/lib/operate-env/output';
-import { getHash6 } from '@self/shared/lib/util/string';
-import { RandomProvider } from '@cdktf/provider-random';
-import type { DynamicRunScriptEnv, ComputedRunScriptEnv } from '@self/shared/lib/run-script/env';
-import type { CodeBuildStackEnv } from '@self/shared/lib/codebuild-stack/env';
+import { APIExecFunction } from './api-exec-function';
+import { DataNetwork } from './data-network';
 import { HTTPTask } from './http-task';
 import { MysqlDb } from './mysql';
-import { genTags } from './values';
-import { DataNetwork } from './data-network';
 import { RepoImage } from './repo-image';
+import { genTags } from './values';
 
 export interface VioletEnvOptions {
   region: string;
@@ -25,6 +27,7 @@ export interface VioletEnvOptions {
   sharedEnv: SharedEnv;
   dynamicOpEnv: DynamicOpEnv;
   computedOpEnv: ComputedOpEnv;
+  computedBotEnv: ComputedBotEnv;
   dynamicRunScriptEnv: DynamicRunScriptEnv;
   computedRunScriptEnv: ComputedRunScriptEnv;
   codeBuildStackEnv: CodeBuildStackEnv;
@@ -94,6 +97,10 @@ export class VioletEnvStack extends TerraformStack {
 
   readonly network = new DataNetwork(this, 'network');
 
+  readonly botTopic = new SNS.DataAwsSnsTopic(this, 'botTopic', {
+    name: this.options.computedBotEnv.BOT_TOPIC_NAME,
+  });
+
   // この namespace に属する Violet インフラを構築する、関連した
   // リソースの一覧
   readonly resourceGroups = new ResourceGroups.ResourcegroupsGroup(this, 'resourceGroups', {
@@ -154,6 +161,14 @@ export class VioletEnvStack extends TerraformStack {
     forceDestroy: true,
   });
 
+  readonly apiEnv = {
+    API_BASE_PATH: '',
+    // TODO(security): SecretsManager
+    DATABASE_URL: z.string().parse(this.dbURL.value),
+    S3_BUCKET: z.string().parse(this.s3.bucket),
+    S3_REGION: this.s3.region,
+  };
+
   readonly apiTask = new HTTPTask(this, 'apiTask', {
     name: 'api',
     // len = 14 + 4 = 18
@@ -163,25 +178,30 @@ export class VioletEnvStack extends TerraformStack {
     repoImage: this.apiRepoImage,
     healthcheckPath: '/healthz',
 
-    env: {
-      API_BASE_PATH: '',
-      // TODO(security): SecretsManager
-      DATABASE_URL: z.string().parse(this.dbURL.value),
-      S3_BUCKET: z.string().parse(this.s3.bucket),
-      S3_REGION: this.s3.region,
-    },
+    env: this.apiEnv,
   });
 
-  readonly conv2imgFunction = new LambdaFunction.LambdaFunction(this, 'conv2imgFunction', {
-    functionName: `${this.prefix}-conv2img`,
-    role: this.apiTask.taskRole.arn,
-    imageUri: this.lambdaConv2ImgRepoImage.imageUri,
-  });
+  // readonly conv2imgFunction = new LambdaFunction.LambdaFunction(this, 'conv2imgFunction', {
+  //   functionName: `${this.prefix}-conv2img`,
+  //   vpcConfig: {
+  //     subnetIds: this.network.publicSubnets.map((subnet) => subnet.id),
+  //     securityGroupIds: [this.network.serviceSg.id],
+  //   },
+  //   packageType: 'Image',
+  //   role: this.apiTask.taskRole.arn,
+  //   imageUri: this.lambdaConv2ImgRepoImage.imageUri,
+  //   memorySize: 256,
+  //   timeout: 20,
+  // });
 
-  readonly apiExecFunction = new LambdaFunction.LambdaFunction(this, 'apiExecFunction', {
-    functionName: `${this.prefix}-apiexec`,
-    role: this.apiTask.taskRole.arn,
-    imageUri: this.lambdaApiexecRepoImage.imageUri,
+  readonly apiExecFunction = new APIExecFunction(this, 'apiExecFunction', {
+    prefix: `${this.prefix}-apiexec`,
+    task: this.apiTask,
+    network: this.network,
+    repoImage: this.lambdaApiexecRepoImage,
+    botTopic: this.botTopic,
+
+    env: this.apiEnv,
   });
 
   readonly operateEnvRole = new IAM.DataAwsIamRole(this, 'operateEnvRole', {
@@ -209,19 +229,33 @@ export class VioletEnvStack extends TerraformStack {
     },
   });
 
-  readonly opTfOutput: OpTfOutput = {
-    apiTaskDefinitionArn: this.apiTask.definition.arn,
-    apiURL: this.apiTask.url,
-    webURL: this.webTask.url,
-    envRegion: z.string().parse(this.aws.region),
-    ecsClusterName: this.cluster.name,
-    apiTaskLogGroupName: z.string().parse(this.apiTask.logGroup.name),
-    webTaskLogGroupName: z.string().parse(this.webTask.logGroup.name),
-    conv2imgFunctionName: z.string().parse(this.conv2imgFunction.functionName),
-    apiExecFunctionName: z.string().parse(this.apiExecFunction.functionName),
+  readonly localEnvFile = new TerraformOutput(this, 'localEnvFile', {
+    value: Object.entries({
+      ...this.options.dynamicOpEnv,
+      ...this.options.computedOpEnv,
+      ...this.options.computedBotEnv,
+      ...this.options.dynamicRunScriptEnv,
+      ...this.options.computedRunScriptEnv,
+      ...this.options.codeBuildStackEnv,
+    })
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n'),
+  });
+
+  readonly opOutputValue: OpTfOutput = {
+    api_task_definition_arn: this.apiTask.definition.arn,
+    api_url: this.apiTask.url,
+    web_url: this.webTask.url,
+    env_region: z.string().parse(this.aws.region),
+    ecs_cluster_name: this.cluster.name,
+    api_task_log_group_name: z.string().parse(this.apiTask.logGroup.name),
+    web_task_log_group_name: z.string().parse(this.webTask.logGroup.name),
+    // conv2imgFunctionName: z.string().parse(this.conv2imgFunction.functionName),
+    conv2img_function_name: 'xxxxxxxxxxxxxxxxxxxxxxxxx',
+    api_exec_function_name: z.string().parse(this.apiExecFunction.function.functionName),
   };
 
-  readonly opOutputs = Object.entries(this.opTfOutput).map(
-    ([key, value]) => new TerraformOutput(this, `opOutputs-${key}`, { value }),
-  );
+  readonly opOutput = new TerraformOutput(this, `opOutput`, {
+    value: this.opOutputValue,
+  });
 }

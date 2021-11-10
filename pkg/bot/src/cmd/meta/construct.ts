@@ -5,6 +5,7 @@ import serial from '@self/bot/src/cmd/meta/serial';
 import { marshallMetaArgs } from './util';
 
 export const createSerial = (boundCmds: BoundReplyCmd[]): BoundReplyCmd => {
+  if (boundCmds.length === 1) return boundCmds[0];
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     cmd: serial as any,
@@ -13,6 +14,7 @@ export const createSerial = (boundCmds: BoundReplyCmd[]): BoundReplyCmd => {
 };
 
 export const createParallel = (boundCmds: BoundReplyCmd[]): BoundReplyCmd => {
+  if (boundCmds.length === 1) return boundCmds[0];
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     cmd: parallel as any,
@@ -21,20 +23,23 @@ export const createParallel = (boundCmds: BoundReplyCmd[]): BoundReplyCmd => {
 };
 
 export const toBoundCmd = (parsedComment: string[][][]): BoundReplyCmd => {
-  if (parsedComment.length === 1) {
-    return createSerial(
-      parsedComment[0].map(
-        (a): BoundReplyCmd => ({
-          cmd: findCmdByName(a[0]),
-          boundArgs: a.slice(1),
-        }),
-      ),
-    );
+  if (parsedComment.length === 1 && parsedComment[0].length === 1) {
+    // NOTE: for apparency
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cmd: serial as any,
+      boundArgs: marshallMetaArgs([
+        {
+          cmd: findCmdByName(parsedComment[0][0][0]),
+          boundArgs: parsedComment[0][0].slice(1),
+        },
+      ]),
+    };
   }
-  return createParallel(
+  return createSerial(
     parsedComment.map(
       (args): BoundReplyCmd =>
-        createSerial(
+        createParallel(
           args.map(
             (a): BoundReplyCmd => ({
               cmd: findCmdByName(a[0]),

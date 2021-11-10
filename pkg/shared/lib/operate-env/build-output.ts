@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { opTfOutputSchema } from './output';
 
 export const generalBuildOutputSchema = z.object({
   generalBuildOutput: z.optional(
@@ -10,17 +11,7 @@ export const generalBuildOutputSchema = z.object({
 export type GeneralBuildOutput = z.infer<typeof generalBuildOutputSchema>;
 
 export const tfBuildOutputSchema = z.object({
-  tfBuildOutput: z.optional(
-    z.object({
-      envRegion: z.string(),
-      apiTaskDefinitionArn: z.string(),
-      apiURL: z.string(),
-      webURL: z.string(),
-      ecsClusterName: z.string(),
-      apiTaskLogGroupName: z.string(),
-      webTaskLogGroupName: z.string(),
-    }),
-  ),
+  tfBuildOutput: z.optional(opTfOutputSchema),
 });
 export type TfBuildOutput = z.infer<typeof tfBuildOutputSchema>;
 
@@ -34,3 +25,14 @@ export const runTaskBuildOutputSchema = z.object({
 export type RunTaskBuildOutput = z.infer<typeof runTaskBuildOutputSchema>;
 
 export type BuiltInfo = { timeRange: string };
+
+export const invokeFunctionBuildOutputSchema = z.object({
+  invokeFunctionBuildOutput: z.optional(
+    z.object({
+      executedFunctionName: z.string(),
+      executedVersion: z.optional(z.string()),
+      statusCode: z.optional(z.number()),
+    }),
+  ),
+});
+export type InvokeFunctionBuildOutput = z.infer<typeof invokeFunctionBuildOutputSchema>;

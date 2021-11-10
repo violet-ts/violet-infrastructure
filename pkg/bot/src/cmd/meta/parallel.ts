@@ -1,34 +1,25 @@
-import { Temporal } from '@js-temporal/polyfill';
-import { constructFullCommentBody, findCmdByName, runMain } from '@self/bot/src/app/cmd';
-import type { CmdStatus, CommentValuesForTypeCheck, ReplyCmd } from '@self/bot/src/type/cmd';
-import { cmdStatusSchema } from '@self/bot/src/type/cmd';
-import { v4 as uuidv4 } from 'uuid';
+import { reEvaluateAndUpdate } from '@self/bot/src/app/update-cmd';
+import type { ReplyCmd } from '@self/bot/src/type/cmd';
+import { getEntryByUUID } from '@self/bot/src/util/aws/comment-db';
 import { z } from 'zod';
-import { reEvaluateCommentEntry } from '@self/bot/src/app/update-cmd';
-import { emojiStatus, unmarshallMetaArgs } from './util';
+import type { DoneChild, ProcessingChild } from './util';
+import {
+  constructDoneChild,
+  createStatusCounter,
+  createTriggerCollector,
+  doneChildSchema,
+  processingChildSchema,
+  runMainWrapper,
+  unmarshallMetaArgs,
+} from './util';
 
 const entrySchema = z.object({
-  children: z.array(
-    z.object({
-      name: z.string(),
-      boundArgs: z.array(z.string()),
-      entry: z.any(),
-      status: cmdStatusSchema,
-      lastComment: z.string(),
-    }),
-  ),
+  children: z.array(z.union([doneChildSchema, processingChildSchema])),
 });
 export type Entry = z.infer<typeof entrySchema>;
 
 export interface CommentValues {
-  childValues: Array<
-    | {
-        values: CommentValuesForTypeCheck;
-      }
-    | {
-        comment: string;
-      }
-  >;
+  children: DoneChild[];
 }
 
 export const argSchema = {} as const;
@@ -40,142 +31,102 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   description: '',
   entrySchema,
   argSchema,
-  async main(ctx, args, generalEntry) {
-    const collectedArns = new Set<string>();
-    const touchResult = ({ watchArns }: { watchArns?: Set<string> | null | undefined }) => {
-      if (watchArns) {
-        [...watchArns].forEach((arn) => collectedArns.add(arn));
-        watchArns.clear();
-      }
-    };
+  async main(ctx, args, rootGeneralEntry) {
+    const { collectedTriggers, touchResult } = createTriggerCollector();
+    const { add, summary } = createStatusCounter();
     const boundCmds = unmarshallMetaArgs(args._);
-    const statusCount = {
-      undone: 0,
-      success: 0,
-      failure: 0,
-    };
     const childrenEntriesValues = await Promise.all(
-      boundCmds.map(async (boundCmd) => {
-        const startedAt = Temporal.Now.instant().epochMilliseconds;
-        const uuid = uuidv4();
-        const { entry, status, values, comment } = await runMain(
-          boundCmd.cmd,
-          ctx,
-          boundCmd.boundArgs,
-          {
-            ...generalEntry,
-            name: boundCmd.cmd.name,
-            uuid,
-            startedAt,
-            updatedAt: startedAt,
-          },
-          false,
-          touchResult,
-        );
-        statusCount[status] += 1;
-        return {
-          entry: {
-            name: boundCmd.cmd.name,
-            boundArgs: boundCmd.boundArgs,
-            entry,
-            status,
-            lastComment: comment,
-          },
-          values: { values },
-        };
-      }),
+      boundCmds.map(
+        async (boundCmd): Promise<{ entry: Entry['children'][number]; value: CommentValues['children'][number] }> => {
+          const { done, processing, status } = await runMainWrapper({
+            ctx,
+            add,
+            boundCmd,
+            rootGeneralEntry,
+            touchResult,
+          });
+          return {
+            entry: status === 'undone' ? processing : done,
+            value: done,
+          };
+        },
+      ),
     );
-    const children = childrenEntriesValues.map((c) => c.entry);
-    const childValues = childrenEntriesValues.map((c) => c.values);
-    const status = ((): CmdStatus => {
-      if (statusCount.failure) return 'failure';
-      if (statusCount.undone) return 'undone';
-      return 'success';
-    })();
 
     return {
-      status,
+      status: summary(),
       entry: {
-        children,
+        children: childrenEntriesValues.map((c) => c.entry),
       },
       values: {
-        childValues,
+        children: childrenEntriesValues.map((c) => c.value),
       },
-      watchArns: collectedArns,
+      watchTriggers: collectedTriggers,
     };
   },
-  constructComment(entry, values, ctx) {
+  constructComment(_rootEntry, values, _ctx) {
     return {
       main: [],
       mode: 'ul',
-      hints: entry.children.map((child, i) => {
-        const childValues = values.childValues[i];
-        return {
-          title: `${emojiStatus(child.status)} ${child.name}`,
-          body:
-            'values' in childValues
-              ? constructFullCommentBody(findCmdByName(child.name), child.entry, childValues.values, ctx)
-              : { main: [childValues.comment] },
-        };
-      }),
+      hints: values.children.map(constructDoneChild),
     };
   },
-  async update(entry, ctx) {
-    const collectedArns = new Set<string>();
-    const touchResult = ({ watchArns }: { watchArns?: Set<string> | null | undefined }) => {
-      if (watchArns) {
-        [...watchArns].forEach((arn) => collectedArns.add(arn));
-        watchArns.clear();
-      }
-    };
-    const statusCount = {
-      undone: 0,
-      success: 0,
-      failure: 0,
-    };
+  async update(rootEntry, ctx) {
+    const { collectedTriggers, touchResult } = createTriggerCollector();
+    const { add, summary } = createStatusCounter();
     const childrenEntriesValues = await Promise.all(
-      entry.children.map(
-        async (child): Promise<{ entry: Entry['children'][number]; values: CommentValues['childValues'][number] }> => {
-          const cmd = findCmdByName(child.name);
-          if (cmd.update) {
-            const { status, newEntry, fullComment, values } = await reEvaluateCommentEntry(
-              child.entry,
+      rootEntry.children.map(
+        async (child): Promise<{ entry: Entry['children'][number]; value: CommentValues['children'][number] }> => {
+          if ('entryUUID' in child) {
+            const oldEntry = await getEntryByUUID({
+              ...ctx,
+              uuid: child.entryUUID,
+            });
+            const { newEntry, status, fullComment } = await reEvaluateAndUpdate(
+              oldEntry,
               ctx.env,
               ctx.octokit,
               ctx.credentials,
               ctx.logger,
+              false,
               touchResult,
             );
 
-            statusCount[status] += 1;
+            const done: DoneChild = {
+              name: child.name,
+              boundArgs: child.boundArgs,
+              startedAt: newEntry.startedAt,
+              updatedAt: newEntry.updatedAt,
+              status,
+              lastComment: fullComment,
+            };
+            add(status);
+            const processing: ProcessingChild = {
+              ...child,
+              status,
+            };
             return {
-              entry: {
-                ...child,
-                entry: newEntry,
-                lastComment: fullComment,
-              },
-              values: {
-                values,
-              },
+              entry: status === 'undone' ? processing : done,
+              value: done,
             };
           }
-          statusCount[child.status] += 1;
-          return { entry: child, values: { comment: child.lastComment } };
+          add(child.status);
+          return {
+            entry: child,
+            value: child,
+          };
         },
       ),
     );
-    const children = childrenEntriesValues.map((c) => c.entry);
-    const childValues = childrenEntriesValues.map((c) => c.values);
-    const status = ((): CmdStatus => {
-      if (statusCount.failure) return 'failure';
-      if (statusCount.undone) return 'undone';
-      return 'success';
-    })();
     return {
-      status,
-      entry: { children },
-      values: { childValues },
-      watchArns: collectedArns,
+      status: summary(),
+      updateEntry: {
+        children: childrenEntriesValues.map((c) => c.entry),
+      },
+      values: {
+        children: childrenEntriesValues.map((c) => c.value),
+      },
+      watchTriggers: collectedTriggers,
     };
   },
 };

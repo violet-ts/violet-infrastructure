@@ -5,17 +5,18 @@ import { marshall } from '@aws-sdk/util-dynamodb';
 import { Temporal } from '@js-temporal/polyfill';
 import arg from 'arg';
 import { cmds } from '@self/bot/src/app/cmds';
+import { renderCode, renderCommentBody, renderTimestamp } from '@self/bot/src/util/comment-render';
+import { embedDirective } from '@self/bot/src/util/parse-comment';
 import type {
   BasicContext,
   CommandContext,
   CommentBody,
   CommentValuesForTypeCheck,
+  FullEntryForTypeCheck,
   GeneralEntry,
   ReplyCmd,
   ReplyCmdMainResult,
-} from '../type/cmd';
-import { renderCommentBody, renderTimestamp } from '../util/comment-render';
-import { embedDirective } from '../util/parse-comment';
+} from '@self/bot/src/type/cmd';
 
 export const findCmdByName = (name: string): ReplyCmd => {
   const cmd = cmds.find((cmd) => cmd.name === name);
@@ -27,23 +28,24 @@ export const findCmdByName = (name: string): ReplyCmd => {
 
 export const constructFullCommentBody = (
   cmd: ReplyCmd,
-  entry: GeneralEntry & Parameters<ReplyCmd['constructComment']>[0],
+  entry: FullEntryForTypeCheck,
   values: CommentValuesForTypeCheck,
   ctx: BasicContext,
 ): CommentBody => {
   const commentBodyStruct = cmd.constructComment(entry, values, ctx);
-  const fullCommentBody = {
+  const fullCommentBody: CommentBody = {
     ...commentBodyStruct,
     hints: [
       ...(commentBodyStruct.hints ?? []),
       {
         title: 'メタ情報',
         body: {
+          mode: 'ul',
           main: [
-            `- 開始時刻: ${renderTimestamp(Temporal.Instant.fromEpochMilliseconds(entry.startedAt))}`,
-            `- 最終更新: ${renderTimestamp(Temporal.Instant.fromEpochMilliseconds(entry.updatedAt))}`,
-            `- ネームスペース: \`${entry.namespace}\``,
-            `- uuid: \`${entry.uuid}\``,
+            `開始時刻: ${renderTimestamp(Temporal.Instant.fromEpochMilliseconds(entry.startedAt))}`,
+            `最終更新: ${renderTimestamp(Temporal.Instant.fromEpochMilliseconds(entry.updatedAt))}`,
+            `ネームスペース: ${renderCode(entry.namespace)}`,
+            `uuid: ${renderCode(entry.uuid)}`,
           ],
         },
       },
@@ -55,11 +57,14 @@ export const constructFullCommentBody = (
 
 export const constructFullComment = (
   cmd: ReplyCmd,
-  entry: GeneralEntry & Parameters<ReplyCmd['constructComment']>[0],
+  entry: FullEntryForTypeCheck,
   values: CommentValuesForTypeCheck,
   ctx: BasicContext,
+  includeHeader: boolean,
 ): string => {
-  const commentHead = [embedDirective(`mark:${cmd.name}:${entry.uuid}`), `@${entry.callerName}`, '', ''].join('\n');
+  const commentHead = includeHeader
+    ? [embedDirective(`mark:${cmd.name}:${entry.uuid}`), `@${entry.callerName}`, '', ''].join('\n')
+    : [];
   const comment = renderCommentBody(constructFullCommentBody(cmd, entry, values, ctx));
   const full = commentHead + comment;
   return full;
@@ -85,11 +90,11 @@ export const runMain = async (
   );
   const result = await cmd.main(ctx, parsedArgs, generalEntry);
   touchResult?.(result);
-  const { status, entry, values, watchArns } = result;
-  logger.info('Command main process done.', { status, entry, values });
+  const { status, entry, values, watchTriggers } = result;
+  logger.info('Command main process done.', { status, entry, values, watchTriggers });
 
-  const fullEntry = { ...entry, ...generalEntry, watchArns };
-  const full = constructFullComment(cmd, fullEntry, values, ctx);
+  const fullEntry = { ...entry, ...generalEntry, watchTriggers };
+  const full = constructFullComment(cmd, fullEntry, values, ctx, createComment);
 
   if (createComment) {
     logger.info('Creating comment for success...');
@@ -101,15 +106,15 @@ export const runMain = async (
     });
     logger.info('Comment created', createdComment);
     fullEntry.commentId = createdComment.data.id;
+  }
 
-    if (status === 'undone') {
-      logger.info('Saving result...');
-      const db = new DynamoDB({ credentials, logger });
-      await db.putItem({
-        TableName: env.BOT_TABLE_NAME,
-        Item: marshall(fullEntry, { convertEmptyValues: true }),
-      });
-    }
+  if (status === 'undone') {
+    logger.info('Saving result...');
+    const db = new DynamoDB({ credentials, logger });
+    await db.putItem({
+      TableName: env.BOT_TABLE_NAME,
+      Item: marshall(fullEntry, { convertEmptyValues: true }),
+    });
   }
 
   return {
@@ -117,6 +122,6 @@ export const runMain = async (
     comment: full,
     status,
     values,
-    watchArns,
+    watchTriggers: new Set([...(generalEntry.watchTriggers ?? []), ...(watchTriggers ?? [])]),
   };
 };

@@ -38,6 +38,28 @@ describe('parseComment', () => {
       [['foo', 'bar'], ['hello']],
       [['hello'], ['foo']],
     ]);
+    expect(
+      parseComment(
+        [
+          "hi! I'm calling my bot.",
+          '/foo  bar',
+          'And once again!',
+          '/hello',
+          '',
+          'not related!',
+          '@me hello',
+          '  /hello',
+          '  ',
+          '/hello',
+          'hi',
+          '/foo',
+        ].join('\r\n'),
+        '/',
+      ),
+    ).toEqual([
+      [['foo', 'bar'], ['hello']],
+      [['hello'], ['foo']],
+    ]);
   });
   it('should ignore the comments marked as ignore', () => {
     expect(parseComment(['<!-- violet: ignore -->', '/foo  bar'].join('\n'), '/')).toEqual([]);

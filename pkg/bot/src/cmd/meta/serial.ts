@@ -1,43 +1,34 @@
-import { Temporal } from '@js-temporal/polyfill';
-import { constructFullCommentBody, findCmdByName, runMain } from '@self/bot/src/app/cmd';
-import type { CmdStatus, CommentValuesForTypeCheck, ReplyCmd } from '@self/bot/src/type/cmd';
-import { cmdStatusSchema } from '@self/bot/src/type/cmd';
-import { v4 as uuidv4 } from 'uuid';
+import { findCmdByName } from '@self/bot/src/app/cmd';
+import { reEvaluateAndUpdate } from '@self/bot/src/app/update-cmd';
+import type { ReplyCmd } from '@self/bot/src/type/cmd';
+import { generalEntrySchema } from '@self/bot/src/type/cmd';
+import { getEntryByUUID } from '@self/bot/src/util/aws/comment-db';
 import { z } from 'zod';
-import { reEvaluateCommentEntry } from '@self/bot/src/app/update-cmd';
-import { emojiStatus, unmarshallMetaArgs } from './util';
+import type { DoneChild } from './util';
+import {
+  constructDoneChild,
+  createStatusCounter,
+  createTriggerCollector,
+  doneChildSchema,
+  emojiStatus,
+  processingChildSchema,
+  runMainWrapper,
+  unmarshallMetaArgs,
+  waitChildSchema,
+} from './util';
 
 const entrySchema = z.object({
   namespace: z.string(),
   // TODO: dirty
   commentPayload: z.any(),
-  startedChildren: z.array(
-    z.object({
-      name: z.string(),
-      boundArgs: z.array(z.string()),
-      entry: z.any(),
-      status: cmdStatusSchema,
-      lastComment: z.string(),
-    }),
-  ),
-  waitChildlen: z.array(
-    z.object({
-      name: z.string(),
-      boundArgs: z.array(z.string()),
-    }),
-  ),
+  doneChildren: z.array(doneChildSchema),
+  processingChild: processingChildSchema.nullable(),
+  waitChildren: z.array(waitChildSchema),
 });
 export type Entry = z.infer<typeof entrySchema>;
 
 export interface CommentValues {
-  childValues: Array<
-    | {
-        values: CommentValuesForTypeCheck;
-      }
-    | {
-        comment: string;
-      }
-  >;
+  processingInDoneForm: DoneChild | null;
 }
 
 export const argSchema = {} as const;
@@ -50,95 +41,62 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   description: '',
   entrySchema,
   argSchema,
-  async main(ctx, args, generalEntry) {
-    const collectedArns = new Set<string>();
+  async main(ctx, args, rootGeneralEntry) {
+    const { collectedTriggers, touchResult } = createTriggerCollector();
     const boundCmds = unmarshallMetaArgs(args._);
-    const statusCount = {
-      undone: 0,
-      success: 0,
-      failure: 0,
-      wait: 0,
-    };
-    const startedChildren: Entry['startedChildren'] = [];
-    const waitChildlen: Entry['waitChildlen'] = [];
-    const childValues: CommentValues['childValues'] = [];
+    const { add, summary, get } = createStatusCounter();
+    const doneChildren: Entry['doneChildren'] = [];
+    let processingChild: Entry['processingChild'] = null;
+    const waitChildren: Entry['waitChildren'] = [];
+    let processingInDoneForm: CommentValues['processingInDoneForm'] = null;
     for (const boundCmd of boundCmds) {
-      if (statusCount.undone || statusCount.failure) {
-        statusCount.wait += 1;
-        waitChildlen.push({
+      if (get('undone') || get('failure')) {
+        add('wait');
+        waitChildren.push({
           name: boundCmd.cmd.name,
           boundArgs: boundCmd.boundArgs,
         });
       } else {
-        const startedAt = Temporal.Now.instant().epochMilliseconds;
-        const uuid = uuidv4();
-        const { entry, status, values, comment } = await runMain(
-          boundCmd.cmd,
+        const { done, processing, status } = await runMainWrapper({
           ctx,
-          boundCmd.boundArgs,
-          {
-            ...generalEntry,
-            name: boundCmd.cmd.name,
-            uuid,
-            startedAt,
-            updatedAt: startedAt,
-          },
-          false,
-          ({ watchArns }) => {
-            if (watchArns) {
-              [...watchArns].forEach((arn) => collectedArns.add(arn));
-              watchArns.clear();
-            }
-          },
-        );
-        statusCount[status] += 1;
-        startedChildren.push({
-          name: boundCmd.cmd.name,
-          boundArgs: boundCmd.boundArgs,
-          entry,
-          status,
-          lastComment: comment,
+          add,
+          boundCmd,
+          rootGeneralEntry,
+          touchResult,
         });
-        childValues.push({ values });
+        if (status === 'undone') {
+          processingChild = processing;
+          processingInDoneForm = done;
+        } else {
+          doneChildren.push(done);
+        }
       }
     }
-    const status = ((): CmdStatus => {
-      if (statusCount.failure) return 'failure';
-      if (statusCount.undone) return 'undone';
-      if (statusCount.wait) return 'undone';
-      return 'success';
-    })();
 
     return {
-      status,
+      status: summary(),
       entry: {
         namespace: ctx.namespace,
         commentPayload: ctx.commentPayload,
-        startedChildren,
-        waitChildlen,
+        doneChildren,
+        processingChild,
+        waitChildren,
       },
       values: {
-        childValues,
+        processingInDoneForm,
       },
-      watchArns: collectedArns,
+      watchTriggers: collectedTriggers,
     };
   },
-  constructComment(entry, values, ctx) {
+  constructComment(rootEntry, values, _ctx) {
     return {
       main: [],
       mode: 'ul',
       hints: [
-        ...entry.startedChildren.map((child, i) => {
-          const childValues = values.childValues[i];
-          return {
-            title: `${emojiStatus(child.status)} ${child.name}`,
-            body:
-              'values' in childValues
-                ? constructFullCommentBody(findCmdByName(child.name), child.entry, childValues.values, ctx)
-                : { main: [childValues.comment] },
-          };
-        }),
-        ...entry.waitChildlen.map((child) => {
+        ...[...rootEntry.doneChildren, ...(values.processingInDoneForm ? [values.processingInDoneForm] : [])].map(
+          constructDoneChild,
+        ),
+        ...rootEntry.waitChildren.map((child) => {
           return {
             title: `${emojiStatus(undefined)} ${child.name}`,
             body: { main: ['...'] },
@@ -148,112 +106,98 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
     };
   },
   async update(rootEntry, ctx) {
-    const collectedArns = new Set<string>([...(rootEntry.watchArns ?? [])]);
-    const statusCount = {
-      undone: 0,
-      success: 0,
-      failure: 0,
-      wait: 0,
-    };
-    const startedChildren: Entry['startedChildren'] = rootEntry.startedChildren.filter((c) => c.status !== 'undone');
-    const waitChildlen: Entry['waitChildlen'] = [];
-    const childValues: CommentValues['childValues'] = [];
-    const touchResult = ({ watchArns }: { watchArns?: Set<string> | null | undefined }) => {
-      if (watchArns) {
-        [...watchArns].forEach((arn) => collectedArns.add(arn));
-        watchArns.clear();
-      }
-    };
-    startedChildren.forEach((c) => {
-      statusCount[c.status] += 1;
+    const rootGeneralEntry = generalEntrySchema.parse(rootEntry);
+    const { collectedTriggers, touchResult } = createTriggerCollector();
+    const { add, summary, get } = createStatusCounter();
+    const doneChildren = [...rootEntry.doneChildren];
+    let processingChild: Entry['processingChild'] = null;
+    const waitChildren: Entry['waitChildren'] = [];
+    let processingInDoneForm: CommentValues['processingInDoneForm'] = null;
+    doneChildren.forEach((c) => {
+      add(c.status);
     });
-    const undoneChildren = rootEntry.startedChildren.filter((c) => c.status === 'undone');
-    for (const child of [...undoneChildren]) {
-      if (statusCount.undone || statusCount.failure) {
-        statusCount.wait += 1;
-        waitChildlen.push({
+    const undoneChildren = [
+      ...(rootEntry.processingChild ? [rootEntry.processingChild] : []),
+      ...rootEntry.waitChildren,
+    ] as const;
+    for (const child of undoneChildren) {
+      if (get('undone') || get('failure')) {
+        add('wait');
+        waitChildren.push({
           name: child.name,
           boundArgs: child.boundArgs,
         });
       } else {
         const cmd = findCmdByName(child.name);
-        if ('entry' in child) {
-          const cmd = findCmdByName(child.name);
-          if (cmd.update) {
-            const { status, newEntry, fullComment, values } = await reEvaluateCommentEntry(
-              child.entry,
-              ctx.env,
-              ctx.octokit,
-              ctx.credentials,
-              ctx.logger,
-              touchResult,
-            );
+        if ('entryUUID' in child) {
+          const oldEntry = await getEntryByUUID({
+            ...ctx,
+            uuid: child.entryUUID,
+          });
+          const { status, newEntry, fullComment } = await reEvaluateAndUpdate(
+            oldEntry,
+            ctx.env,
+            ctx.octokit,
+            ctx.credentials,
+            ctx.logger,
+            false,
+            touchResult,
+          );
 
-            statusCount[status] += 1;
-            startedChildren.push({
+          add(status);
+          const done = {
+            name: child.name,
+            boundArgs: child.boundArgs,
+            startedAt: newEntry.startedAt,
+            updatedAt: newEntry.updatedAt,
+            status,
+            lastComment: fullComment,
+          };
+          if (status === 'undone') {
+            processingInDoneForm = done;
+            processingChild = {
               ...child,
-              entry: newEntry,
-              lastComment: fullComment,
-            });
-            childValues.push({
-              values,
-            });
+              status,
+            };
           } else {
-            statusCount[child.status] += 1;
-            startedChildren.push(child);
-            childValues.push({
-              comment: child.lastComment,
-            });
+            doneChildren.push(done);
           }
         } else {
-          const uuid = uuidv4();
-          const startedAt = Temporal.Now.instant().epochMilliseconds;
-          const { entry, status, values, comment } = await runMain(
-            cmd,
-            {
+          const { done, processing, status } = await runMainWrapper({
+            ctx: {
               ...ctx,
               namespace: rootEntry.namespace,
               commentPayload: rootEntry.commentPayload,
             },
-            child.boundArgs,
-            {
-              ...rootEntry,
-              uuid,
-              startedAt,
-              updatedAt: startedAt,
+            add,
+            boundCmd: {
+              cmd,
+              boundArgs: child.boundArgs,
             },
-            false,
+            rootGeneralEntry,
             touchResult,
-          );
-          statusCount[status] += 1;
-          startedChildren.push({
-            name: cmd.name,
-            boundArgs: child.boundArgs,
-            entry,
-            status,
-            lastComment: comment,
           });
-          childValues.push({ values });
+          if (status === 'undone') {
+            processingInDoneForm = done;
+            processingChild = processing;
+          } else {
+            doneChildren.push(done);
+          }
         }
       }
     }
-    const status = ((): CmdStatus => {
-      if (statusCount.failure) return 'failure';
-      if (statusCount.undone) return 'undone';
-      if (statusCount.wait) return 'undone';
-      return 'success';
-    })();
 
     return {
-      status,
-      entry: {
-        startedChildren,
-        waitChildlen,
+      status: summary(),
+      updateEntry: {
+        doneChildren,
+        processingChild,
+        waitChildren,
       },
       values: {
-        childValues,
+        processingInDoneForm,
       },
-      watchArns: collectedArns,
+      watchTriggers: collectedTriggers,
     };
   },
 };

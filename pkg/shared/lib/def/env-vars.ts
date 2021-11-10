@@ -24,9 +24,6 @@ export const sharedEnvSchema = z.object({
   AWS_ACCOUNT_ID: z.string(),
   /** 事前に作成した AWS Route53 Zone */
   PREVIEW_ZONE_ID: z.string(),
-  INFRA_GIT_URL: z.string(),
-  INFRA_GIT_FETCH: z.string(),
-  INFRA_TRUSTED_MERGER_GITHUB_EMAILS: z.string(),
   TF_BACKEND_ORGANIZATION: z.string(),
 });
 // ローカルからのみ与えることが可能

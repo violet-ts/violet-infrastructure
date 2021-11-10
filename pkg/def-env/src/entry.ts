@@ -22,6 +22,7 @@ const main = async () => {
   const dynamicRunScriptEnv = dynamicRunScriptEnvSchema.parse(process.env);
   const computedRunScriptEnv = computedRunScriptEnvSchema.parse(process.env);
   const codeBuildStackEnv = codeBuildStackEnvSchema.parse(process.env);
+
   const credentials = getCodeBuildCredentials();
   // TODO: not lambda
   const logger = createLambdaLogger('update-pr-labels');
@@ -34,6 +35,7 @@ const main = async () => {
     sharedEnv,
     dynamicOpEnv,
     computedOpEnv,
+    computedBotEnv,
     dynamicRunScriptEnv,
     computedRunScriptEnv,
     codeBuildStackEnv,
@@ -48,7 +50,7 @@ const main = async () => {
   app.synth();
 };
 
-main().catch((err) => {
+main().catch((err: unknown) => {
   // eslint-disable-next-line no-console -- entrypoint
   console.error(err);
   process.exit(1);

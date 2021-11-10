@@ -61,7 +61,7 @@ export const processBoundCmd = async (
   const startedAt = toTemporalInstant.call(date).epochMilliseconds;
   const generalEntry: GeneralEntry = {
     uuid,
-    ttl: toTemporalInstant.call(date).add({ hours: 24 * 7 }).epochMilliseconds,
+    ttl: toTemporalInstant.call(date).add({ hours: 24 * 7 }).epochSeconds,
     name: boundCmd.cmd.name,
     callerId,
     callerName,

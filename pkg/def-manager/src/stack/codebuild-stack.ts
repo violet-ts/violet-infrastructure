@@ -166,13 +166,6 @@ export class CodeBuildStack extends Resource {
     policy: this.rolePolicyDocument.json,
   });
 
-  readonly topic = new SNS.SnsTopic(this, 'topic', {
-    name: `${this.options.prefix}-${this.suffix.result}`,
-    tagsAll: {
-      ...this.options.tagsAll,
-    },
-  });
-
   readonly topicPolicyDoc = new IAM.DataAwsIamPolicyDocument(this, 'topicPolicyDoc', {
     statement: [
       {
@@ -183,13 +176,13 @@ export class CodeBuildStack extends Resource {
             identifiers: ['codestar-notifications.amazonaws.com'],
           },
         ],
-        resources: [this.topic.arn],
+        resources: [this.options.bot.topic.arn],
       },
     ],
   });
 
   readonly topicPolicy = new SNS.SnsTopicPolicy(this, 'topicPolicy', {
-    arn: this.topic.arn,
+    arn: this.options.bot.topic.arn,
     policy: this.topicPolicyDoc.json,
   });
 
@@ -208,7 +201,7 @@ export class CodeBuildStack extends Resource {
     target: [
       {
         type: 'SNS',
-        address: this.topic.arn,
+        address: this.options.bot.topic.arn,
       },
     ],
     // TODO(logging): fail

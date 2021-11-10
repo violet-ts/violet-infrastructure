@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { dynamicBuildCodeBuildEnv } from '@self/shared/lib/build-env';
 import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
 import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
-import { renderTimestamp, renderDuration, renderBytes } from '@self/bot/src/util/comment-render';
+import { renderAnchor, renderBytes, renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
 import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
 import { hintHowToPullDocker } from '@self/bot/src/util/hint';
 import { collectLogsOutput } from '@self/bot/src/util/aws/logs-output';
@@ -109,7 +109,7 @@ const createCmd = (
         status: 'undone',
         entry,
         values,
-        watchArns: new Set([build.arn]),
+        watchTriggers: new Set([build.arn]),
       };
     },
     constructComment(entry, values, ctx) {
@@ -119,28 +119,30 @@ const createCmd = (
         params.projectName
       }/build/${encodeURIComponent(entry.buildId)}/`;
       return {
+        mode: 'ul',
         main: [
-          `- ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
-          imageDetail && `- イメージサイズ: ${renderBytes(imageDetail.imageSizeInBytes)}`,
+          `ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
+          imageDetail && `イメージサイズ: ${renderBytes(imageDetail.imageSizeInBytes)}`,
           builtInfo &&
-            `- 使用コミット: ${renderGitHubPRCommit({
+            `使用コミット: ${renderGitHubPRCommit({
               rev: builtInfo.rev,
               prNumber: entry.prNumber,
               owner: entry.commentOwner,
               repo: entry.commentRepo,
             })}`,
-          builtInfo && `- ビルド時間: ${builtInfo.timeRange}`,
+          builtInfo && `ビルド時間: ${builtInfo.timeRange}`,
         ],
         hints: [
           {
             title: '詳細',
+            mode: 'ul',
             body: {
               main: [
                 builtInfo &&
                   imageDetail &&
-                  `- イメージダイジェスト: ${renderECRImageDigest({ ...imageDetail, ...builtInfo })}`,
-                `- ビルドID: [${entry.buildId}](${buildUrl})`,
-                values.deepLogLink && `- [ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
+                  `イメージダイジェスト: ${renderECRImageDigest({ ...imageDetail, ...builtInfo })}`,
+                `ビルドID: ${renderAnchor(entry.buildId, buildUrl)}`,
+                values.deepLogLink && renderAnchor('ビルドの詳細ログ (CloudWatch Logs)', values.deepLogLink),
               ],
             },
           },
@@ -216,7 +218,6 @@ const createCmd = (
 
       return {
         status: ({ SUCCEEDED: 'success', FAILED: 'failure' } as const)[last.buildStatus] ?? 'undone',
-        entry,
         values,
       };
     },

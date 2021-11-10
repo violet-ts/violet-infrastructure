@@ -34,16 +34,22 @@ export const generalEntrySchema = z.object({
   commentId: z.number(),
   namespace: z.string(),
   botInstallationId: z.number(),
-  watchArns: z.optional(z.nullable(z.set(z.string()))),
+  /**
+   * コールバックイベントがどこから始まったかを探すためのトリガー
+   * ARN など
+   */
+  watchTriggers: z.optional(z.nullable(z.set(z.string()))),
 });
 export type GeneralEntry = z.infer<typeof generalEntrySchema>;
+export type EntryForTypeCheck = { _keyForTypeCheck: string };
+export type FullEntryForTypeCheck = GeneralEntry & EntryForTypeCheck;
 export type CommentValuesForTypeCheck = { _cvKeyForTypeCheck: string };
 
-export type ReplyCmdMainResult<Entry = { _keyForTypeCheck: string }, CommentValues = CommentValuesForTypeCheck> = {
+export type ReplyCmdMainResult<Entry = EntryForTypeCheck, CommentValues = CommentValuesForTypeCheck> = {
   status: CmdStatus;
   entry: Entry;
   values: CommentValues;
-  watchArns?: Set<string> | null | undefined;
+  watchTriggers?: Set<string> | null | undefined;
 };
 
 export interface CommentHint {
@@ -56,15 +62,15 @@ export interface CommentHint {
 
 export interface CommentBody {
   main: (string | boolean | number | null | undefined)[];
-  mode?: 'ul' | 'ol' | 'li-only' | 'plain';
+  mode?: 'ul' | 'plain';
   hints?: (CommentHint | boolean | number | null | undefined)[];
 }
 
 export interface UpdateResult<Entry = Record<never, never>, CommentValues = CommentValuesForTypeCheck> {
   status: CmdStatus;
-  entry: Entry;
+  updateEntry?: Partial<Entry>;
   values: CommentValues;
-  watchArns?: Set<string> | null | undefined;
+  watchTriggers?: Set<string> | null | undefined;
 }
 
 export type ReplyCmdStatic = {
@@ -78,11 +84,11 @@ export type GeneralArgSchema = {
 };
 
 export type ReplyCmd<
-  Entry = { _keyForTypeCheck: string },
+  Entry = EntryForTypeCheck,
   CommentValues = CommentValuesForTypeCheck,
   ArgSchema = { ['--keyForTypeCheck']: StringConstructor },
 > = ReplyCmdStatic & {
-  entrySchema: z.ZodTypeAny;
+  entrySchema: z.AnyZodObject;
   argSchema: ArgSchema;
   main: (
     ctx: CommandContext,

@@ -55,7 +55,7 @@ export class OperateEnv extends Resource {
     API_REPO_NAME: this.options.apiRepo.devRepo.name,
     WEB_REPO_NAME: this.options.webRepo.devRepo.name,
     LAMBDA_CONV2IMG_REPO_NAME: this.options.lambdaConv2imgRepo.devRepo.name,
-    LAMBDA_APIEXEC_REPO_NAME: this.options.lambdaConv2imgRepo.devRepo.name,
+    LAMBDA_APIEXEC_REPO_NAME: this.options.lambdaApiexecRepo.devRepo.name,
     NETWORK_VPC_ID: this.devNetwork.vpc.id,
     NETWORK_DB_SG_ID: this.devNetwork.dbSg.id,
     NETWORK_LB_SG_ID: this.devNetwork.lbSg.id,
