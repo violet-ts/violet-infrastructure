@@ -15,7 +15,7 @@ import debugUpdatePRLabels from '@self/bot/src/cmd/debug/update-pr-labels';
 import switchCmd from '@self/bot/src/cmd/switch';
 import parallel from '@self/bot/src/cmd/meta/parallel';
 import serial from '@self/bot/src/cmd/meta/serial';
-import { renderAnchor } from '@self/bot/src/util/comment-render';
+import { renderAnchor, renderCode } from '@self/bot/src/util/comment-render';
 
 const entrySchema = z.object({});
 export type Entry = z.infer<typeof entrySchema>;
@@ -43,7 +43,9 @@ const help: ReplyCmd<Entry, CommentValues, ArgSchema> = {
       mode: 'ul',
       // TODO(hardcoded): cmd prefix
       main: [
-        ...cmds.filter((cmd) => values.all || !cmd.hidden).map((cmd) => `**/${cmd.name}**: ${cmd.description}`),
+        ...cmds
+          .filter((cmd) => values.all || !cmd.hidden)
+          .map((cmd) => `${renderCode(`/${cmd.name}`)} ${cmd.description}`),
         renderAnchor(
           'wiki/Botの使い方',
           'https://github.com/violet-ts/violet/wiki/Bot-%E3%81%AE%E4%BD%BF%E3%81%84%E6%96%B9',
