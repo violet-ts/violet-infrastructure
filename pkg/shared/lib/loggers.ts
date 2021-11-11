@@ -4,6 +4,7 @@ import stringify from 'safe-stable-stringify';
 
 const replacer = (_key: string, value: unknown): unknown => {
   if (value instanceof Buffer) return value.toString('base64');
+  if (value instanceof Set) return `Set(${[...value].join(', ')})`;
   if (typeof value === 'bigint') return value.toString();
   return value;
 };

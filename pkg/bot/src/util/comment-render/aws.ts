@@ -9,7 +9,7 @@ export const renderECRImageDigest = ({
   imageDigest,
 }: RenderECRImageDigestParams): string => {
   return [
-    `[\`${imageRepoName}\`](https://${imageRegion}.console.aws.amazon.com/ecr/repositories/${imageRepoName})`,
-    `@[\`${imageDigest}\`](https://${imageRegion}.console.aws.amazon.com/ecr/repositories/${imageRepoName}/image/${imageDigest}/details/)`,
+    `<a href="https://${imageRegion}.console.aws.amazon.com/ecr/repositories/${imageRepoName}"><code>${imageRepoName}</code></a>`,
+    `@<a href="https://${imageRegion}.console.aws.amazon.com/ecr/repositories/${imageRepoName}/image/${imageDigest}/details/"><code>${imageDigest}</code></a>`,
   ].join('');
 };

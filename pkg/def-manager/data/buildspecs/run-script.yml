@@ -4,6 +4,7 @@ env:
   variables:
     PNPM_VERSION: "6"
     HUSKY: "0"
+    NODE_OPTIONS: --unhandled-rejections=throw
   shell: bash
 
 phases:
@@ -20,9 +21,6 @@ phases:
       - echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
       - echo "TERRAFORM_VERSION=$TERRAFORM_VERSION"
       - echo "PNPM_VERSION=$PNPM_VERSION"
-      - echo "INFRA_GIT_URL=$INFRA_GIT_URL"
-      - echo "INFRA_GIT_FETCH=$INFRA_GIT_FETCH"
-      - echo "INFRA_TRUSTED_MERGER_GITHUB_EMAILS=$INFRA_TRUSTED_MERGER_GITHUB_EMAILS"
       - echo "RUN_SCRIPT_NAME=$RUN_SCRIPT_NAME"
       - echo "INFRA_SOURCE_BUCKET=$INFRA_SOURCE_BUCKET"
       - echo "INFRA_SOURCE_ZIP_KEY=$INFRA_SOURCE_ZIP_KEY"

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { ReplyCmd } from '@self/bot/src/type/cmd';
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
+import { renderCode } from '../util/comment-render';
 
 const entrySchema = z.object({});
 export type Entry = z.infer<typeof entrySchema>;
@@ -62,7 +63,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   },
   constructComment(_entry, values) {
     return {
-      main: [`\`${values.from}\` -> \`${values.to}\``],
+      main: [`${renderCode(values.from)} -> ${renderCode(values.to)}`],
     };
   },
 };

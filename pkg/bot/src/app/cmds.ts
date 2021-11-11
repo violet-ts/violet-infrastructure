@@ -1,19 +1,21 @@
 import { z } from 'zod';
-import buildApi from '../cmd/build-api';
-import buildWeb from '../cmd/build-web';
-import buildLambdaConv2img from '../cmd/build-lambda-conv2img';
-import ping from '../cmd/ping';
-import previewStart from '../cmd/preview-start';
-import previewStatus from '../cmd/preview-status';
-import previewRecreate from '../cmd/preview-recreate';
-import previewForceDestroy from '../cmd/preview-force-destroy';
-import prismaMigrateDeploy from '../cmd/prisma-migrate-deploy';
-import prismaMigrateReset from '../cmd/prisma-migrate-reset';
-import prismaDbSeed from '../cmd/prisma-db-seed';
-import debugReEval from '../cmd/debug/re-eval';
-import debugUpdatePRLabels from '../cmd/debug/update-pr-labels';
-import switchCmd from '../cmd/switch';
-import type { ReplyCmd } from '../type/cmd';
+import type { ReplyCmd } from '@self/bot/src/type/cmd';
+import build, { buildCmds } from '@self/bot/src/cmd/build';
+import ping from '@self/bot/src/cmd/ping';
+import previewStart from '@self/bot/src/cmd/preview-start';
+import previewStatus from '@self/bot/src/cmd/preview-status';
+import previewRecreate from '@self/bot/src/cmd/preview-recreate';
+import previewForceDestroy from '@self/bot/src/cmd/preview-force-destroy';
+import prismaMigrateDeploy from '@self/bot/src/cmd/prisma-migrate-deploy';
+import prismaMigrateReset from '@self/bot/src/cmd/prisma-migrate-reset';
+import prismaDbSeed from '@self/bot/src/cmd/prisma-db-seed';
+import deploy from '@self/bot/src/cmd/deploy';
+import debugReEval from '@self/bot/src/cmd/debug/re-eval';
+import debugUpdatePRLabels from '@self/bot/src/cmd/debug/update-pr-labels';
+import switchCmd from '@self/bot/src/cmd/switch';
+import parallel from '@self/bot/src/cmd/meta/parallel';
+import serial from '@self/bot/src/cmd/meta/serial';
+import { renderAnchor } from '@self/bot/src/util/comment-render';
 
 const entrySchema = z.object({});
 export type Entry = z.infer<typeof entrySchema>;
@@ -38,7 +40,15 @@ const help: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   },
   constructComment(_entry, values) {
     return {
-      main: cmds.filter((cmd) => values.all || !cmd.hidden).map((cmd) => `- **${cmd.name}**: ${cmd.description}`),
+      mode: 'ul',
+      // TODO(hardcoded): cmd prefix
+      main: [
+        ...cmds.filter((cmd) => values.all || !cmd.hidden).map((cmd) => `**/${cmd.name}**: ${cmd.description}`),
+        renderAnchor(
+          'wiki/Botの使い方',
+          'https://github.com/violet-ts/violet/wiki/Bot-%E3%81%AE%E4%BD%BF%E3%81%84%E6%96%B9',
+        ),
+      ],
     };
   },
 };
@@ -47,9 +57,8 @@ export const cmds: ReplyCmd[] = [
   ping,
   help,
   switchCmd,
-  buildApi,
-  buildWeb,
-  buildLambdaConv2img,
+  build,
+  ...buildCmds,
   previewStart,
   previewStatus,
   previewRecreate,
@@ -57,7 +66,10 @@ export const cmds: ReplyCmd[] = [
   prismaMigrateDeploy,
   prismaMigrateReset,
   prismaDbSeed,
+  deploy,
   debugReEval,
   debugUpdatePRLabels,
+  parallel,
+  serial,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ] as any;

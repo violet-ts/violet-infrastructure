@@ -1,9 +1,9 @@
 import type { ECR } from '@cdktf/provider-aws';
-import { APIGatewayV2, IAM, LambdaFunction, SNS } from '@cdktf/provider-aws';
+import { APIGatewayV2, IAM, LambdaFunction } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
-import type { ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
+import type { AccumuratedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
 import { accumuratedBotEnvSchema } from '@self/shared/lib/bot/env';
 import type { SharedEnv } from '@self/shared/lib/def/env-vars';
 import type { Construct } from 'constructs';
@@ -39,42 +39,24 @@ export class BotAttach extends Resource {
   readonly computedAfterwardBotEnv: ComputedAfterwardBotEnv = {
     API_REPO_NAME: this.options.repoDictContext.get('Api').name,
     WEB_REPO_NAME: this.options.repoDictContext.get('Web').name,
-    LAMBDA_REPO_NAME: this.options.repoDictContext.get('Lam').name,
+    LAMBDA_CONV2IMG_REPO_NAME: this.options.repoDictContext.get('LamC2i').name,
+    LAMBDA_APIEXEC_REPO_NAME: this.options.repoDictContext.get('LamAe').name,
 
     API_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Api').build.name,
     WEB_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Web').build.name,
-    LAMBDA_BUILD_PROJECT_NAME: this.options.buildDictContext.get('Lam').build.name,
+    LAMBDA_CONV2IMG_BUILD_PROJECT_NAME: this.options.buildDictContext.get('LamC2i').build.name,
+    LAMBDA_APIEXEC_BUILD_PROJECT_NAME: this.options.buildDictContext.get('LamAe').build.name,
     OPERATE_ENV_PROJECT_NAME: this.options.buildDictContext.get('Ope').build.name,
     PR_UPDATE_LABELS_PROJECT_NAME: this.options.buildDictContext.get('UpLa').build.name,
   };
 
-  readonly policyDocument = new IAM.DataAwsIamPolicyDocument(this, 'policyDocument', {
+  readonly afterwardPolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'afterwardPolicyDocument', {
     version: '2012-10-17',
     statement: [
-      // TODO(security): restrict
-      {
-        effect: 'Allow',
-        resources: ['*'],
-        actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
-      },
       {
         effect: 'Allow',
         resources: this.options.buildDictContext.getAll().map(([_name, build]) => build.build.arn),
         actions: ['codebuild:ListBuildsForProject', 'codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
-      },
-      {
-        effect: 'Allow',
-        actions: [
-          `dynamodb:PutItem`,
-          `dynamodb:BatchPutItem`,
-          `dynamodb:GetItem`,
-          `dynamodb:BatchWriteItem`,
-          `dynamodb:UpdateItem`,
-          `dynamodb:DeleteItem`,
-          `dynamodb:Query`,
-          `dynamodb:Scan`,
-        ],
-        resources: [this.options.bot.table.arn, this.options.bot.issueMap.arn],
       },
       {
         // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerregistry.html
@@ -100,18 +82,13 @@ export class BotAttach extends Resource {
         actions: ['logs:FilterLogEvents'],
         resources: this.options.buildDictContext.getAll().map(([_name, build]) => `${build.buildLogGroup.arn}:*`),
       },
-      {
-        effect: 'Allow',
-        actions: ['ssm:GetParameter', 'ssm:GetParameters'],
-        resources: this.options.bot.parameters.map((p) => p.arn),
-      },
     ],
   });
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy
-  readonly policy = new IAM.IamPolicy(this, 'policy', {
+  readonly afterwardPolicy = new IAM.IamPolicy(this, 'afterwardPolicy', {
     namePrefix: this.options.prefix,
-    policy: this.policyDocument.json,
+    policy: this.afterwardPolicyDocument.json,
 
     tagsAll: {
       ...this.options.tagsAll,
@@ -119,11 +96,20 @@ export class BotAttach extends Resource {
   });
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy_attachment
-  readonly policyAttach = new IAM.IamPolicyAttachment(this, 'policyAttach', {
+  readonly afterwardPolicyAttach = new IAM.IamPolicyAttachment(this, 'afterwardPolicyAttach', {
     name: `${this.options.prefix}-${this.suffix.result}`,
-    roles: [z.string().parse(this.options.bot.role.name)],
-    policyArn: this.policy.arn,
+    roles: [
+      z.string().parse(this.options.bot.ghWebhookExecRole.name),
+      z.string().parse(this.options.bot.onAnyExecRole.name),
+    ],
+    policyArn: this.afterwardPolicy.arn,
   });
+
+  readonly accumuratedBotEnv: AccumuratedBotEnv = {
+    ...this.options.sharedEnv,
+    ...this.options.bot.computedBotEnv,
+    ...this.computedAfterwardBotEnv,
+  };
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function
   // TODO(logging): retention
@@ -131,13 +117,10 @@ export class BotAttach extends Resource {
     functionName: `${this.options.prefix}-github-bot-${this.suffix.result}`,
     s3Bucket: this.options.bot.ghWebhookBucket.bucket,
     s3Key: this.options.bot.githubBotZip.key,
-    role: this.options.bot.role.arn,
+    role: this.options.bot.ghWebhookExecRole.arn,
     memorySize: 256,
     environment: {
-      variables: {
-        ...this.options.bot.computedBotEnv,
-        ...this.computedAfterwardBotEnv,
-      },
+      variables: accumuratedBotEnvSchema.parse(this.accumuratedBotEnv),
     },
     timeout: 20,
     handler: 'github-bot.handler',
@@ -153,14 +136,11 @@ export class BotAttach extends Resource {
     functionName: `${this.options.prefix}-on-any-${this.suffix.result}`,
     s3Bucket: this.options.bot.ghWebhookBucket.bucket,
     s3Key: this.options.bot.onAnyZip.key,
-    role: this.options.bot.role.arn,
+    role: this.options.bot.onAnyExecRole.arn,
+    reservedConcurrentExecutions: 1,
     memorySize: 256,
     environment: {
-      variables: accumuratedBotEnvSchema.parse({
-        ...this.options.sharedEnv,
-        ...this.options.bot.computedBotEnv,
-        ...this.computedAfterwardBotEnv,
-      }),
+      variables: accumuratedBotEnvSchema.parse(this.accumuratedBotEnv),
     },
     timeout: 20,
     handler: 'on-any.handler',
@@ -171,6 +151,27 @@ export class BotAttach extends Resource {
     },
   });
 
+  // on-any-queue ---->(allow) on-any-lambda
+  readonly allowExecutionFromQueue = new LambdaFunction.LambdaPermission(this, 'allowExecutionFromQueue', {
+    statementId: 'AllowExecutionFromQueue',
+    action: 'lambda:InvokeFunction',
+    functionName: this.onAnyFunction.functionName,
+    principal: 'sns.amazonaws.com',
+    sourceArn: this.options.bot.onAnyQueue.arn,
+  });
+
+  // on-any-queue --(subscribe)--> on-any-lambda
+  readonly onAnyQueueSubscriptionToOnAnyFunction = new LambdaFunction.LambdaEventSourceMapping(
+    this,
+    'onAnyQueueSubscriptionToOnAnyFunction',
+    {
+      functionName: this.onAnyFunction.arn,
+      eventSourceArn: this.options.bot.onAnyQueue.arn,
+      dependsOn: [this.allowExecutionFromQueue],
+    },
+  );
+
+  // api-gw ---->(allow) bot-lambda
   readonly allowApigwToBotFunction = new LambdaFunction.LambdaPermission(this, 'allowApigwToBotFunction', {
     statementId: 'AllowExecutionFromAPIGatewayv2',
     action: 'lambda:InvokeFunction',
@@ -179,26 +180,7 @@ export class BotAttach extends Resource {
     sourceArn: `${this.options.bot.api.executionArn}/*/*/*`,
   });
 
-  readonly allowExecutionFromBuild = this.options.buildDictContext.getAll().map(
-    ([name, porject]) =>
-      new LambdaFunction.LambdaPermission(this, `allowExecutionFromBuild-${name}`, {
-        statementId: `AllowExecutionFrom${name}`,
-        action: 'lambda:InvokeFunction',
-        functionName: this.onAnyFunction.functionName,
-        principal: 'sns.amazonaws.com',
-        sourceArn: porject.topic.arn,
-      }),
-  );
-
-  readonly subscription = this.options.buildDictContext.getAll().map(
-    ([name, build]) =>
-      new SNS.SnsTopicSubscription(this, `subscription-${name}`, {
-        topicArn: build.topic.arn,
-        protocol: 'lambda',
-        endpoint: this.onAnyFunction.arn,
-      }),
-  );
-
+  // api-gw --(subscribe)--> bot-lambda
   readonly integ = new APIGatewayV2.Apigatewayv2Integration(this, 'integ', {
     apiId: this.options.bot.api.id,
     integrationType: 'AWS_PROXY',
@@ -210,6 +192,7 @@ export class BotAttach extends Resource {
     integrationUri: this.ghWebhookFunction.invokeArn,
     payloadFormatVersion: '2.0',
     // passthroughBehavior: 'WHEN_NO_MATCH',
+    dependsOn: [this.allowApigwToBotFunction],
   });
 
   readonly apiHookRoute = new APIGatewayV2.Apigatewayv2Route(this, 'apiHookRoute', {

@@ -17,11 +17,11 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   hidden: true,
   entrySchema,
   argSchema,
-  main(ctx, _args) {
+  main(_ctx, args) {
     return {
       status: 'success',
       entry: {},
-      values: { args: ctx.originalArgs },
+      values: { args: args._ },
     };
   },
   constructComment(_entry, values) {

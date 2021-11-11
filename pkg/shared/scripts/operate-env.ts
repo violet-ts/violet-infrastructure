@@ -1,18 +1,21 @@
-import { DynamoDB } from '@aws-sdk/client-dynamodb';
-import { ECS } from '@aws-sdk/client-ecs';
-import { marshall } from '@aws-sdk/util-dynamodb';
+import { Lambda } from '@aws-sdk/client-lambda';
 import { getCodeBuildCredentials } from '@self/shared/lib/aws';
+import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
+import { requireSecrets } from '@self/shared/lib/bot/secrets';
+import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
 import { initEnv } from '@self/shared/lib/def/util/init-env';
-import type { GeneralBuildOutput, RunTaskBuildOutput, TfBuildOutput } from '@self/shared/lib/operate-env/build-output';
+import { createLambdaLogger } from '@self/shared/lib/loggers';
+import type {
+  GeneralBuildOutput,
+  InvokeFunctionBuildOutput,
+  TfBuildOutput,
+} from '@self/shared/lib/operate-env/build-output';
 import { tfBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
 import { computedOpEnvSchema, dynamicOpEnvSchema, scriptOpEnvSchema } from '@self/shared/lib/operate-env/op-env';
 import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
 import { exec } from '@self/shared/lib/util/exec';
-import { z } from 'zod';
-import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
-import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
-import { requireSecrets } from '@self/shared/lib/bot/secrets';
-import { createLambdaLogger } from '@self/shared/lib/loggers';
+import type { OpTfOutput } from '@self/shared/lib/operate-env/output';
+import { updateTableRootKeys } from '@self/shared/lib/util/dynamodb';
 
 const main = async (): Promise<void> => {
   initEnv();
@@ -38,26 +41,17 @@ const main = async (): Promise<void> => {
 
   const delay = (ms: number): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-  const updateTable = async <T extends Record<string, Record<string, string | number | boolean | null>>>(
-    outputObj: T,
-  ) => {
-    const entries = Object.entries(outputObj);
-    const expr = entries.map((_entry, i) => `#key${i} = :value${i}`).join(', ');
-    const keys = Object.fromEntries(entries.map(([key], i) => [`#key${i}`, key]));
-    const values = Object.fromEntries(
-      entries.flatMap(([_key, value], i) => Object.entries(marshall({ [`:value${i}`]: value }))),
-    );
-    const db = new DynamoDB({ credentials });
-    // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html
-    await db.updateItem({
-      TableName: env.BOT_TABLE_NAME,
-      Key: {
+  const updateTable = async <T extends Record<string, Record<string, unknown>>>(outputObj: T) => {
+    logger.debug('Updating table.', { outputObj });
+    await updateTableRootKeys(
+      outputObj,
+      env.BOT_TABLE_NAME,
+      {
         uuid: { S: env.ENTRY_UUID },
       },
-      UpdateExpression: `SET ${expr}`,
-      ExpressionAttributeNames: keys,
-      ExpressionAttributeValues: values,
-    });
+      credentials,
+      logger,
+    );
   };
 
   const e = async (file: string, args: string[], silent: boolean): Promise<{ stdout: string; stderr: string }> => {
@@ -76,32 +70,8 @@ const main = async (): Promise<void> => {
     },
   });
 
-  const tfOutput = async (name: string): Promise<string> => {
-    const output = (
-      await exec(
-        'terraform',
-        ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'output', '-no-color', '-raw', `opOutputs-${name}`],
-        true,
-      )
-    ).stdout.trim();
-    return output;
-  };
-
-  const getTfBuildOutput = async () =>
-    tfBuildOutputSchema.shape.tfBuildOutput
-      .unwrap()
-      .parse(
-        Object.fromEntries(
-          await Promise.all(
-            Object.keys(tfBuildOutputSchema.shape.tfBuildOutput.unwrap().shape).map(async (key) => [
-              key,
-              await tfOutput(key),
-            ]),
-          ),
-        ),
-      );
-
   const tfSynthInit = async (): Promise<void> => {
+    await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:get'], false);
     await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth'], false);
     await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init', '-no-color'], false);
     // NOTE: https://github.com/hashicorp/terraform/issues/23261
@@ -123,58 +93,61 @@ const main = async (): Promise<void> => {
     );
   };
 
-  const apiTaskRun = async (command: string[]) => {
-    await tfSynthInit();
-    const tfBuildOutput = await getTfBuildOutput();
+  const ensureTfSynthInit = (() => {
+    let run = false;
+    return async (): Promise<void> => {
+      if (run) return;
+      run = true;
+      await tfSynthInit();
+    };
+  })();
 
-    const ecs = new ECS({ credentials, region: tfBuildOutput.envRegion });
-    // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_RunTask.html
-    const task = await (async () => {
-      const res = await ecs.runTask({
-        cluster: tfBuildOutput.ecsClusterName,
-        networkConfiguration: {
-          awsvpcConfiguration: {
-            subnets: [env.NETWORK_PUB_ID0, env.NETWORK_PUB_ID1, env.NETWORK_PUB_ID2],
-            securityGroups: [env.NETWORK_SVC_SG_ID],
-            // // TODO(security): NAT
-            assignPublicIp: 'ENABLED',
-          },
-        },
-        taskDefinition: tfBuildOutput.apiTaskDefinitionArn,
-        propagateTags: 'TASK_DEFINITION',
-        launchType: 'FARGATE',
-        overrides: {
-          containerOverrides: [
-            {
-              name: 'api',
-              command,
-              cpu: 256,
-              memory: 512,
-            },
-          ],
-        },
-      });
-      console.log(res);
-      const task = res.tasks?.[0];
-      if (task == null) throw new Error('run task not found');
-      return task;
-    })();
-
-    await updateTable<RunTaskBuildOutput>({
-      runTaskBuildOutput: {
-        taskArn: z.string().parse(task.taskArn),
-      },
-    });
-
-    return task;
+  const getTfBuildOutput = async (): Promise<OpTfOutput> => {
+    await ensureTfSynthInit();
+    const outputJSON = (
+      await exec(
+        'terraform',
+        ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'output', '-no-color', '-json', `opOutput`],
+        // TODO(security): output
+        false,
+      )
+    ).stdout.trim();
+    const output = JSON.parse(outputJSON);
+    return tfBuildOutputSchema.shape.tfBuildOutput.unwrap().parse(output);
   };
 
-  const apiTaskRunPnpm = async (args: string[]) => {
-    await apiTaskRun(['pnpm', '--dir=./pkg/api', 'exec', ...args]);
+  const apiExec = async (args: string[]) => {
+    const tfBuildOutput = await getTfBuildOutput();
+
+    const lambda = new Lambda({ credentials, logger, region: tfBuildOutput.env_region });
+    // TODO(cost): Invoke 待機中の CodeBuild 費用
+    const res = await lambda.invoke({
+      FunctionName: tfBuildOutput.api_exec_function_name,
+      Payload: Uint8Array.from(
+        Buffer.from(
+          JSON.stringify({
+            command: args,
+          }),
+        ),
+      ),
+    });
+
+    await updateTable<TfBuildOutput & InvokeFunctionBuildOutput>({
+      tfBuildOutput,
+      invokeFunctionBuildOutput: {
+        executedFunctionName: tfBuildOutput.api_exec_function_name,
+        executedVersion: res.ExecutedVersion,
+        statusCode: res.StatusCode,
+      },
+    });
+  };
+
+  const apiExecPnpm = async (args: string[]) => {
+    await apiExec(['pnpm', '--dir=./pkg/api', ...args]);
   };
 
   const operate = async (tfCmd: string, tfArgs: string[], minTryCount: number, maxTryCount: number): Promise<void> => {
-    await tfSynthInit();
+    await ensureTfSynthInit();
     let success = 0;
     let failure = 0;
     let lastFailed = false;
@@ -212,6 +185,8 @@ const main = async (): Promise<void> => {
     }
   };
 
+  logger.info('operation', { operation: env.OPERATION });
+
   switch (env.OPERATION) {
     case 'deploy': {
       // NOTE: 削除含む apply で一発では正常に apply できない事がある
@@ -227,7 +202,6 @@ const main = async (): Promise<void> => {
         throw new Error(`not allowed to destroy workspace "${secrets.TF_ENV_BACKEND_TOKEN}"`);
       }
       await operate('destroy', ['--auto-approve'], 1, 2);
-      const tfBuildOutput = await getTfBuildOutput();
       await e(
         'curl',
         [
@@ -241,13 +215,9 @@ const main = async (): Promise<void> => {
         ],
         false,
       );
-      await updateTable<TfBuildOutput>({
-        tfBuildOutput,
-      });
       break;
     }
     case 'status': {
-      await operate('plan', [], 1, 2);
       const tfBuildOutput = await getTfBuildOutput();
       await updateTable<TfBuildOutput>({
         tfBuildOutput,
@@ -264,16 +234,16 @@ const main = async (): Promise<void> => {
       break;
     }
     case 'prisma/migrate/deploy': {
-      await apiTaskRunPnpm(['exec', 'prisma', 'migrate', 'deploy']);
+      await apiExecPnpm(['exec', 'prisma', 'migrate', 'deploy']);
       break;
     }
     case 'prisma/migrate/reset': {
-      await apiTaskRunPnpm(['exec', 'prisma', 'migrate', 'reset']);
+      await apiExecPnpm(['exec', 'prisma', 'migrate', 'reset']);
       break;
     }
     case 'prisma/db/seed': {
       // TODO: other seeds
-      await apiTaskRunPnpm(['run', 'prisma:seed', '--', 'dev']);
+      await apiExecPnpm(['run', 'prisma:seed', '--', 'dev']);
       break;
     }
     default: {
@@ -284,7 +254,4 @@ const main = async (): Promise<void> => {
   console.log(`Table: ${entryURL}`);
 };
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+void main();

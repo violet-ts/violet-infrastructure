@@ -15,7 +15,6 @@ export type BasicContext = {
 
 export type CommandContext = {
   namespace: string;
-  originalArgs: string[];
   commentPayload: IssueCommentEvent;
 } & BasicContext;
 
@@ -23,7 +22,10 @@ export const generalEntrySchema = z.object({
   uuid: z.string(),
   ttl: z.number(),
   name: z.string(),
-  lastUpdate: z.number(),
+  /** epoch miliseconds */
+  startedAt: z.number(),
+  /** epoch miliseconds */
+  updatedAt: z.number(),
   callerId: z.number(),
   callerName: z.string(),
   commentOwner: z.string(),
@@ -32,13 +34,22 @@ export const generalEntrySchema = z.object({
   commentId: z.number(),
   namespace: z.string(),
   botInstallationId: z.number(),
+  /**
+   * コールバックイベントがどこから始まったかを探すためのトリガー
+   * ARN など
+   */
+  watchTriggers: z.optional(z.nullable(z.set(z.string()))),
 });
 export type GeneralEntry = z.infer<typeof generalEntrySchema>;
+export type EntryForTypeCheck = { _keyForTypeCheck: string };
+export type FullEntryForTypeCheck = GeneralEntry & EntryForTypeCheck;
+export type CommentValuesForTypeCheck = { _cvKeyForTypeCheck: string };
 
-type ReplyCmdMainResult<Entry = Record<never, never>, CommentValues = undefined> = {
+export type ReplyCmdMainResult<Entry = EntryForTypeCheck, CommentValues = CommentValuesForTypeCheck> = {
   status: CmdStatus;
   entry: Entry;
   values: CommentValues;
+  watchTriggers?: Set<string> | null | undefined;
 };
 
 export interface CommentHint {
@@ -51,13 +62,15 @@ export interface CommentHint {
 
 export interface CommentBody {
   main: (string | boolean | number | null | undefined)[];
+  mode?: 'ul' | 'plain';
   hints?: (CommentHint | boolean | number | null | undefined)[];
 }
 
-export interface UpdateResult<Entry = Record<never, never>, CommentValues = undefined> {
+export interface UpdateResult<Entry = Record<never, never>, CommentValues = CommentValuesForTypeCheck> {
   status: CmdStatus;
-  entry: Entry;
+  updateEntry?: Partial<Entry>;
   values: CommentValues;
+  watchTriggers?: Set<string> | null | undefined;
 }
 
 export type ReplyCmdStatic = {
@@ -71,11 +84,11 @@ export type GeneralArgSchema = {
 };
 
 export type ReplyCmd<
-  Entry = { _keyForTypeCheck: string },
-  CommentValues = unknown,
+  Entry = EntryForTypeCheck,
+  CommentValues = CommentValuesForTypeCheck,
   ArgSchema = { ['--keyForTypeCheck']: StringConstructor },
 > = ReplyCmdStatic & {
-  entrySchema: z.ZodTypeAny;
+  entrySchema: z.AnyZodObject;
   argSchema: ArgSchema;
   main: (
     ctx: CommandContext,
@@ -89,4 +102,10 @@ export type ReplyCmd<
   ) => UpdateResult<Entry, CommentValues> | Promise<UpdateResult<Entry, CommentValues>>;
 };
 
-export type CmdStatus = 'undone' | 'success' | 'failure';
+export type BoundReplyCmd = {
+  cmd: ReplyCmd;
+  boundArgs: string[];
+};
+
+export const cmdStatusSchema = z.union([z.literal('undone'), z.literal('success'), z.literal('failure')]);
+export type CmdStatus = z.infer<typeof cmdStatusSchema>;

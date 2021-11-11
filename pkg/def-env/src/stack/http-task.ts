@@ -1,9 +1,9 @@
-import type { ECR } from '@cdktf/provider-aws';
 import { CloudWatch, ECS, ELB, IAM, Route53, VPC } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { z } from 'zod';
 import type { VioletEnvStack } from '.';
+import type { RepoImage } from './repo-image';
 
 export interface HTTPTaskOptions {
   /**
@@ -19,8 +19,7 @@ export interface HTTPTaskOptions {
   ipv6interfaceIdPrefix: number;
   tagsAll?: Record<string, string>;
 
-  repo: ECR.DataAwsEcrRepository;
-  image: ECR.DataAwsEcrImage;
+  repoImage: RepoImage;
   healthcheckPath: string;
   env: Record<string, string>;
 }
@@ -176,7 +175,7 @@ export class HTTPTask extends Resource {
         // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerregistry.html
         effect: 'Allow',
         actions: ['ecr:BatchCheckLayerAvailability', 'ecr:GetDownloadUrlForLayer', 'ecr:BatchGetImage'],
-        resources: [this.options.repo.arn],
+        resources: [this.options.repoImage.repo.arn],
       },
     ],
   });
@@ -251,7 +250,7 @@ export class HTTPTask extends Resource {
     containerDefinitions: JSON.stringify([
       {
         name: this.options.name,
-        image: `${this.parent.options.sharedEnv.AWS_ACCOUNT_ID}.dkr.ecr.${this.parent.aws.region}.amazonaws.com/${this.options.image.repositoryName}@${this.options.image.imageDigest}`,
+        image: this.options.repoImage.imageUri,
         environment: Object.entries(this.options.env).map(([name, value]) => ({ name, value })),
         portMappings: [
           {

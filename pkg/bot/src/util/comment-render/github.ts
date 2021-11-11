@@ -5,10 +5,10 @@ export interface RenderGitHubPRCommitParams {
   rev: string;
 }
 export const renderGitHubPRCommit = ({ rev, repo, owner, prNumber }: RenderGitHubPRCommitParams): string => {
-  return `[\`${owner}/${repo}#${prNumber}@${rev.slice(
+  return `<a href="https://github.com/${owner}/${repo}/pull/${prNumber}/commits/${rev}"><code>${owner}/${repo}#${prNumber}@${rev.slice(
     0,
     6,
-  )}\`](https://github.com/${owner}/${repo}/pull/${prNumber}/commits/${rev})`;
+  )}</code></a>`;
 };
 
 export interface RenderGitHubCommit {
@@ -17,5 +17,8 @@ export interface RenderGitHubCommit {
   rev: string;
 }
 export const renderGitHubCommit = ({ rev, repo, owner }: RenderGitHubCommit): string => {
-  return `[\`${owner}/${repo}@${rev.slice(0, 6)}\`](https://github.com/${owner}/${repo}/tree/${rev})`;
+  return `<a href="https://github.com/${owner}/${repo}/tree/${rev}"><code>${owner}/${repo}@${rev.slice(
+    0,
+    6,
+  )}</code></a>`;
 };

@@ -1,31 +1,36 @@
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import type { Credentials, Provider } from '@aws-sdk/types';
-import { toTemporalInstant } from '@js-temporal/polyfill';
+import { Temporal } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
-import { cmds } from '@self/bot/src/app/cmds';
-import { constructFullComment } from '@self/bot/src/app/webhooks';
 import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
-import type { BasicContext as CommandBasicContext, CmdStatus } from '@self/bot/src/type/cmd';
+import type {
+  BasicContext as CommandBasicContext,
+  CmdStatus,
+  FullEntryForTypeCheck,
+  UpdateResult,
+} from '@self/bot/src/type/cmd';
 import { generalEntrySchema } from '@self/bot/src/type/cmd';
 import type { Logger } from 'winston';
-import type { GeneralEntry } from '../type/cmd';
+import { constructFullComment, findCmdByName } from '@self/bot/src/app/cmd';
+import { updateTableRootKeys } from '@self/shared/lib/util/dynamodb';
+import { parseFullEntryForTypeCheck } from '@self/bot/src/util/parse-entry';
 
 interface ReEvaluated {
   fullComment: string;
-  newEntry: GeneralEntry;
+  newEntry: FullEntryForTypeCheck;
   status: CmdStatus;
+  values: UpdateResult['values'];
 }
 export const reEvaluateCommentEntry = async (
-  oldEntry: GeneralEntry,
+  oldEntry: FullEntryForTypeCheck,
   env: AccumuratedBotEnv,
   octokit: Octokit,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,
+  includeHeader: boolean,
+  touchResult?: (result: UpdateResult) => void,
 ): Promise<ReEvaluated> => {
-  const cmd = cmds.find((cmd) => cmd.name === oldEntry.name);
-  if (cmd == null) {
-    throw new Error(`Command not found for ${oldEntry.name}`);
-  }
+  const cmd = findCmdByName(oldEntry.name);
   if (cmd.update == null) {
     throw new Error(`No need to update for command ${oldEntry.name}`);
   }
@@ -38,43 +43,60 @@ export const reEvaluateCommentEntry = async (
     logger,
   };
 
-  const { status, entry, values } = await cmd.update(cmd.entrySchema.and(generalEntrySchema).parse(oldEntry), cmdCtx);
-  logger.debug('Command update processed.', { status, entry, values });
-  const date = new Date();
-  const newEntry = {
-    ...oldEntry,
-    ...entry,
-    uuid: oldEntry.uuid,
-    name: oldEntry.name,
-    callerName: oldEntry.callerName,
-    callerId: oldEntry.callerId,
-    commentRepo: oldEntry.commentRepo,
-    commentOwner: oldEntry.commentOwner,
-    commentIssueNumber: oldEntry.commentIssueNumber,
-    commentId: oldEntry.commentId,
-    lastUpdate: toTemporalInstant.call(date).epochSeconds,
-    botInstallationId: oldEntry.botInstallationId,
+  const fullEntry = cmd.entrySchema.passthrough().parse(oldEntry);
+  const fullEntryTyped: FullEntryForTypeCheck = parseFullEntryForTypeCheck(fullEntry);
+  const result = await cmd.update(fullEntryTyped, cmdCtx);
+  touchResult?.(result);
+  const { status, updateEntry, values, watchTriggers } = result;
+  logger.debug('Command update processed.', { status, updateEntry, values });
+  if (updateEntry != null) {
+    const obj: Record<string, unknown> = updateEntry;
+    Object.keys(generalEntrySchema.shape).forEach((generalKey) => {
+      delete obj[generalKey];
+    });
+  }
+  const updatedAt = Temporal.Now.instant().epochMilliseconds;
+  const fullUpdateEntry = {
+    ...updateEntry,
+    watchTriggers: new Set([...(oldEntry.watchTriggers ?? []), ...(watchTriggers ?? [])]),
+    updatedAt,
   };
+  const newEntry = {
+    ...fullEntryTyped,
+    ...fullUpdateEntry,
+  };
+  await updateTableRootKeys(
+    fullUpdateEntry,
+    env.BOT_TABLE_NAME,
+    {
+      uuid: { S: oldEntry.uuid },
+    },
+    credentials,
+    logger,
+  );
   logger.debug('New entry computed.', { newEntry });
-  const fullComment = constructFullComment(cmd, newEntry, values, cmdCtx);
+  const fullComment = constructFullComment(cmd, newEntry, values, cmdCtx, includeHeader);
   return {
     fullComment,
     newEntry,
     status,
+    values,
   };
 };
 
 export const reEvaluateAndUpdate = async (
-  oldEntry: GeneralEntry,
+  oldEntry: FullEntryForTypeCheck,
   env: AccumuratedBotEnv,
   octokit: Octokit,
   credentials: Credentials | Provider<Credentials>,
   logger: Logger,
+  isRoot: boolean,
+  touchResult?: (result: UpdateResult) => void,
 ): Promise<ReEvaluated> => {
-  const reEvaluated = await reEvaluateCommentEntry(oldEntry, env, octokit, credentials, logger);
+  const reEvaluated = await reEvaluateCommentEntry(oldEntry, env, octokit, credentials, logger, isRoot, touchResult);
   const { fullComment, newEntry, status } = reEvaluated;
   if (status !== 'undone') {
-    const db = new DynamoDB({ credentials });
+    const db = new DynamoDB({ credentials, logger });
     await db.deleteItem({
       TableName: env.BOT_TABLE_NAME,
       Key: {
@@ -84,11 +106,13 @@ export const reEvaluateAndUpdate = async (
       },
     });
   }
-  await octokit.issues.updateComment({
-    owner: newEntry.commentOwner,
-    repo: newEntry.commentRepo,
-    comment_id: newEntry.commentId,
-    body: fullComment,
-  });
+  if (isRoot) {
+    await octokit.issues.updateComment({
+      owner: newEntry.commentOwner,
+      repo: newEntry.commentRepo,
+      comment_id: newEntry.commentId,
+      body: fullComment,
+    });
+  }
   return reEvaluated;
 };

@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { AwsProvider, ECR, ResourceGroups, Route53, S3 } from '@cdktf/provider-aws';
+import { AwsProvider, ResourceGroups, Route53, S3 } from '@cdktf/provider-aws';
 import { z } from 'zod';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
@@ -17,6 +17,7 @@ import { DockerHubCredentials } from './dockerhub-credentials';
 import { OperateEnv } from './operate-env';
 import { UpdatePRLabels } from './update-pr-labels';
 import { Bot } from './bot';
+import { RepoStack } from './repo-stack';
 
 export interface VioletManagerOptions {
   region: string;
@@ -148,68 +149,41 @@ export class VioletManagerStack extends TerraformStack {
   //   Production と Staging + Preview で無効化方針が変わるため分ける
   //   TODO: Public Repository のほうがよいかもしれない
 
-  readonly apiProdRepo = new ECR.EcrRepository(this, 'apiProdRepo', {
-    name: `violet-api-prod-${this.suffix.result}`,
-    imageTagMutability: 'IMMUTABLE',
-    // TODO(security): for production
-    // imageScanningConfiguration,
+  readonly apiRepo = new RepoStack(this, 'apiRepo', {
+    prefix: 'vio',
+    name: 'Api',
     tagsAll: {
-      ...this.genTags(null, 'production'),
+      ...this.genTags(null),
     },
+    devRepoDictContext: this.repoDictContext,
   });
 
-  readonly apiDevRepo = this.repoDictContext.add(
-    'Api',
-    new ECR.EcrRepository(this, 'apiDevRepo', {
-      name: `violet-api-dev-${this.suffix.result}`,
-      imageTagMutability: 'MUTABLE',
-      tagsAll: {
-        ...this.genTags(null, 'development'),
-      },
-    }),
-  );
-
-  readonly webProdRepo = new ECR.EcrRepository(this, 'webProdRepo', {
-    name: `violet-web-prod-${this.suffix.result}`,
-    imageTagMutability: 'IMMUTABLE',
-    // TODO(security): for production
-    // imageScanningConfiguration,
+  readonly webRepo = new RepoStack(this, 'webRepo', {
+    prefix: 'vio',
+    name: 'Web',
     tagsAll: {
-      ...this.genTags(null, 'production'),
+      ...this.genTags(null),
     },
+    devRepoDictContext: this.repoDictContext,
   });
 
-  readonly webDevRepo = this.repoDictContext.add(
-    'Web',
-    new ECR.EcrRepository(this, 'webDevRepo', {
-      name: `violet-web-dev-${this.suffix.result}`,
-      imageTagMutability: 'MUTABLE',
-      tagsAll: {
-        ...this.genTags(null, 'development'),
-      },
-    }),
-  );
-
-  readonly lambdaProdRepo = new ECR.EcrRepository(this, 'lambdaProdRepo', {
-    name: `violet-lam-prod-${this.suffix.result}`,
-    imageTagMutability: 'IMMUTABLE',
-    // TODO(security): for production
-    // imageScanningConfiguration,
+  readonly lambdaConv2imgRepo = new RepoStack(this, 'lambdaConv2imgRepo', {
+    prefix: 'vio',
+    name: 'LamC2i',
     tagsAll: {
-      ...this.genTags(null, 'production'),
+      ...this.genTags(null),
     },
+    devRepoDictContext: this.repoDictContext,
   });
 
-  readonly lambdaDevRepo = this.repoDictContext.add(
-    'Lam',
-    new ECR.EcrRepository(this, 'lambdaDevRepo', {
-      name: `violet-lam-dev-${this.suffix.result}`,
-      imageTagMutability: 'MUTABLE',
-      tagsAll: {
-        ...this.genTags(null, 'development'),
-      },
-    }),
-  );
+  readonly lambdaApiexecRepo = new RepoStack(this, 'lambdaApiexecRepo', {
+    prefix: 'vio',
+    name: 'LamAe',
+    tagsAll: {
+      ...this.genTags(null),
+    },
+    devRepoDictContext: this.repoDictContext,
+  });
 
   readonly bot = new Bot(this, 'bot', {
     prefix: 'vio-bot',
@@ -227,11 +201,11 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly apiBuild = new ContainerBuild(this, 'apiBuild', {
     name: 'Api',
-    prefix: 'violet-dev-api-build',
+    prefix: 'vio-d-api-bui',
     sharedEnv: this.options.sharedEnv,
     managerEnv: this.options.managerEnv,
     logsPrefix: `${this.logsPrefix}/dev-api-build`,
-    repo: this.apiDevRepo,
+    repo: this.apiRepo.devRepo,
     bot: this.bot,
 
     buildDictContext: this.buildDictContext,
@@ -243,11 +217,11 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly webBuild = new ContainerBuild(this, 'webBuild', {
     name: 'Web',
-    prefix: 'violet-dev-web-build',
+    prefix: 'vio-d-web-bui',
     sharedEnv: this.options.sharedEnv,
     managerEnv: this.options.managerEnv,
     logsPrefix: `${this.logsPrefix}/dev-web-build`,
-    repo: this.webDevRepo,
+    repo: this.webRepo.devRepo,
     bot: this.bot,
 
     buildDictContext: this.buildDictContext,
@@ -257,13 +231,29 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
-  readonly lambdaBuild = new ContainerBuild(this, 'lambdaBuild', {
-    name: 'Lam',
+  readonly lambdaConv2imgBuild = new ContainerBuild(this, 'lambdaConv2imgBuild', {
+    name: 'LamC2i',
     sharedEnv: this.options.sharedEnv,
     managerEnv: this.options.managerEnv,
-    prefix: 'violet-dev-lam-build',
+    prefix: 'vio-d-lamc2i-bui',
     logsPrefix: `${this.logsPrefix}/dev-lam-build`,
-    repo: this.lambdaDevRepo,
+    repo: this.lambdaConv2imgRepo.devRepo,
+    bot: this.bot,
+
+    buildDictContext: this.buildDictContext,
+
+    tagsAll: {
+      ...this.genTags(null, 'development'),
+    },
+  });
+
+  readonly lambdaApiexecBuild = new ContainerBuild(this, 'lambdaApiexecBuild', {
+    name: 'LamAe',
+    sharedEnv: this.options.sharedEnv,
+    managerEnv: this.options.managerEnv,
+    prefix: 'vio-d-lamae-bui',
+    logsPrefix: `${this.logsPrefix}/dev-lam-build`,
+    repo: this.lambdaApiexecRepo.devRepo,
     bot: this.bot,
 
     buildDictContext: this.buildDictContext,
@@ -279,8 +269,10 @@ export class VioletManagerStack extends TerraformStack {
     bot: this.bot,
     sharedEnv: this.options.sharedEnv,
     managerEnv: this.options.managerEnv,
-    apiDevRepo: this.apiDevRepo,
-    webDevRepo: this.webDevRepo,
+    apiRepo: this.apiRepo,
+    webRepo: this.webRepo,
+    lambdaConv2imgRepo: this.lambdaConv2imgRepo,
+    lambdaApiexecRepo: this.lambdaApiexecRepo,
     infraSourceBucket: this.infraSourceBucket,
     infraSourceZip: this.infraSourceZip,
 
@@ -329,17 +321,13 @@ export class VioletManagerStack extends TerraformStack {
   /**
    * ローカルで bot をサーブする場合は、 <project>/pkg/bot/.env.local に追記する
    */
-  readonly botEnvFile = new TerraformOutput(this, 'botEnvFile', {
+  readonly localEnvFile = new TerraformOutput(this, 'localEnvFile', {
     value: Object.entries({
       ...this.bot.computedBotEnv,
+      ...this.bot.computedBotEnv,
       ...this.botAttach.computedAfterwardBotEnv,
+      ...this.operateEnv.computedOpEnv,
     })
-      .map(([key, value]) => `${key}=${value}`)
-      .join('\n'),
-  });
-
-  readonly opEnvFile = new TerraformOutput(this, 'opEnvFile', {
-    value: Object.entries(this.operateEnv.computedOpEnv)
       .map(([key, value]) => `${key}=${value}`)
       .join('\n'),
   });

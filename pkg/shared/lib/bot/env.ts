@@ -15,9 +15,10 @@ export const computedBotEnvSchema = z.object({
   PREVIEW_DOMAIN: z.string(),
   INFRA_SOURCE_BUCKET: z.string(),
   INFRA_SOURCE_ZIP_KEY: z.string(),
+  BOT_SSM_PREFIX: z.string(),
   BOT_TABLE_NAME: z.string(),
   BOT_ISSUE_MAP_TABLE_NAME: z.string(),
-  BOT_SSM_PREFIX: z.string(),
+  BOT_TOPIC_NAME: z.string(),
 });
 export type ComputedBotEnv = z.infer<typeof computedBotEnvSchema>;
 export const computedBotCodeBuildEnv = (env: ComputedBotEnv): CodeBuildEnv =>
@@ -26,10 +27,12 @@ export const computedBotCodeBuildEnv = (env: ComputedBotEnv): CodeBuildEnv =>
 export const computedAfterwardBotEnvSchema = z.object({
   API_REPO_NAME: z.string(),
   WEB_REPO_NAME: z.string(),
-  LAMBDA_REPO_NAME: z.string(),
+  LAMBDA_CONV2IMG_REPO_NAME: z.string(),
+  LAMBDA_APIEXEC_REPO_NAME: z.string(),
   API_BUILD_PROJECT_NAME: z.string(),
   WEB_BUILD_PROJECT_NAME: z.string(),
-  LAMBDA_BUILD_PROJECT_NAME: z.string(),
+  LAMBDA_CONV2IMG_BUILD_PROJECT_NAME: z.string(),
+  LAMBDA_APIEXEC_BUILD_PROJECT_NAME: z.string(),
   OPERATE_ENV_PROJECT_NAME: z.string(),
   PR_UPDATE_LABELS_PROJECT_NAME: z.string(),
 });
