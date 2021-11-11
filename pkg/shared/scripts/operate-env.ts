@@ -12,10 +12,10 @@ import type {
 } from '@self/shared/lib/operate-env/build-output';
 import { tfBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
 import { computedOpEnvSchema, dynamicOpEnvSchema, scriptOpEnvSchema } from '@self/shared/lib/operate-env/op-env';
-import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
-import { exec } from '@self/shared/lib/util/exec';
 import type { OpTfOutput } from '@self/shared/lib/operate-env/output';
+import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
 import { updateTableRootKeys } from '@self/shared/lib/util/dynamodb';
+import { exec } from '@self/shared/lib/util/exec';
 
 const main = async (): Promise<void> => {
   initEnv();

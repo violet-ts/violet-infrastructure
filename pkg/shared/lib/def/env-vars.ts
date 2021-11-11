@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { toCodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
+import { toCodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
+import { z } from 'zod';
 
 const dockerHubCredSchema = z.object({
   USER: z.string(),

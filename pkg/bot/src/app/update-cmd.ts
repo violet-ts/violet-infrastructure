@@ -2,7 +2,7 @@ import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import type { Credentials, Provider } from '@aws-sdk/types';
 import { Temporal } from '@js-temporal/polyfill';
 import type { Octokit } from '@octokit/rest';
-import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
+import { constructFullComment, findCmdByName } from '@self/bot/src/app/cmd';
 import type {
   BasicContext as CommandBasicContext,
   CmdStatus,
@@ -10,10 +10,10 @@ import type {
   UpdateResult,
 } from '@self/bot/src/type/cmd';
 import { generalEntrySchema } from '@self/bot/src/type/cmd';
-import type { Logger } from 'winston';
-import { constructFullComment, findCmdByName } from '@self/bot/src/app/cmd';
-import { updateTableRootKeys } from '@self/shared/lib/util/dynamodb';
 import { parseFullEntryForTypeCheck } from '@self/bot/src/util/parse-entry';
+import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
+import { updateTableRootKeys } from '@self/shared/lib/util/dynamodb';
+import type { Logger } from 'winston';
 
 interface ReEvaluated {
   fullComment: string;

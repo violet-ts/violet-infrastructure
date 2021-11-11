@@ -1,11 +1,11 @@
 import { getCodeBuildCredentials } from '@self/shared/lib/aws';
-import { createLambdaLogger } from '@self/shared/lib/loggers';
 import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
 import { createOctokit } from '@self/shared/lib/bot/octokit';
 import { parsePr, prAnalyze } from '@self/shared/lib/bot/pr-analyze';
 import { getLabelInfo, isManagedLabel } from '@self/shared/lib/bot/pr-label';
 import { requireSecrets } from '@self/shared/lib/bot/secrets';
 import { initEnv } from '@self/shared/lib/def/util/init-env';
+import { createLambdaLogger } from '@self/shared/lib/loggers';
 import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
 import type { DynamicUpdatePrLabelsEnv } from '@self/shared/lib/update-pr-labels/env';
 import { dynamicUpdatePrLabelsEnvSchema } from '@self/shared/lib/update-pr-labels/env';

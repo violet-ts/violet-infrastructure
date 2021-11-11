@@ -1,5 +1,5 @@
 import type { CodeBuild } from '@cdktf/provider-aws';
-import { SecretsManager, IAM } from '@cdktf/provider-aws';
+import { IAM, SecretsManager } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import type { DockerHubCred } from '@self/shared/lib/def/env-vars';

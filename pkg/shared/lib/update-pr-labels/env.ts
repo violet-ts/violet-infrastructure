@@ -1,6 +1,6 @@
-import { z } from 'zod';
 import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import { toCodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
+import { z } from 'zod';
 
 export const dynamicUpdatePrLabelsEnvSchema = z.object({
   UPDATE_LABELS_REPO: z.string(),

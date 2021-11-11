@@ -1,6 +1,6 @@
+import conventionalCommitsParser from 'conventional-commits-parser';
 import parseDiff from 'parse-diff';
 import * as path from 'path';
-import conventionalCommitsParser from 'conventional-commits-parser';
 
 export interface ParsePrParams {
   // find ./docker/ -type f -a -name 'Dockerfile'

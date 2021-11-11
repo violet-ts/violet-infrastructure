@@ -1,23 +1,23 @@
-import * as path from 'path';
 import { AwsProvider, ResourceGroups, Route53, S3 } from '@cdktf/provider-aws';
-import { z } from 'zod';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
 import { projectRootDir, PROJECT_NAME } from '@self/shared/lib/const';
 import type { DockerHubCred, ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
+import type { Section } from '@self/shared/lib/def/types';
+import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import { Fn, TerraformHclModule, TerraformOutput, TerraformStack } from 'cdktf';
 import type { Construct } from 'constructs';
-import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
-import type { Section } from '@self/shared/lib/def/types';
+import * as path from 'path';
+import { z } from 'zod';
+import { Bot } from './bot';
 import type { BuildDictContext, RepoDictContext } from './bot-attach';
 import { BotAttach } from './bot-attach';
 import { ContainerBuild } from './build-container';
 import { createDictContext } from './context/dict';
 import { DockerHubCredentials } from './dockerhub-credentials';
 import { OperateEnv } from './operate-env';
-import { UpdatePRLabels } from './update-pr-labels';
-import { Bot } from './bot';
 import { RepoStack } from './repo-stack';
+import { UpdatePRLabels } from './update-pr-labels';
 
 export interface VioletManagerOptions {
   region: string;

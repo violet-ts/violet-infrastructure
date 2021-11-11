@@ -1,6 +1,6 @@
 import type { Temporal } from '@js-temporal/polyfill';
-import prettyBytes from 'pretty-bytes';
 import type { CmdStatus, CommentBody, CommentHint } from '@self/bot/src/type/cmd';
+import prettyBytes from 'pretty-bytes';
 
 export const renderTimestamp = (instant: Temporal.Instant): string => {
   return `<a href="https://www.timeanddate.com/worldclock/fixedtime.html?iso=${instant.toString()}">${instant.toString()}</a>`;

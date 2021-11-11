@@ -1,7 +1,7 @@
-import type { BoundReplyCmd } from '@self/bot/src/type/cmd';
 import { findCmdByName } from '@self/bot/src/app/cmd';
 import parallel from '@self/bot/src/cmd/meta/parallel';
 import serial from '@self/bot/src/cmd/meta/serial';
+import type { BoundReplyCmd } from '@self/bot/src/type/cmd';
 import { marshallMetaArgs } from './util';
 
 export const createSerial = (boundCmds: BoundReplyCmd[]): BoundReplyCmd => {

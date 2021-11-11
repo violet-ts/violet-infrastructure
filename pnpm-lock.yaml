@@ -30,6 +30,7 @@ importers:
       jest: ^27.3.1
       npm-run-all: ^4.1.5
       prettier: ^2.4.1
+      prettier-plugin-organize-imports: ^2.3.4
       promise-queue: ^2.2.5
       source-map-support: ^0.5.20
       ts-jest: ^27.0.7
@@ -63,6 +64,7 @@ importers:
       jest: 27.3.1_ts-node@10.4.0
       npm-run-all: 4.1.5
       prettier: 2.4.1
+      prettier-plugin-organize-imports: 2.3.4_prettier@2.4.1+typescript@4.4.4
       promise-queue: 2.2.5
       source-map-support: 0.5.20
       ts-jest: 27.0.7_2c4ca6574207836d1023f54689cc81ac
@@ -1512,6 +1514,7 @@ packages:
       cdktf: 0.7.0_constructs@10.0.9
       constructs: 10.0.9
     dev: true
+    bundledDependencies: []
 
   /@cdktf/provider-random/0.0.5_cdktf@0.7.0+constructs@10.0.9:
     resolution: {integrity: sha512-PNmO50XqxPlmW6gLbIZLJneVGA9BKQRSmKyGr+V5uyvcD8LAn0HsILDCG2voINBw2RVsNh+fTzpeqfomnWgj5g==}
@@ -7209,6 +7212,16 @@ packages:
     engines: {node: '>=6.0.0'}
     dependencies:
       fast-diff: 1.2.0
+    dev: true
+
+  /prettier-plugin-organize-imports/2.3.4_prettier@2.4.1+typescript@4.4.4:
+    resolution: {integrity: sha512-R8o23sf5iVL/U71h9SFUdhdOEPsi3nm42FD/oDYIZ2PQa4TNWWuWecxln6jlIQzpZTDMUeO1NicJP6lLn2TtRw==}
+    peerDependencies:
+      prettier: '>=2.0'
+      typescript: '>=2.9'
+    dependencies:
+      prettier: 2.4.1
+      typescript: 4.4.4
     dev: true
 
   /prettier/2.4.1:

@@ -1,7 +1,7 @@
 import { SSM } from '@aws-sdk/client-ssm';
+import type { Credentials, Provider } from '@aws-sdk/types';
 import type { BotSecrets, ComputedBotEnv } from '@self/shared/lib/bot/env';
 import { botSecretsSchema } from '@self/shared/lib/bot/env';
-import type { Credentials, Provider } from '@aws-sdk/types';
 import type { Logger } from 'winston';
 
 const keys = Object.keys(botSecretsSchema.shape);

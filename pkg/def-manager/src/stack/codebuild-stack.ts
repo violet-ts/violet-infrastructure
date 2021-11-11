@@ -1,20 +1,20 @@
-import { Fn } from 'cdktf';
-import { SNS, IAM, CodeBuild, CodeStar, S3, CloudWatch } from '@cdktf/provider-aws';
+import { CloudWatch, CodeBuild, CodeStar, IAM, S3, SNS } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
-import * as path from 'path';
-import { z } from 'zod';
-import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
-import type { Construct } from 'constructs';
-import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
-import { sharedCodeBuildEnv } from '@self/shared/lib/def/env-vars';
-import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
+import { computedBotCodeBuildEnv } from '@self/shared/lib/bot/env';
 import type { CodeBuildStackEnv } from '@self/shared/lib/codebuild-stack/env';
 import { codeBuildStackCodeBuildEnv } from '@self/shared/lib/codebuild-stack/env';
-import { computedBotCodeBuildEnv } from '@self/shared/lib/bot/env';
-import { dataDir } from './values';
+import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
+import { sharedCodeBuildEnv } from '@self/shared/lib/def/env-vars';
+import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
+import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
+import { Fn } from 'cdktf';
+import type { Construct } from 'constructs';
+import * as path from 'path';
+import { z } from 'zod';
 import type { Bot } from './bot';
+import { dataDir } from './values';
 
 // Opinionated CodeBuild stack.
 

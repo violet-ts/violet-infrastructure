@@ -1,7 +1,7 @@
 import format from 'date-fns/format';
+import * as fs from 'fs';
 import { tmpdir } from 'os';
 import * as path from 'path';
-import * as fs from 'fs';
 
 export interface TmpdirContext {
   open(): string;

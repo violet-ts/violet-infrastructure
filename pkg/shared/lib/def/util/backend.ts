@@ -1,9 +1,9 @@
 // Reference: https://github.com/hashicorp/terraform-cdk/blob/main/docs/working-with-cdk-for-terraform/remote-backend.md
 
+import type { BotSecrets } from '@self/shared/lib/bot/env';
+import type { SharedEnv } from '@self/shared/lib/def/env-vars';
 import type { TerraformStack } from 'cdktf';
 import { RemoteBackend } from 'cdktf';
-import type { SharedEnv } from '@self/shared/lib/def/env-vars';
-import type { BotSecrets } from '@self/shared/lib/bot/env';
 
 /**
  * @param uniqueName 仮に stack が複数の設定で同時に生成されうるとしても競合しない名前

@@ -1,4 +1,4 @@
-import { fromIni, fromEnv, fromContainerMetadata } from '@aws-sdk/credential-providers';
+import { fromContainerMetadata, fromEnv, fromIni } from '@aws-sdk/credential-providers';
 import type { Credentials, Provider } from '@aws-sdk/types';
 
 export const getLambdaCredentials = (): Credentials | Provider<Credentials> => {
