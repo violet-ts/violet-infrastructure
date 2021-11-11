@@ -69,6 +69,10 @@ export const renderAnchor = (name: string, href: string): string => {
   return `<a href="${href}">${name}</a>`;
 };
 
+export const renderBold = (content: string): string => {
+  return `<b>${content}</b>`;
+};
+
 export const renderCode = (code: string): string => {
   return `<code>${code}</code>`;
 };
