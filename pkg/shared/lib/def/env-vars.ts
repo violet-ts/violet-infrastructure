@@ -20,7 +20,7 @@ export const extractDockerHubCred = (from: Record<string, string | undefined>): 
 };
 
 export const sharedEnvSchema = z.object({
-  MANAGER_NAMEPACE: z.union([z.literal('prod'), z.string().regex(/^dev-[\w-]*/)]),
+  MANAGER_NAMESPACE: z.union([z.literal('prod'), z.string().regex(/^dev-[\w-]*/)]),
   AWS_ACCOUNT_ID: z.string(),
   /** 事前に作成した AWS Route53 Zone */
   PREVIEW_ZONE_ID: z.string(),

@@ -18,7 +18,6 @@ import { DataNetwork } from './data-network';
 import { HTTPTask } from './http-task';
 import { MysqlDb } from './mysql';
 import { RepoImage } from './repo-image';
-import { genTags } from './values';
 
 export interface VioletEnvOptions {
   region: string;
@@ -44,6 +43,19 @@ export class VioletEnvStack extends TerraformStack {
     }
   }
 
+  private genTags(name: string | null, namespace: string, section: Section): Record<string, string> {
+    const tags: Record<string, string> = {
+      Project: PROJECT_NAME,
+      Namespace: namespace,
+      NamespaceHash6: getHash6(namespace),
+      Managed: 'true',
+      ManagerNamespace: this.options.sharedEnv.MANAGER_NAMESPACE,
+      Section: section,
+    };
+    if (name != null) tags.Name = name;
+    return tags;
+  }
+
   /** len = 6 + 6 + 1 + 1 = 14 */
   private readonly prefix = `vio-e-${getHash6(this.options.dynamicOpEnv.NAMESPACE)}-${this.options.section[0]}`;
 
@@ -55,7 +67,7 @@ export class VioletEnvStack extends TerraformStack {
     region: this.options.region,
     profile: process.env.AWS_PROFILE || undefined,
     defaultTags: {
-      tags: genTags(null, this.options.dynamicOpEnv.NAMESPACE, this.options.section),
+      tags: this.genTags(null, this.options.dynamicOpEnv.NAMESPACE, this.options.section),
     },
   });
 
@@ -116,6 +128,10 @@ export class VioletEnvStack extends TerraformStack {
           {
             Key: 'Namespace',
             Values: [this.options.dynamicOpEnv.NAMESPACE],
+          },
+          {
+            Key: 'ManagerNamespace',
+            Values: [this.options.sharedEnv.MANAGER_NAMESPACE],
           },
         ],
       }),

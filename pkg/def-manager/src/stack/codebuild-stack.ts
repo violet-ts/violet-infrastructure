@@ -42,7 +42,7 @@ export class CodeBuildStack extends Resource {
   });
 
   // TODO: https://github.com/hashicorp/terraform-provider-aws/issues/10195
-  readonly cachename = `${this.options.prefix}-cache`;
+  readonly cachename = `${this.options.prefix}-${this.options.sharedEnv.MANAGER_NAMESPACE}-cache`;
 
   // TODO(cost): lifecycle
   readonly cache = new S3.S3Bucket(this, 'cache', {

@@ -32,6 +32,10 @@ export class VioletManagerStack extends TerraformStack {
     super(scope, name);
   }
 
+  get isProd(): boolean {
+    return this.options.sharedEnv.MANAGER_NAMESPACE === 'prod';
+  }
+
   private genTags(name: string | null, section?: Section | null): Record<string, string> {
     const tags: Record<string, string> = {
       Project: PROJECT_NAME,
@@ -39,10 +43,11 @@ export class VioletManagerStack extends TerraformStack {
       Manager: 'true',
       /** IaC で管理している、というフラグ */
       Managed: 'true',
+      ManagerNamespace: this.options.sharedEnv.MANAGER_NAMESPACE,
     };
     if (name != null) tags.Name = name;
     if (section != null) tags.Section = section;
-    if (this.options.sharedEnv.MANAGER_NAMEPACE !== 'prod') tags.Section = 'development';
+    if (this.options.sharedEnv.MANAGER_NAMESPACE !== 'prod') tags.Section = 'development';
     return tags;
   }
 
@@ -72,24 +77,50 @@ export class VioletManagerStack extends TerraformStack {
   readonly logsPrefix = `/violet/${this.suffix.result}`;
 
   // Violet プロジェクトすべてのリソース
-  readonly allResources = new ResourceGroups.ResourcegroupsGroup(this, 'allResources', {
-    name: `violet-all`,
-    resourceQuery: {
-      query: JSON.stringify({
-        ResourceTypeFilters: ['AWS::AllSupported'],
-        TagFilters: [
-          {
-            Key: 'Project',
-            Values: [PROJECT_NAME],
-          },
-        ],
-      }),
-    },
-  });
+  readonly allResources =
+    this.isProd &&
+    new ResourceGroups.ResourcegroupsGroup(this, 'allResources', {
+      name: `violet-all`,
+      resourceQuery: {
+        query: JSON.stringify({
+          ResourceTypeFilters: ['AWS::AllSupported'],
+          TagFilters: [
+            {
+              Key: 'Project',
+              Values: [PROJECT_NAME],
+            },
+          ],
+        }),
+      },
+    });
 
   // Violet Manager のリソース
-  readonly managerResources = new ResourceGroups.ResourcegroupsGroup(this, 'managerResources', {
-    name: `violet-manager`,
+  readonly managerResources =
+    this.isProd &&
+    new ResourceGroups.ResourcegroupsGroup(this, 'managerResources', {
+      name: `violet-manager`,
+      resourceQuery: {
+        query: JSON.stringify({
+          ResourceTypeFilters: ['AWS::AllSupported'],
+          TagFilters: [
+            {
+              Key: 'Project',
+              Values: [PROJECT_NAME],
+            },
+            {
+              Key: 'Manager',
+              Values: ['true'],
+            },
+          ],
+        }),
+      },
+      tagsAll: {
+        ...this.genTags('Project Violet Manager Resources'),
+      },
+    });
+
+  readonly namespacedManagerResources = new ResourceGroups.ResourcegroupsGroup(this, 'namespacedManagerResources', {
+    name: `violet-manager-${this.options.sharedEnv.MANAGER_NAMESPACE}`,
     resourceQuery: {
       query: JSON.stringify({
         ResourceTypeFilters: ['AWS::AllSupported'],
@@ -101,6 +132,10 @@ export class VioletManagerStack extends TerraformStack {
           {
             Key: 'Manager',
             Values: ['true'],
+          },
+          {
+            Key: 'ManagerNamespace',
+            Values: [this.options.sharedEnv.MANAGER_NAMESPACE],
           },
         ],
       }),
