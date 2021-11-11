@@ -120,6 +120,7 @@ const main = async (): Promise<void> => {
     const tfBuildOutput = await getTfBuildOutput();
 
     const lambda = new Lambda({ credentials, logger, region: tfBuildOutput.env_region });
+    // TODO(cost): Invoke 待機中の CodeBuild 費用
     const res = await lambda.invoke({
       FunctionName: tfBuildOutput.api_exec_function_name,
       Payload: Uint8Array.from(
