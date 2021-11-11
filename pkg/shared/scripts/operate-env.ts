@@ -243,7 +243,7 @@ const main = async (): Promise<void> => {
     }
     case 'prisma/db/seed': {
       // TODO: other seeds
-      await apiExecPnpm(['run', 'prisma:seed', '--', 'dev']);
+      await apiExecPnpm(['run', '_:prisma:seed', '--', 'dev']);
       break;
     }
     default: {
