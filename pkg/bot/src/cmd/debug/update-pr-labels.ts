@@ -2,7 +2,7 @@ import { CodeBuild } from '@aws-sdk/client-codebuild';
 import type { Temporal } from '@js-temporal/polyfill';
 import { toTemporalInstant } from '@js-temporal/polyfill';
 import type { ReplyCmd } from '@self/bot/src/type/cmd';
-import { renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
+import { renderAnchor, renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
 import type { BuiltInfo } from '@self/shared/lib/operate-env/build-output';
 import { dynamicRunScriptCodeBuildEnv } from '@self/shared/lib/run-script/env';
 import { dynamicUpdatePrLabelsEnvCodeBuildEnv } from '@self/shared/lib/update-pr-labels/env';
@@ -88,7 +88,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
         `ビルドID: [${entry.buildId}](${buildUrl})`,
         `ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
         builtInfo && `ビルド時間: ${builtInfo.timeRange}`,
-        values.deepLogLink && `[ビルドの詳細ログ (CloudWatch Logs)](${values.deepLogLink})`,
+        values.deepLogLink && renderAnchor('ビルドの詳細ログ (CloudWatch Logs)', values.deepLogLink),
       ],
     };
   },

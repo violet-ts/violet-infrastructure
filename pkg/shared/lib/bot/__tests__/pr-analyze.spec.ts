@@ -48,6 +48,15 @@ describe('prAnalyze', () => {
         commits: ['fix: foo', 'chore: foo', 'docs(some): foo', 'foo', 'refactor(some/other): foo', 'test: foo'],
       }).sort(),
     ).toEqual(['diff/XS', 'bug', 'documentation', 'refactor', 'test'].sort());
+    expect(
+      prAnalyze({
+        dockerfiles: [],
+        projectPackages: [],
+        chanegdFiles: [],
+        changes: [],
+        commits: ['chore(rule): foo'],
+      }).sort(),
+    ).toEqual(['diff/XS', 'rule'].sort());
   });
 
   it('should analyze diff size', () => {
@@ -374,6 +383,7 @@ describe('prAnalyze', () => {
     expect(prAnalyze(c('commitlint.config.js')).sort()).toEqual(['diff/XS', 'rule'].sort());
     expect(prAnalyze(c('commitlint.config.cjs')).sort()).toEqual(['diff/XS', 'rule'].sort());
     expect(prAnalyze(c('.npmrc')).sort()).toEqual(['diff/XS', 'rule'].sort());
+    expect(prAnalyze(c('hadolint.ts')).sort()).toEqual(['diff/XS', 'rule'].sort());
 
     expect(prAnalyze(c('pnpm-lock.yaml')).sort()).toEqual(['diff/XS', 'update/lockfile'].sort());
     expect(prAnalyze(c('.github/ISSUE_TEMPLATE/foo.md')).sort()).toEqual(['diff/XS', 'rule'].sort());
