@@ -1,7 +1,7 @@
-import { App } from 'cdktf';
-import { sharedEnvSchema, managerEnvSchema, extractDockerHubCred } from '@self/shared/lib/def/env-vars';
+import { extractDockerHubCred, managerEnvSchema, sharedEnvSchema } from '@self/shared/lib/def/env-vars';
 import { configureManagerBackend } from '@self/shared/lib/def/util/backend';
 import { initEnv } from '@self/shared/lib/def/util/init-env';
+import { App } from 'cdktf';
 import type { VioletManagerOptions } from './stack';
 import { VioletManagerStack } from './stack';
 
@@ -21,5 +21,5 @@ const options: VioletManagerOptions = {
 };
 
 const stack = new VioletManagerStack(app, 'violet-infra', options);
-configureManagerBackend(stack, `violet-manager-${sharedEnv.MANAGER_NAMEPACE}`, sharedEnv);
+configureManagerBackend(stack, `violet-manager-${sharedEnv.MANAGER_NAMESPACE}`, sharedEnv);
 app.synth();

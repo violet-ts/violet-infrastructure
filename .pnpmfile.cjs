@@ -7,10 +7,6 @@ function readPackage(pkg) {
       }
     }
   }
-  if (pkg.name === 'cdktf-cli') {
-    // https://github.com/hashicorp/terraform-cdk/issues/1217
-    pkg.dependencies.ink = '3.0.8';
-  }
   return pkg;
 }
 

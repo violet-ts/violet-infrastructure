@@ -1,13 +1,13 @@
 import { createNodeMiddleware } from '@octokit/webhooks';
-import * as http from 'http';
-import * as winston from 'winston';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
-import { computedAfterwardBotEnvSchema, computedBotEnvSchema } from '@self/shared/lib/bot/env';
-import { requireSecrets } from '@self/shared/lib/bot/secrets';
 import { createWebhooks } from '@self/bot/src/app/webhooks';
 import { getLambdaCredentials } from '@self/shared/lib/aws';
+import { computedAfterwardBotEnvSchema, computedBotEnvSchema } from '@self/shared/lib/bot/env';
+import { requireSecrets } from '@self/shared/lib/bot/secrets';
 import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
+import * as dotenv from 'dotenv';
+import * as http from 'http';
+import * as path from 'path';
+import * as winston from 'winston';
 
 const main = async () => {
   dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });

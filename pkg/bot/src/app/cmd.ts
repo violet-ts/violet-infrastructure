@@ -3,10 +3,7 @@
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import { Temporal } from '@js-temporal/polyfill';
-import arg from 'arg';
 import { cmds } from '@self/bot/src/app/cmds';
-import { renderCode, renderCommentBody, renderTimestamp } from '@self/bot/src/util/comment-render';
-import { embedDirective } from '@self/bot/src/util/parse-comment';
 import type {
   BasicContext,
   CommandContext,
@@ -17,6 +14,9 @@ import type {
   ReplyCmd,
   ReplyCmdMainResult,
 } from '@self/bot/src/type/cmd';
+import { renderCode, renderCommentBody, renderTimestamp } from '@self/bot/src/util/comment-render';
+import { embedDirective } from '@self/bot/src/util/parse-comment';
+import arg from 'arg';
 
 export const findCmdByName = (name: string): ReplyCmd => {
   const cmd = cmds.find((cmd) => cmd.name === name);
@@ -113,7 +113,7 @@ export const runMain = async (
     const db = new DynamoDB({ credentials, logger });
     await db.putItem({
       TableName: env.BOT_TABLE_NAME,
-      Item: marshall(fullEntry, { convertEmptyValues: true }),
+      Item: marshall(fullEntry, { convertEmptyValues: true, removeUndefinedValues: true }),
     });
   }
 

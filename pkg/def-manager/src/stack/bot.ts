@@ -1,5 +1,5 @@
 import type { ECR, Route53 } from '@cdktf/provider-aws';
-import { SQS, SNS, APIGatewayV2, CloudWatch, DynamoDB, IAM, S3, SSM } from '@cdktf/provider-aws';
+import { APIGatewayV2, CloudWatch, DynamoDB, IAM, S3, SNS, SQS, SSM } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';

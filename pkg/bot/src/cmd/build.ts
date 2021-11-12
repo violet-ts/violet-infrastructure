@@ -1,10 +1,10 @@
 import type { ReplyCmd } from '@self/bot/src/type/cmd';
 import buildApi from './build-api';
-import buildWeb from './build-web';
-import buildLambdaConv2img from './build-lambda-conv2img';
 import buildLambdaApiExec from './build-lambda-apiexec';
-import createCmd from './template/bound-cmd';
+import buildLambdaConv2img from './build-lambda-conv2img';
+import buildWeb from './build-web';
 import { createParallel } from './meta/construct';
+import createCmd from './template/bound-cmd';
 
 export const buildCmds: ReplyCmd[] = [
   buildApi,

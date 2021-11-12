@@ -1,5 +1,5 @@
-import { Octokit } from '@octokit/rest';
 import { createAppAuth } from '@octokit/auth-app';
+import { Octokit } from '@octokit/rest';
 import type { BotSecrets } from '@self/shared/lib/bot/env';
 
 export const createOctokit = async (secrets: BotSecrets, installationId: number): Promise<Octokit> => {

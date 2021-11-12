@@ -1,9 +1,9 @@
-import type { ReplyCmd } from '@self/bot/src/type/cmd';
 import prismaMigrateDeploy from '@self/bot/src/cmd/prisma-migrate-deploy';
+import type { ReplyCmd } from '@self/bot/src/type/cmd';
 import build from './build';
+import { createSerial } from './meta/construct';
 import previewStart from './preview-start';
 import createCmd from './template/bound-cmd';
-import { createSerial } from './meta/construct';
 
 const cmds: ReplyCmd[] = [
   build,

@@ -1,6 +1,6 @@
-import type { Logger } from 'winston';
 import type { Credentials, Provider } from '@aws-sdk/types';
 import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
+import type { Logger } from 'winston';
 
 export type MatcherBasicContext = {
   env: AccumuratedBotEnv;

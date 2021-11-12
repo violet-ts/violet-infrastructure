@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import type { ReplyCmd } from '@self/bot/src/type/cmd';
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
+import type { ReplyCmd } from '@self/bot/src/type/cmd';
+import { z } from 'zod';
 import { renderCode } from '../util/comment-render';
 
 const entrySchema = z.object({});

@@ -8,7 +8,7 @@ const cmd = createCmd(
   },
   (env) => ({
     imageRepoName: env.LAMBDA_APIEXEC_REPO_NAME,
-    buildDockerfile: './docker/lambda/apiexec/Dockerfile',
+    buildDockerfile: './docker/prod/lambda/apiexec/Dockerfile',
     projectName: env.LAMBDA_APIEXEC_BUILD_PROJECT_NAME,
     dockerBuildArgs: '',
   }),

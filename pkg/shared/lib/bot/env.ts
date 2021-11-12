@@ -1,7 +1,7 @@
-import { z } from 'zod';
+import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
 import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import { toCodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
-import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
+import { z } from 'zod';
 
 export const botSecretsSchema = z.object({
   WEBHOOKS_SECRET: z.string(),

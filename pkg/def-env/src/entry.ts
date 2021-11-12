@@ -1,14 +1,14 @@
-import { App } from 'cdktf';
+import { getCodeBuildCredentials } from '@self/shared/lib/aws';
+import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
+import { requireSecrets } from '@self/shared/lib/bot/secrets';
+import { codeBuildStackEnvSchema } from '@self/shared/lib/codebuild-stack/env';
+import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
 import { configureEnvBackend } from '@self/shared/lib/def/util/backend';
 import { initEnv } from '@self/shared/lib/def/util/init-env';
-import { computedOpEnvSchema, dynamicOpEnvSchema } from '@self/shared/lib/operate-env/op-env';
-import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
-import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
 import { createLambdaLogger } from '@self/shared/lib/loggers';
-import { codeBuildStackEnvSchema } from '@self/shared/lib/codebuild-stack/env';
-import { requireSecrets } from '@self/shared/lib/bot/secrets';
-import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
-import { getCodeBuildCredentials } from '@self/shared/lib/aws';
+import { computedOpEnvSchema, dynamicOpEnvSchema } from '@self/shared/lib/operate-env/op-env';
+import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
+import { App } from 'cdktf';
 import type { VioletEnvOptions } from './stack';
 import { VioletEnvStack } from './stack';
 

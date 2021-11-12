@@ -24,8 +24,6 @@ export const runTaskBuildOutputSchema = z.object({
 });
 export type RunTaskBuildOutput = z.infer<typeof runTaskBuildOutputSchema>;
 
-export type BuiltInfo = { timeRange: string };
-
 export const invokeFunctionBuildOutputSchema = z.object({
   invokeFunctionBuildOutput: z.optional(
     z.object({

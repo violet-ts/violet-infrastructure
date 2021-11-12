@@ -1,7 +1,7 @@
+import { projectRootDir } from '@self/shared/lib/const';
+import { createTmpdirContext } from '@self/shared/lib/util/tmpdir';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createTmpdirContext } from '@self/shared/lib/util/tmpdir';
-import { projectRootDir } from '@self/shared/lib/const';
 import { execThrow } from '../../lib/util/exec';
 
 const main = async () => {

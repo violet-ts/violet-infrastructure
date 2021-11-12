@@ -11,7 +11,7 @@ import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import type { Construct } from 'constructs';
 import path from 'path';
 import { z } from 'zod';
-import type { BuildDictContext, Bot } from './bot';
+import type { Bot, BuildDictContext } from './bot';
 import { CodeBuildStack } from './codebuild-stack';
 import { sharedScriptsDir } from './values';
 

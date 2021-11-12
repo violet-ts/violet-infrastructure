@@ -8,7 +8,7 @@ const cmd = createCmd(
   },
   (env) => ({
     imageRepoName: env.API_REPO_NAME,
-    buildDockerfile: './docker/api/Dockerfile',
+    buildDockerfile: './docker/prod/api/Dockerfile',
     projectName: env.API_BUILD_PROJECT_NAME,
     dockerBuildArgs: '',
   }),

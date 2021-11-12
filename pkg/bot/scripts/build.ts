@@ -1,10 +1,10 @@
-import * as path from 'path';
+import * as childProcess from 'child_process';
+import * as chokidar from 'chokidar';
 import { build } from 'esbuild';
 import * as fs from 'fs';
-import * as util from 'util';
-import * as childProcess from 'child_process';
+import * as path from 'path';
 import Queue from 'promise-queue';
-import * as chokidar from 'chokidar';
+import * as util from 'util';
 
 const execFile = util.promisify(childProcess.execFile);
 

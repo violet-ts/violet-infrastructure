@@ -1,6 +1,6 @@
+import conventionalCommitsParser from 'conventional-commits-parser';
 import parseDiff from 'parse-diff';
 import * as path from 'path';
-import conventionalCommitsParser from 'conventional-commits-parser';
 
 export interface ParsePrParams {
   // find ./docker/ -type f -a -name 'Dockerfile'
@@ -69,12 +69,14 @@ export const prAnalyze = ({
   const labels = new Set<string>();
 
   commits.forEach((c) => {
-    const { type } = conventionalCommitsParser.sync(c);
+    const { type, scope } = conventionalCommitsParser.sync(c);
     if (type === 'feat') labels.add('feat');
     if (type === 'docs') labels.add('documentation');
     if (type === 'refactor') labels.add('refactor');
     if (type === 'fix') labels.add('bug');
     if (type === 'test') labels.add('test');
+
+    if (scope === 'rule') labels.add('rule');
   });
 
   const changedLines = changes.filter((c) => c.type !== 'normal').filter((c) => c.content.match(/\S/)).length;
@@ -113,6 +115,7 @@ export const prAnalyze = ({
     if (['CODEOWNERS'].includes(basename)) labels.add('update/codeowners');
     if (['.gitignore'].includes(basename)) labels.add('update/gitignore');
     if (['.dockerignore'].includes(basename)) labels.add('update/dockerignore');
+    if (['hadolint.ts'].includes(basename)) labels.add('rule');
 
     if (['package-lock.json'].includes(basename)) labels.add('invalid/package-lock');
     if (['yarn.lock'].includes(basename)) labels.add('invalid/yarn-lock');
