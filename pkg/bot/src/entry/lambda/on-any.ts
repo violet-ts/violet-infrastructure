@@ -1,2 +1,2 @@
 require('source-map-support/register');
-require('./on-any/main');
+module.exports = require('./on-any/main');
