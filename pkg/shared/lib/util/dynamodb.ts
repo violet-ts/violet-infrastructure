@@ -16,6 +16,7 @@ export const updateTableRootKeys = async (
   const keys = Object.fromEntries(entries.map(([key], i) => [`#key${i}`, key]));
   const values = marshall(Object.fromEntries(entries.map(([_key, value], i) => [`:value${i}`, value])), {
     convertEmptyValues: true,
+    removeUndefinedValues: true,
   });
   const db = new DynamoDB({ credentials, logger });
   // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html

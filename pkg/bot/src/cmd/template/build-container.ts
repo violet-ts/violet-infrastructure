@@ -1,16 +1,16 @@
-import { CodeBuild } from '@aws-sdk/client-codebuild';
 import type { Temporal } from '@js-temporal/polyfill';
 import { toTemporalInstant } from '@js-temporal/polyfill';
 import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
 import { collectLogsOutput } from '@self/bot/src/util/aws/logs-output';
-import { renderAnchor, renderBytes, renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
+import { renderAnchor, renderBytes, renderTimestamp } from '@self/bot/src/util/comment-render';
 import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
 import { renderGitHubPRCommit } from '@self/bot/src/util/comment-render/github';
 import { hintHowToPullDocker } from '@self/bot/src/util/hint';
 import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
 import { dynamicBuildCodeBuildEnv } from '@self/shared/lib/build-env';
 import { z } from 'zod';
+import { getBuild, startBuild } from './codebuild';
 
 // TODO(hardcoded)
 const imageRegion = 'ap-northeast-1';
@@ -28,10 +28,6 @@ const outputBuiltInfoSchema = z.object({
 });
 export type OutputBuiltInfo = z.infer<typeof outputBuiltInfoSchema>;
 
-export type BuiltInfo = OutputBuiltInfo & {
-  timeRange: string;
-};
-
 const imageDetailSchema = z.object({
   imageRegion: z.string(),
   imageRepoName: z.string(),
@@ -44,8 +40,9 @@ export interface CommentValues {
   buildStatus: string;
   statusChangedAt: Temporal.Instant;
   deepLogLink?: string | null;
-  builtInfo?: BuiltInfo | null;
+  builtInfo?: OutputBuiltInfo | null;
   imageDetail?: ImageDetail | null;
+  timeRange?: string | null;
 }
 
 interface CreateParams {
@@ -69,52 +66,48 @@ const createCmd = (
     async main(ctx, _args) {
       const { number: prNumber } = ctx.commentPayload.issue;
       const { credentials, logger } = ctx;
-      const codeBuild = new CodeBuild({ credentials, logger });
       const imageTag = ctx.namespace;
       const params = paramsGetter(ctx.env, ctx.namespace);
-      const r = await codeBuild.startBuild({
-        projectName: params.projectName,
-        environmentVariablesOverride: [
-          ...dynamicBuildCodeBuildEnv({
-            GIT_URL: ctx.commentPayload.repository.clone_url,
-            GIT_FETCH: `refs/pull/${prNumber}/head`,
-            IMAGE_REPO_NAME: params.imageRepoName,
-            IMAGE_TAG: imageTag,
-            BUILD_DOCKERFILE: params.buildDockerfile,
-            DOCKER_BUILD_ARGS: params.dockerBuildArgs,
-          }),
-        ],
+      const r = await startBuild({
+        input: {
+          projectName: params.projectName,
+          environmentVariablesOverride: [
+            ...dynamicBuildCodeBuildEnv({
+              GIT_URL: ctx.commentPayload.repository.clone_url,
+              GIT_FETCH: `refs/pull/${prNumber}/head`,
+              IMAGE_REPO_NAME: params.imageRepoName,
+              IMAGE_TAG: imageTag,
+              BUILD_DOCKERFILE: params.buildDockerfile,
+              DOCKER_BUILD_ARGS: params.dockerBuildArgs,
+            }),
+          ],
+        },
+        credentials,
+        logger,
       });
-
-      const { build } = r;
-      if (build == null) throw new TypeError('Response not found for CodeBuild.startBuild');
-      if (typeof build.buildStatus !== 'string') throw new TypeError('CodeBuild response buildStatus is not string');
-      if (typeof build.id !== 'string') throw new TypeError('CodeBuild response id is not string');
-      if (typeof build.arn !== 'string') throw new TypeError('CodeBuild response arn is not string');
-      if (build.startTime == null) throw new TypeError('CodeBuild response startTime is not Date');
 
       const entry: Entry = {
         prNumber,
-        buildId: build.id,
+        buildId: r.build.id,
         imageTag,
         imageRepoName: params.imageRepoName,
       };
 
       const values: CommentValues = {
-        buildStatus: build.buildStatus,
-        statusChangedAt: toTemporalInstant.call(build.startTime),
+        buildStatus: r.build.buildStatus,
+        statusChangedAt: toTemporalInstant.call(r.build.startTime),
       };
 
       return {
         status: 'undone',
         entry,
         values,
-        watchTriggers: new Set([build.arn]),
+        watchTriggers: new Set([r.build.arn]),
       };
     },
     constructComment(entry, values, ctx) {
       const params = paramsGetter(ctx.env, entry.namespace);
-      const { builtInfo, imageDetail } = values;
+      const { builtInfo, imageDetail, timeRange } = values;
       const buildUrl = `https://${imageRegion}.console.aws.amazon.com/codesuite/codebuild/projects/${
         params.projectName
       }/build/${encodeURIComponent(entry.buildId)}/`;
@@ -130,7 +123,7 @@ const createCmd = (
               owner: entry.commentOwner,
               repo: entry.commentRepo,
             })}`,
-          builtInfo && `ビルド時間: ${builtInfo.timeRange}`,
+          timeRange && `ビルド時間: ${timeRange}`,
         ],
         hints: [
           {
@@ -158,39 +151,22 @@ const createCmd = (
     },
     async update(entry, ctx) {
       const { credentials, logger } = ctx;
-      const codeBuild = new CodeBuild({ credentials, logger });
-      const r = await codeBuild.batchGetBuilds({
-        ids: [entry.buildId],
+      const { last, statusChangedAt, status } = await getBuild({
+        buildId: entry.buildId,
+        credentials,
+        logger,
       });
-      const { builds } = r;
-      ctx.logger.info('builds', { builds });
-      if (builds == null) throw new TypeError('builds not found');
-      const first = builds[0];
-      const last = builds[builds.length - 1];
-      if (typeof last.buildStatus !== 'string') throw new TypeError('CodeBuild last buildStatus is not string');
-      const firstStartTime = first.startTime;
-      const lastStartTime = last.startTime;
-      const lastEndTime = last.endTime;
-      if (firstStartTime == null) throw new TypeError('CodeBuild first startTime is not found');
-      if (lastStartTime == null) throw new TypeError('CodeBuild last startTime is not found');
 
-      const computeBuiltInfo = async (): Promise<BuiltInfo | null> => {
+      const computeBuiltInfo = async (): Promise<OutputBuiltInfo | null> => {
         ctx.logger.info('Checking cloudwatch logs.', { logs: last.logs });
         const { logs } = last;
         if (logs == null) return null;
         if (logs.groupName == null) return null;
         if (logs.streamName == null) return null;
         const output = await collectLogsOutput(logs.groupName, [logs.streamName], credentials, logger);
-        const timeRange = renderDuration(
-          toTemporalInstant.call(firstStartTime).until(toTemporalInstant.call(lastEndTime ?? lastStartTime)),
-        );
         ctx.logger.info('Output collected from logs.', { output });
 
-        const builtInfo: BuiltInfo = {
-          ...outputBuiltInfoSchema.parse(output),
-          timeRange,
-        };
-        return builtInfo;
+        return outputBuiltInfoSchema.parse(output);
       };
 
       ctx.logger.info('Get last status.', { buildStatus: last.buildStatus });
@@ -210,14 +186,14 @@ const createCmd = (
 
       const values: CommentValues = {
         buildStatus: last.buildStatus,
-        statusChangedAt: toTemporalInstant.call(lastEndTime ?? lastStartTime),
+        statusChangedAt,
         deepLogLink: last.logs?.deepLink,
         builtInfo,
         imageDetail,
       };
 
       return {
-        status: ({ SUCCEEDED: 'success', FAILED: 'failure' } as const)[last.buildStatus] ?? 'undone',
+        status,
         values,
       };
     },

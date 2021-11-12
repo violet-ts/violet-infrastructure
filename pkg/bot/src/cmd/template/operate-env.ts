@@ -1,12 +1,12 @@
 import { CodeBuild } from '@aws-sdk/client-codebuild';
 import type { Temporal } from '@js-temporal/polyfill';
 import { toTemporalInstant } from '@js-temporal/polyfill';
+import { getBuild } from '@self/bot/src/cmd/template/codebuild';
 import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
-import { renderAnchor, renderCode, renderDuration, renderTimestamp } from '@self/bot/src/util/comment-render';
+import { renderAnchor, renderCode, renderTimestamp } from '@self/bot/src/util/comment-render';
 import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
 import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
-import type { BuiltInfo } from '@self/shared/lib/operate-env/build-output';
 import {
   generalBuildOutputSchema,
   invokeFunctionBuildOutputSchema,
@@ -38,7 +38,7 @@ export interface CommentValues {
   buildStatus: string;
   statusChangedAt: Temporal.Instant;
   deepLogLink?: string | null;
-  builtInfo?: BuiltInfo | null;
+  timeRange?: string | null;
 }
 
 interface CreateParams {
@@ -160,12 +160,12 @@ const createCmd = (
       const buildUrl = `https://${region}.console.aws.amazon.com/codesuite/codebuild/projects/${
         ctx.env.OPERATE_ENV_PROJECT_NAME
       }/build/${encodeURIComponent(entry.buildId)}/?region=${region}`;
-      const { builtInfo } = values;
+      const { timeRange } = values;
       return {
         mode: 'ul',
         main: [
           `ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
-          builtInfo && `ビルド時間: ${builtInfo.timeRange}`,
+          timeRange && `ビルド時間: ${timeRange}`,
           ...(entry.tfBuildOutput
             ? [
                 `api: ${renderAnchor(entry.tfBuildOutput.api_url, entry.tfBuildOutput.api_url)}`,
@@ -235,45 +235,21 @@ const createCmd = (
     },
     async update(entry, ctx) {
       const { credentials, logger } = ctx;
-      const codeBuild = new CodeBuild({ credentials, logger });
-      const r = await codeBuild.batchGetBuilds({
-        ids: [entry.buildId],
+      const { last, statusChangedAt, status, timeRange } = await getBuild({
+        buildId: entry.buildId,
+        credentials,
+        logger,
       });
-      const { builds } = r;
-      ctx.logger.info('builds', { builds });
-      if (builds == null) throw new TypeError('builds not found');
-      const first = builds[0];
-      const last = builds[builds.length - 1];
-      if (typeof last.buildStatus !== 'string') throw new TypeError('CodeBuild last buildStatus is not string');
-      const firstStartTime = first.startTime;
-      const lastStartTime = last.startTime;
-      const lastEndTime = last.endTime;
-      if (firstStartTime == null) throw new TypeError('CodeBuild first startTime is not found');
-      if (lastStartTime == null) throw new TypeError('CodeBuild last startTime is not found');
-
-      const computeBuiltInfo = async (): Promise<BuiltInfo | null> => {
-        const timeRange = renderDuration(
-          toTemporalInstant.call(firstStartTime).until(toTemporalInstant.call(lastEndTime ?? lastStartTime)),
-        );
-
-        return {
-          timeRange,
-        };
-      };
-
-      ctx.logger.info('Get last status.', { buildStatus: last.buildStatus });
-      const builtInfo = last.buildStatus === 'SUCCEEDED' ? await computeBuiltInfo() : null;
-      ctx.logger.info('Built info.', { builtInfo });
 
       const values: CommentValues = {
         buildStatus: last.buildStatus,
-        statusChangedAt: toTemporalInstant.call(lastEndTime ?? lastStartTime),
+        statusChangedAt,
         deepLogLink: last.logs?.deepLink,
-        builtInfo,
+        timeRange,
       };
 
       return {
-        status: ({ SUCCEEDED: 'success', FAILED: 'failure' } as const)[last.buildStatus] ?? 'undone',
+        status,
         values,
       };
     },

@@ -59,6 +59,7 @@ const handler: Handler = async (event: unknown, context) => {
     const expr = triggers.map((_trigger, i) => `contains(watchTriggers, :trigger${i})`).join(' OR ');
     const values = marshall(Object.fromEntries(triggers.map((trigger, i) => [`:trigger${i}`, trigger])), {
       convertEmptyValues: true,
+      removeUndefinedValues: true,
     });
 
     const res = await db.scan({

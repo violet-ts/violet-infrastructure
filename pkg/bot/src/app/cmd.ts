@@ -113,7 +113,7 @@ export const runMain = async (
     const db = new DynamoDB({ credentials, logger });
     await db.putItem({
       TableName: env.BOT_TABLE_NAME,
-      Item: marshall(fullEntry, { convertEmptyValues: true }),
+      Item: marshall(fullEntry, { convertEmptyValues: true, removeUndefinedValues: true }),
     });
   }
 
