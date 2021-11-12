@@ -8,7 +8,7 @@ const cmd = createCmd(
   },
   (env) => ({
     imageRepoName: env.LAMBDA_CONV2IMG_REPO_NAME,
-    buildDockerfile: './docker/lambda/conv2img/Dockerfile',
+    buildDockerfile: './docker/prod/lambda/conv2img/Dockerfile',
     projectName: env.LAMBDA_CONV2IMG_BUILD_PROJECT_NAME,
     dockerBuildArgs: '',
   }),

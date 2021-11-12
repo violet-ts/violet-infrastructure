@@ -9,7 +9,7 @@ const cmd = createCmd(
   },
   (env, namespace) => ({
     imageRepoName: env.WEB_REPO_NAME,
-    buildDockerfile: './docker/web/Dockerfile',
+    buildDockerfile: './docker/prod/web/Dockerfile',
     projectName: env.WEB_BUILD_PROJECT_NAME,
     dockerBuildArgs: embedArgsBuildArgs({
       API_ORIGIN: `https://api-${namespace}.${env.PREVIEW_DOMAIN}`,
