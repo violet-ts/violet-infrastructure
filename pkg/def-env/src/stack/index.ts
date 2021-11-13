@@ -196,7 +196,7 @@ export class VioletEnvStack extends TerraformStack {
   readonly apiServiceBucketsPolicy = new IAM.IamRolePolicy(this, 'apiServiceBucketsPolicy', {
     // len = 14 + 8 = 22
     name: `${this.prefix}-buckets`,
-    role: z.string().parse(this.apiTask.executionRole.name),
+    role: z.string().parse(this.apiTask.taskRole.name),
     policy: this.serviceBuckets.objectsFullAccessPolicyDocument.json,
   });
 
