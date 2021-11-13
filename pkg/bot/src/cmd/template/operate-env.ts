@@ -5,7 +5,13 @@ import { getBuild } from '@self/bot/src/cmd/template/codebuild';
 import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
 import { renderAnchor, renderCode, renderTimestamp } from '@self/bot/src/util/comment-render';
-import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
+import {
+  renderECRImageDigest,
+  renderECSCluster,
+  renderLambdaFunction,
+  renderS3Bucket,
+  renderS3Object,
+} from '@self/bot/src/util/comment-render/aws';
 import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
 import {
   generalBuildOutputSchema,
@@ -167,10 +173,9 @@ const createCmd = (
           `ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
           timeRange && `ビルド時間: ${timeRange}`,
           ...(entry.tfBuildOutput
-            ? [
-                `api: ${renderAnchor(entry.tfBuildOutput.api_url, entry.tfBuildOutput.api_url)}`,
-                `web: ${renderAnchor(entry.tfBuildOutput.web_url, entry.tfBuildOutput.web_url)}`,
-              ]
+            ? ((o) => [`api: ${renderAnchor(o.api_url, o.api_url)}`, `web: ${renderAnchor(o.web_url, o.web_url)}`])(
+                entry.tfBuildOutput,
+              )
             : []),
         ],
         hints: [
@@ -195,14 +200,7 @@ const createCmd = (
               mode: 'ul',
               main: [
                 `ビルドID: ${renderAnchor(entry.buildId, buildUrl)}`,
-                ...(entry.tfBuildOutput
-                  ? [
-                      `ECS クラスター名: ${renderAnchor(
-                        renderCode(entry.tfBuildOutput.ecs_cluster_name),
-                        `https://${entry.tfBuildOutput.env_region}.console.aws.amazon.com/ecs/home#/clusters/${entry.tfBuildOutput.ecs_cluster_name}/services`,
-                      )}`,
-                    ]
-                  : []),
+                ...(entry.tfBuildOutput ? [] : []),
                 `使用した Web イメージダイジェスト: ${renderECRImageDigest({
                   imageRegion,
                   imageDigest: entry.webImageDigest,
@@ -213,7 +211,11 @@ const createCmd = (
                   imageDigest: entry.apiImageDigest,
                   imageRepoName: ctx.env.API_REPO_NAME,
                 })}`,
-                entry.generalBuildOutput && `使用したインフラ定義バージョン: ${entry.generalBuildOutput.sourceZipKey}`,
+                entry.generalBuildOutput &&
+                  `使用したインフラ定義: ${renderS3Object({
+                    bucket: entry.generalBuildOutput.sourceZipBucket,
+                    key: entry.generalBuildOutput.sourceZipKey,
+                  })}`,
                 ...(entry.tfBuildOutput && entry.runTaskBuildOutput
                   ? [
                       renderAnchor(
@@ -227,6 +229,21 @@ const createCmd = (
                     ]
                   : []),
                 values.deepLogLink && renderAnchor('ビルドの詳細ログ (CloudWatch Logs)', values.deepLogLink),
+                ...(entry.tfBuildOutput
+                  ? ((o) => [
+                      `Original S3 Bucket: ${renderS3Bucket({ bucket: o.original_bucket })}`,
+                      `Converted S3 Bucket: ${renderS3Bucket({ bucket: o.converted_bucket })}`,
+                      `API Exec Function: ${renderLambdaFunction({
+                        region: o.env_region,
+                        functionName: o.api_exec_function_name,
+                      })}`,
+                      `Convert To Image Function: ${renderLambdaFunction({
+                        region: o.env_region,
+                        functionName: o.conv2img_function_name,
+                      })}`,
+                      `ECS Cluster: ${renderECSCluster({ region: o.env_region, clusterName: o.ecs_cluster_name })}`,
+                    ])(entry.tfBuildOutput)
+                  : []),
               ],
             },
           },

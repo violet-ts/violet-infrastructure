@@ -13,6 +13,8 @@ export const opTfOutputSchema = z.object({
   web_task_log_group_name: z.string(),
   conv2img_function_name: z.string(),
   api_exec_function_name: z.string(),
+  original_bucket: z.string(),
+  converted_bucket: z.string(),
 });
 
 export type OpTfOutput = z.infer<typeof opTfOutputSchema>;

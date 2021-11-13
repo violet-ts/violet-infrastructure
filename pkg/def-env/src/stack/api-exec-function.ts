@@ -1,4 +1,3 @@
-import type { SNS } from '@cdktf/provider-aws';
 import { IAM, LambdaFunction } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
@@ -7,6 +6,7 @@ import { z } from 'zod';
 import type { DataNetwork } from './data-network';
 import type { HTTPTask } from './http-task';
 import type { RepoImage } from './repo-image';
+import type { ServiceBuckets } from './service-buckets';
 
 export interface APIExecFunctionOptions {
   prefix: string;
@@ -14,7 +14,7 @@ export interface APIExecFunctionOptions {
   task: HTTPTask;
   network: DataNetwork;
   repoImage: RepoImage;
-  botTopic: SNS.DataAwsSnsTopic;
+  serviceBuckets: ServiceBuckets;
 
   env: Record<string, string>;
 }
@@ -70,26 +70,6 @@ export class APIExecFunction extends Resource {
         //   },
         // ],
       },
-      // {
-      //   // https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html#vpc-permissions
-      //   actions: [
-      //     'ec2:CreateNetworkInterface',
-      //     'ec2:DescribeNetworkInterfaces',
-      //     'ec2:DeleteNetworkInterface',
-      //     'ec2:AssignPrivateIpAddresses',
-      //     'ec2:UnassignPrivateIpAddresses',
-      //   ],
-      //   effect: 'Allow',
-      //   resources: ['*'],
-      //   // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonec2.html#amazonec2-policy-keys
-      //   condition: [
-      //     {
-      //       test: 'StringEquals',
-      //       variable: 'ec2:Vpc',
-      //       values: [this.options.network.vpc.arn],
-      //     },
-      //   ],
-      // },
     ],
   });
 
@@ -101,7 +81,7 @@ export class APIExecFunction extends Resource {
   readonly taskPolicy = new IAM.IamRolePolicy(this, 'taskPolicy', {
     namePrefix: this.options.prefix,
     role: z.string().parse(this.role.name),
-    policy: this.options.task.taskPolicyDocument.json,
+    policy: this.options.serviceBuckets.objectsFullAccessPolicyDocument.json,
   });
 
   readonly lambdaPolicy = new IAM.IamRolePolicy(this, 'lambdaPolicy', {

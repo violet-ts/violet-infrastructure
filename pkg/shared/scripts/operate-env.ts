@@ -66,6 +66,7 @@ const main = async (): Promise<void> => {
 
   await updateTable<GeneralBuildOutput>({
     generalBuildOutput: {
+      sourceZipBucket: env.INFRA_SOURCE_BUCKET,
       sourceZipKey: env.INFRA_SOURCE_ZIP_KEY,
     },
   });

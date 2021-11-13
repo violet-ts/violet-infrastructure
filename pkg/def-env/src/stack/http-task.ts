@@ -221,24 +221,6 @@ export class HTTPTask extends Resource {
     },
   });
 
-  readonly taskPolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'taskPolicyDocument', {
-    version: '2012-10-17',
-    statement: [
-      {
-        // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html
-        resources: [this.parent.s3.arn, `${this.parent.s3.arn}/*`],
-        actions: ['s3:Get*', 's3:List*', 's3:CopyObject', 's3:Put*', 's3:HeadObject', 's3:DeleteObject*'],
-      },
-    ],
-  });
-
-  readonly taskPolicy = new IAM.IamRolePolicy(this, 'taskPolicy', {
-    // len = 26 + 5 = 31
-    name: `${this.options.prefix}-task`,
-    role: z.string().parse(this.taskRole.name),
-    policy: this.taskPolicyDocument.json,
-  });
-
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_TaskDefinition.html
   readonly definition = new ECS.EcsTaskDefinition(this, 'definition', {
     requiresCompatibilities: ['FARGATE'],

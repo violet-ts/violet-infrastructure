@@ -167,6 +167,7 @@ export class BotAttach extends Resource {
     {
       functionName: this.onAnyFunction.arn,
       eventSourceArn: this.options.bot.onAnyQueue.arn,
+
       dependsOn: [this.allowExecutionFromQueue],
     },
   );
@@ -192,6 +193,7 @@ export class BotAttach extends Resource {
     integrationUri: this.ghWebhookFunction.invokeArn,
     payloadFormatVersion: '2.0',
     // passthroughBehavior: 'WHEN_NO_MATCH',
+
     dependsOn: [this.allowApigwToBotFunction],
   });
 

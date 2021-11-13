@@ -14,10 +14,12 @@ import { TerraformLocal, TerraformOutput, TerraformStack } from 'cdktf';
 import type { Construct } from 'constructs';
 import { z } from 'zod';
 import { APIExecFunction } from './api-exec-function';
+import { Conv2imgFunction } from './conv2img-function';
 import { DataNetwork } from './data-network';
 import { HTTPTask } from './http-task';
 import { MysqlDb } from './mysql';
 import { RepoImage } from './repo-image';
+import { ServiceBuckets } from './service-buckets';
 
 export interface VioletEnvOptions {
   region: string;
@@ -85,7 +87,7 @@ export class VioletEnvStack extends TerraformStack {
     imageDigest: this.options.dynamicOpEnv.WEB_REPO_SHA,
   });
 
-  readonly lambdaConv2ImgRepoImage = new RepoImage(this, 'lambdaConv2ImgRepoImage', {
+  readonly lambdaConv2imgRepoImage = new RepoImage(this, 'lambdaConv2imgRepoImage', {
     aws: this.aws,
     sharedEnv: this.options.sharedEnv,
     repoName: this.options.computedOpEnv.LAMBDA_CONV2IMG_REPO_NAME,
@@ -166,14 +168,17 @@ export class VioletEnvStack extends TerraformStack {
     // imageScanningConfiguration,
   });
 
-  // Service level bucket
+  readonly serviceBuckets = new ServiceBuckets(this, 'serviceBuckets', {
+    prefix: `${this.prefix}-s-`,
+  });
+
   // https://docs.aws.amazon.com/AmazonS3/latest/API/API_Types.html
-  readonly s3 = new S3.S3Bucket(this, 's3', {
+  readonly convertedBucket = new S3.S3Bucket(this, 'convertedBucket', {
     // TODO(service): for prod: protection for deletion, versioning
     // TODO(security): for prod: encryption
     // TODO(logging): for prod
     // TODO(cost): for prod: lifecycle
-    bucket: this.prefix,
+    bucketPrefix: `${this.prefix}-conv-`,
     forceDestroy: true,
   });
 
@@ -181,8 +186,9 @@ export class VioletEnvStack extends TerraformStack {
     API_BASE_PATH: '',
     // TODO(security): SecretsManager
     DATABASE_URL: z.string().parse(this.dbURL.value),
-    S3_BUCKET: z.string().parse(this.s3.bucket),
-    S3_REGION: this.s3.region,
+    S3_REGION: z.string().parse(this.aws.region),
+    S3_BUCKET_ORIGINAL: z.string().parse(this.serviceBuckets.originalBucket.bucket),
+    S3_BUCKET_CONVERTED: z.string().parse(this.serviceBuckets.convertedBucket.bucket),
   };
 
   readonly apiTask = new HTTPTask(this, 'apiTask', {
@@ -197,25 +203,29 @@ export class VioletEnvStack extends TerraformStack {
     env: this.apiEnv,
   });
 
-  // readonly conv2imgFunction = new LambdaFunction.LambdaFunction(this, 'conv2imgFunction', {
-  //   functionName: `${this.prefix}-conv2img`,
-  //   vpcConfig: {
-  //     subnetIds: this.network.publicSubnets.map((subnet) => subnet.id),
-  //     securityGroupIds: [this.network.serviceSg.id],
-  //   },
-  //   packageType: 'Image',
-  //   role: this.apiTask.taskRole.arn,
-  //   imageUri: this.lambdaConv2ImgRepoImage.imageUri,
-  //   memorySize: 256,
-  //   timeout: 20,
-  // });
+  readonly apiServiceBucketsPolicy = new IAM.IamRolePolicy(this, 'apiServiceBucketsPolicy', {
+    // len = 14 + 8 = 22
+    name: `${this.prefix}-buckets`,
+    role: z.string().parse(this.apiTask.executionRole.name),
+    policy: this.serviceBuckets.objectsFullAccessPolicyDocument.json,
+  });
+
+  readonly conv2imgFunction = new Conv2imgFunction(this, 'conv2imgFunction', {
+    prefix: `${this.prefix}-c2i`,
+    task: this.apiTask,
+    network: this.network,
+    repoImage: this.lambdaConv2imgRepoImage,
+    serviceBuckets: this.serviceBuckets,
+
+    env: this.apiEnv,
+  });
 
   readonly apiExecFunction = new APIExecFunction(this, 'apiExecFunction', {
     prefix: `${this.prefix}-apiexec`,
     task: this.apiTask,
     network: this.network,
     repoImage: this.lambdaApiexecRepoImage,
-    botTopic: this.botTopic,
+    serviceBuckets: this.serviceBuckets,
 
     env: this.apiEnv,
   });
@@ -269,6 +279,8 @@ export class VioletEnvStack extends TerraformStack {
     // conv2imgFunctionName: z.string().parse(this.conv2imgFunction.functionName),
     conv2img_function_name: 'xxxxxxxxxxxxxxxxxxxxxxxxx',
     api_exec_function_name: z.string().parse(this.apiExecFunction.function.functionName),
+    original_bucket: z.string().parse(this.serviceBuckets.originalBucket.bucket),
+    converted_bucket: z.string().parse(this.serviceBuckets.convertedBucket.bucket),
   };
 
   readonly opOutput = new TerraformOutput(this, `opOutput`, {
