@@ -4,6 +4,7 @@ import { z } from 'zod';
  * Terraform Output として env stack から出す値
  */
 export const opTfOutputSchema = z.object({
+  resource_group_name: z.string(),
   api_task_definition_arn: z.string(),
   api_url: z.string(),
   web_url: z.string(),

@@ -9,6 +9,7 @@ import {
   renderECRImageDigest,
   renderECSCluster,
   renderLambdaFunction,
+  renderResourceGroup,
   renderS3Bucket,
   renderS3Object,
 } from '@self/bot/src/util/comment-render/aws';
@@ -231,6 +232,10 @@ const createCmd = (
                 values.deepLogLink && renderAnchor('ビルドの詳細ログ (CloudWatch Logs)', values.deepLogLink),
                 ...(entry.tfBuildOutput
                   ? ((o) => [
+                      `Resource Gruop for Env: ${renderResourceGroup({
+                        region: o.env_region,
+                        resourceGroupName: o.resource_group_name,
+                      })}`,
                       `Original S3 Bucket: ${renderS3Bucket({ bucket: o.original_bucket })}`,
                       `Converted S3 Bucket: ${renderS3Bucket({ bucket: o.converted_bucket })}`,
                       `API Exec Function: ${renderLambdaFunction({

@@ -269,6 +269,7 @@ export class VioletEnvStack extends TerraformStack {
   });
 
   readonly opOutputValue: OpTfOutput = {
+    resource_group_name: this.resourceGroups.name,
     api_task_definition_arn: this.apiTask.definition.arn,
     api_url: this.apiTask.url,
     web_url: this.webTask.url,
@@ -276,8 +277,7 @@ export class VioletEnvStack extends TerraformStack {
     ecs_cluster_name: this.cluster.name,
     api_task_log_group_name: z.string().parse(this.apiTask.logGroup.name),
     web_task_log_group_name: z.string().parse(this.webTask.logGroup.name),
-    // conv2imgFunctionName: z.string().parse(this.conv2imgFunction.functionName),
-    conv2img_function_name: 'xxxxxxxxxxxxxxxxxxxxxxxxx',
+    conv2img_function_name: z.string().parse(this.conv2imgFunction.function.functionName),
     api_exec_function_name: z.string().parse(this.apiExecFunction.function.functionName),
     original_bucket: z.string().parse(this.serviceBuckets.originalBucket.bucket),
     converted_bucket: z.string().parse(this.serviceBuckets.convertedBucket.bucket),

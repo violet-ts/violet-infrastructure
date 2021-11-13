@@ -61,3 +61,14 @@ export const renderECSCluster = ({ region, clusterName }: RenderECSClusterParams
     `https://${region}.console.aws.amazon.com/ecs/home#/clusters/${clusterName}/services`,
   );
 };
+
+export interface RenderResourceGroupParams {
+  region: string;
+  resourceGroupName: string;
+}
+export const renderResourceGroup = ({ region, resourceGroupName }: RenderResourceGroupParams): string => {
+  return renderAnchor(
+    resourceGroupName,
+    `https://${region}.console.aws.amazon.com/resource-groups/group/${resourceGroupName}`,
+  );
+};
