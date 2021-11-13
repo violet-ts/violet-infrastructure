@@ -1,4 +1,4 @@
-import { ACM, AwsProvider, ECS, IAM, ResourceGroups, Route53, S3, SNS } from '@cdktf/provider-aws';
+import { ACM, AwsProvider, ECS, IAM, ResourceGroups, Route53, SNS } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider } from '@cdktf/provider-random';
 import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
@@ -169,17 +169,7 @@ export class VioletEnvStack extends TerraformStack {
   });
 
   readonly serviceBuckets = new ServiceBuckets(this, 'serviceBuckets', {
-    prefix: `${this.prefix}-s-`,
-  });
-
-  // https://docs.aws.amazon.com/AmazonS3/latest/API/API_Types.html
-  readonly convertedBucket = new S3.S3Bucket(this, 'convertedBucket', {
-    // TODO(service): for prod: protection for deletion, versioning
-    // TODO(security): for prod: encryption
-    // TODO(logging): for prod
-    // TODO(cost): for prod: lifecycle
-    bucketPrefix: `${this.prefix}-conv-`,
-    forceDestroy: true,
+    prefix: `${this.prefix}-s`,
   });
 
   readonly apiEnv = {
