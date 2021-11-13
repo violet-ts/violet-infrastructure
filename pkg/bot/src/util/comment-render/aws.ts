@@ -69,6 +69,6 @@ export interface RenderResourceGroupParams {
 export const renderResourceGroup = ({ region, resourceGroupName }: RenderResourceGroupParams): string => {
   return renderAnchor(
     resourceGroupName,
-    `https://${region}.console.aws.amazon.com/resource-groups/group/${resourceGroupName}`,
+    `https://${region}.console.aws.amazon.com/resource-groups/group/${resourceGroupName}?region=${region}`,
   );
 };
