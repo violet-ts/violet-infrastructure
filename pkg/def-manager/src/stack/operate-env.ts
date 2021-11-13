@@ -119,6 +119,7 @@ export class OperateEnv extends Resource {
           's3:*',
           'secretsmanager:*',
           'sns:*',
+          'sqs:*',
           'ssm:*',
 
           // ACM readonly
