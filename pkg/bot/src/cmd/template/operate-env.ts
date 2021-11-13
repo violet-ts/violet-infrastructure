@@ -180,21 +180,22 @@ const createCmd = (
             : []),
         ],
         hints: [
-          entry.invokeFunctionBuildOutput && {
-            title: 'Lambda 実行の詳細',
-            mode: 'ul',
-            body: {
-              main: [
-                `Function 名: ${renderCode(entry.invokeFunctionBuildOutput.executedFunctionName)}`,
-                `ステータスコード: ${entry.invokeFunctionBuildOutput.statusCode}`,
-                `使ったバージョン: ${
-                  entry.invokeFunctionBuildOutput.executedVersion
-                    ? renderCode(entry.invokeFunctionBuildOutput.executedVersion)
-                    : 'no version'
-                }`,
-              ],
-            },
-          },
+          entry.tfBuildOutput &&
+            entry.invokeFunctionBuildOutput &&
+            ((o, i) => ({
+              title: 'Lambda 実行の詳細',
+              mode: 'ul',
+              body: {
+                main: [
+                  `Function: ${renderLambdaFunction({
+                    region: o.env_region,
+                    functionName: i.executedFunctionName,
+                  })}`,
+                  `ステータスコード: ${i.statusCode}`,
+                  `使ったバージョン: ${i.executedVersion ? renderCode(i.executedVersion) : 'no version'}`,
+                ],
+              },
+            }))(entry.tfBuildOutput, entry.invokeFunctionBuildOutput),
           {
             title: '詳細',
             body: {
