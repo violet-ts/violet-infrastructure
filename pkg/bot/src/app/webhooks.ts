@@ -151,6 +151,7 @@ export const createWebhooks = (
 
   webhooks.on(['pull_request.opened', 'pull_request.edited', 'pull_request.synchronize'], ({ payload }) => {
     const inner = async () => {
+      if (payload.pull_request.state === 'closed') return;
       await onNewPRCommit(
         payload.repository.owner.login,
         payload.repository.name,
