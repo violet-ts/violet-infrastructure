@@ -29,7 +29,7 @@ export class ServiceBuckets extends Resource {
     // TODO(security): for prod: encryption
     // TODO(logging): for prod
     // TODO(cost): for prod: lifecycle
-    bucketPrefix: `${this.options}-conv-`,
+    bucketPrefix: `${this.options.prefix}-conv-`,
     forceDestroy: true,
   });
 
