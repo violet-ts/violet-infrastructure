@@ -109,7 +109,7 @@ export class Conv2imgFunction extends Resource {
           {
             test: 'ArnEquals',
             variable: 'aws:SourceArn',
-            values: [`${this.options.serviceBuckets.originalBucket.arn}/${this.fromKeyPrefix}/*`],
+            values: [this.options.serviceBuckets.originalBucket.arn],
           },
         ],
       },
@@ -130,7 +130,7 @@ export class Conv2imgFunction extends Resource {
         // https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-how-to-event-types-and-destinations.html#supported-notification-event-types
         queueArn: this.queue.arn,
         events: ['s3:ObjectCreated:*', 's3:ObjectRestore:Completed'],
-        filterPrefix: this.fromKeyPrefix,
+        filterPrefix: `${this.fromKeyPrefix}/`,
       },
     ],
 
@@ -262,6 +262,15 @@ export class Conv2imgFunction extends Resource {
     dependsOn: [this.lambdaPolicy],
   });
 
+  // queue ---->(allow) function
+  readonly allowExecutionFromQueue = new LambdaFunction.LambdaPermission(this, 'allowExecutionFromQueue', {
+    statementId: 'AllowExecutionFromQueue',
+    action: 'lambda:InvokeFunction',
+    functionName: this.function.functionName,
+    principal: 'sns.amazonaws.com',
+    sourceArn: this.queue.arn,
+  });
+
   // queue --(subscribe)--> function
   readonly queueSubscriptionToFunction = new LambdaFunction.LambdaEventSourceMapping(
     this,
@@ -270,7 +279,7 @@ export class Conv2imgFunction extends Resource {
       functionName: this.function.arn,
       eventSourceArn: this.queue.arn,
 
-      dependsOn: [this.allowReceiveQueueToFunctionPolicy],
+      dependsOn: [this.allowReceiveQueueToFunctionPolicy, this.allowExecutionFromQueue],
     },
   );
 }
