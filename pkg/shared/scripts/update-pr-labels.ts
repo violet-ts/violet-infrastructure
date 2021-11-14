@@ -37,7 +37,7 @@ const main = async (): Promise<void> => {
   const octokit = await createOctokit(secrets, botInstallationId);
   const prNumber = Number.parseInt(prNumberStr, 10);
 
-  const calcLabels = async (baseRef: string, targetRef: string): Promise<string[]> => {
+  const calcLabels = async (baseRef: string, targetRef: string): Promise<string[] | null> => {
     const tmpdirCtx = createTmpdirContext();
     const tmpdir = tmpdirCtx.open();
     try {
@@ -89,6 +89,10 @@ const main = async (): Promise<void> => {
       logger.debug('Calculated pr params.', { parsePRParams });
 
       const params = parsePr(parsePRParams);
+      if (params.changes.length === 0) {
+        logger.info('No changes.', { params });
+        return null;
+      }
 
       logger.debug('Calculated pr params analysis.', { params });
 
@@ -109,6 +113,7 @@ const main = async (): Promise<void> => {
     .filter((label) => !isManagedLabel(label));
 
   const newLabels = await calcLabels(baseRef, `refs/pull/${prNumber}/head`);
+  if (newLabels == null) return;
 
   logger.info('Got newLabels.', { newLabels });
 
