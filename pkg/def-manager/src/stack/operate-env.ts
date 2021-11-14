@@ -27,6 +27,7 @@ export interface OperateEnvOptions {
   lambdaApiexecRepo: RepoStack;
   infraSourceBucket: S3.S3Bucket;
   infraSourceZip: S3.S3BucketObject;
+  region: string;
 
   buildDictContext: BuildDictContext;
 }
@@ -49,6 +50,7 @@ export class OperateEnv extends Resource {
   readonly devNetwork = new DevNetwork(this, 'devNetwork', {
     prefix: `${this.options.prefix}-net`,
     cidrNum: this.options.managerEnv.CIDR_NUM,
+    region: this.options.region,
   });
 
   readonly computedOpEnv: ComputedOpEnv = {
@@ -119,6 +121,7 @@ export class OperateEnv extends Resource {
           's3:*',
           'secretsmanager:*',
           'sns:*',
+          'sqs:*',
           'ssm:*',
 
           // ACM readonly

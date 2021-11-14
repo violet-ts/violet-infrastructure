@@ -30,6 +30,11 @@ export const waitChildSchema = z.object({
 });
 export type WaitChild = z.infer<typeof waitChildSchema>;
 
+export type ResultTouched = {
+  watchTriggers?: Set<string> | null | undefined;
+  footBadges?: Map<string, string> | null | undefined;
+};
+
 export const unmarshallMetaArgs = (args: string[]): BoundReplyCmd[] => {
   return args.map((a): BoundReplyCmd => {
     const [name, ...argv] = z.array(z.string()).parse(JSON.parse(a));
@@ -62,17 +67,23 @@ export const emojiStatus = (status: CmdStatus | undefined): string => {
 
 export type TriggerCollector = {
   collectedTriggers: Set<string>;
-  touchResult: ({ watchTriggers }: { watchTriggers?: Set<string> | null | undefined }) => void;
+  collectedFootBadges: Map<string, string>;
+  touchResult: (result: ResultTouched) => void;
 };
 export const createTriggerCollector = (): TriggerCollector => {
   const collectedTriggers = new Set<string>();
-  const touchResult = ({ watchTriggers }: { watchTriggers?: Set<string> | null | undefined }): void => {
+  const collectedFootBadges = new Map<string, string>();
+  const touchResult = ({ watchTriggers, footBadges }: ResultTouched): void => {
     if (watchTriggers) {
-      [...watchTriggers].forEach((arn) => collectedTriggers.add(arn));
+      [...watchTriggers].forEach((trigger) => collectedTriggers.add(trigger));
       watchTriggers.clear();
     }
+    if (footBadges) {
+      [...footBadges].forEach(([key, value]) => collectedFootBadges.set(key, value));
+      footBadges.clear();
+    }
   };
-  return { collectedTriggers, touchResult };
+  return { collectedTriggers, collectedFootBadges, touchResult };
 };
 
 export type StatusCounter = {

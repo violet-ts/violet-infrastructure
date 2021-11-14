@@ -4,8 +4,15 @@ import { toTemporalInstant } from '@js-temporal/polyfill';
 import { getBuild } from '@self/bot/src/cmd/template/codebuild';
 import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
-import { renderAnchor, renderCode, renderTimestamp } from '@self/bot/src/util/comment-render';
-import { renderECRImageDigest } from '@self/bot/src/util/comment-render/aws';
+import { renderAnchor, renderBadge, renderCode, renderTimestamp } from '@self/bot/src/util/comment-render';
+import {
+  renderECRImageDigest,
+  renderECSCluster,
+  renderLambdaFunction,
+  renderResourceGroup,
+  renderS3Bucket,
+  renderS3Object,
+} from '@self/bot/src/util/comment-render/aws';
 import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
 import {
   generalBuildOutputSchema,
@@ -167,42 +174,35 @@ const createCmd = (
           `ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
           timeRange && `ビルド時間: ${timeRange}`,
           ...(entry.tfBuildOutput
-            ? [
-                `api: ${renderAnchor(entry.tfBuildOutput.api_url, entry.tfBuildOutput.api_url)}`,
-                `web: ${renderAnchor(entry.tfBuildOutput.web_url, entry.tfBuildOutput.web_url)}`,
-              ]
+            ? ((o) => [`api: ${renderAnchor(o.api_url, o.api_url)}`, `web: ${renderAnchor(o.web_url, o.web_url)}`])(
+                entry.tfBuildOutput,
+              )
             : []),
         ],
         hints: [
-          entry.invokeFunctionBuildOutput && {
-            title: 'Lambda 実行の詳細',
-            mode: 'ul',
-            body: {
-              main: [
-                `Function 名: ${renderCode(entry.invokeFunctionBuildOutput.executedFunctionName)}`,
-                `ステータスコード: ${entry.invokeFunctionBuildOutput.statusCode}`,
-                `使ったバージョン: ${
-                  entry.invokeFunctionBuildOutput.executedVersion
-                    ? renderCode(entry.invokeFunctionBuildOutput.executedVersion)
-                    : 'no version'
-                }`,
-              ],
-            },
-          },
+          entry.tfBuildOutput &&
+            entry.invokeFunctionBuildOutput &&
+            ((o, i) => ({
+              title: 'Lambda 実行の詳細',
+              mode: 'ul',
+              body: {
+                main: [
+                  `Function: ${renderLambdaFunction({
+                    region: o.env_region,
+                    functionName: i.executedFunctionName,
+                  })}`,
+                  `ステータスコード: ${i.statusCode}`,
+                  `使ったバージョン: ${i.executedVersion ? renderCode(i.executedVersion) : 'no version'}`,
+                ],
+              },
+            }))(entry.tfBuildOutput, entry.invokeFunctionBuildOutput),
           {
             title: '詳細',
             body: {
               mode: 'ul',
               main: [
                 `ビルドID: ${renderAnchor(entry.buildId, buildUrl)}`,
-                ...(entry.tfBuildOutput
-                  ? [
-                      `ECS クラスター名: ${renderAnchor(
-                        renderCode(entry.tfBuildOutput.ecs_cluster_name),
-                        `https://${entry.tfBuildOutput.env_region}.console.aws.amazon.com/ecs/home#/clusters/${entry.tfBuildOutput.ecs_cluster_name}/services`,
-                      )}`,
-                    ]
-                  : []),
+                ...(entry.tfBuildOutput ? [] : []),
                 `使用した Web イメージダイジェスト: ${renderECRImageDigest({
                   imageRegion,
                   imageDigest: entry.webImageDigest,
@@ -213,7 +213,11 @@ const createCmd = (
                   imageDigest: entry.apiImageDigest,
                   imageRepoName: ctx.env.API_REPO_NAME,
                 })}`,
-                entry.generalBuildOutput && `使用したインフラ定義バージョン: ${entry.generalBuildOutput.sourceZipKey}`,
+                entry.generalBuildOutput &&
+                  `使用したインフラ定義: ${renderS3Object({
+                    bucket: entry.generalBuildOutput.sourceZipBucket,
+                    key: entry.generalBuildOutput.sourceZipKey,
+                  })}`,
                 ...(entry.tfBuildOutput && entry.runTaskBuildOutput
                   ? [
                       renderAnchor(
@@ -227,6 +231,25 @@ const createCmd = (
                     ]
                   : []),
                 values.deepLogLink && renderAnchor('ビルドの詳細ログ (CloudWatch Logs)', values.deepLogLink),
+                ...(entry.tfBuildOutput
+                  ? ((o) => [
+                      `Resource Gruop for Env: ${renderResourceGroup({
+                        region: o.env_region,
+                        resourceGroupName: o.resource_group_name,
+                      })}`,
+                      `Original S3 Bucket: ${renderS3Bucket({ bucket: o.original_bucket })}`,
+                      `Converted S3 Bucket: ${renderS3Bucket({ bucket: o.converted_bucket })}`,
+                      `API Exec Function: ${renderLambdaFunction({
+                        region: o.env_region,
+                        functionName: o.api_exec_function_name,
+                      })}`,
+                      `Convert To Image Function: ${renderLambdaFunction({
+                        region: o.env_region,
+                        functionName: o.conv2img_function_name,
+                      })}`,
+                      `ECS Cluster: ${renderECSCluster({ region: o.env_region, clusterName: o.ecs_cluster_name })}`,
+                    ])(entry.tfBuildOutput)
+                  : []),
               ],
             },
           },
@@ -234,6 +257,7 @@ const createCmd = (
       };
     },
     async update(entry, ctx) {
+      const footBadges = new Map<string, string>();
       const { credentials, logger } = ctx;
       const { last, statusChangedAt, status, timeRange } = await getBuild({
         buildId: entry.buildId,
@@ -248,9 +272,14 @@ const createCmd = (
         timeRange,
       };
 
+      if (entry.tfBuildOutput) {
+        footBadges.set('Web', renderBadge('Web', '2ba3d6', entry.tfBuildOutput.web_url));
+      }
+
       return {
         status,
         values,
+        footBadges,
       };
     },
   };

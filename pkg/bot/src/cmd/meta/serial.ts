@@ -42,7 +42,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   entrySchema,
   argSchema,
   async main(ctx, args, rootGeneralEntry) {
-    const { collectedTriggers, touchResult } = createTriggerCollector();
+    const { collectedTriggers, collectedFootBadges, touchResult } = createTriggerCollector();
     const boundCmds = unmarshallMetaArgs(args._);
     const { add, summary, get } = createStatusCounter();
     const doneChildren: Entry['doneChildren'] = [];
@@ -86,6 +86,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
         processingInDoneForm,
       },
       watchTriggers: collectedTriggers,
+      footBadges: collectedFootBadges,
     };
   },
   constructComment(rootEntry, values, _ctx) {
@@ -107,7 +108,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   },
   async update(rootEntry, ctx) {
     const rootGeneralEntry = generalEntrySchema.parse(rootEntry);
-    const { collectedTriggers, touchResult } = createTriggerCollector();
+    const { collectedTriggers, collectedFootBadges, touchResult } = createTriggerCollector();
     const { add, summary, get } = createStatusCounter();
     const doneChildren = [...rootEntry.doneChildren];
     let processingChild: Entry['processingChild'] = null;
@@ -198,6 +199,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
         processingInDoneForm,
       },
       watchTriggers: collectedTriggers,
+      footBadges: collectedFootBadges,
     };
   },
 };

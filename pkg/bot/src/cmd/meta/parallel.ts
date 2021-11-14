@@ -32,7 +32,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   entrySchema,
   argSchema,
   async main(ctx, args, rootGeneralEntry) {
-    const { collectedTriggers, touchResult } = createTriggerCollector();
+    const { collectedTriggers, collectedFootBadges, touchResult } = createTriggerCollector();
     const { add, summary } = createStatusCounter();
     const boundCmds = unmarshallMetaArgs(args._);
     const childrenEntriesValues = await Promise.all(
@@ -62,6 +62,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
         children: childrenEntriesValues.map((c) => c.value),
       },
       watchTriggers: collectedTriggers,
+      footBadges: collectedFootBadges,
     };
   },
   constructComment(_rootEntry, values, _ctx) {
@@ -72,7 +73,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
     };
   },
   async update(rootEntry, ctx) {
-    const { collectedTriggers, touchResult } = createTriggerCollector();
+    const { collectedTriggers, collectedFootBadges, touchResult } = createTriggerCollector();
     const { add, summary } = createStatusCounter();
     const childrenEntriesValues = await Promise.all(
       rootEntry.children.map(
@@ -127,6 +128,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
         children: childrenEntriesValues.map((c) => c.value),
       },
       watchTriggers: collectedTriggers,
+      footBadges: collectedFootBadges,
     };
   },
 };

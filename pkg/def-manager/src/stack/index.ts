@@ -310,6 +310,7 @@ export class VioletManagerStack extends TerraformStack {
     lambdaApiexecRepo: this.lambdaApiexecRepo,
     infraSourceBucket: this.infraSourceBucket,
     infraSourceZip: this.infraSourceZip,
+    region: this.options.region,
 
     buildDictContext: this.buildDictContext,
 

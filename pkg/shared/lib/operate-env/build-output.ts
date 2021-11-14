@@ -4,6 +4,7 @@ import { opTfOutputSchema } from './output';
 export const generalBuildOutputSchema = z.object({
   generalBuildOutput: z.optional(
     z.object({
+      sourceZipBucket: z.string(),
       sourceZipKey: z.string(),
     }),
   ),
