@@ -9,6 +9,7 @@ export interface ApiBuildOptions {
   tagsAll?: Record<string, string>;
   cidrNum: string;
   prefix: string;
+  region: string;
 }
 
 export class DevNetwork extends Resource {
@@ -161,13 +162,33 @@ export class DevNetwork extends Resource {
     },
   });
 
-  readonly publicRouteIgw = new VPC.Route(this, `publicRouteIgw`, {
+  // https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateVpcEndpoint.html
+  // NOTE: aws ec2 describe-vpc-endpoint-services
+  readonly s3Endpoint = new VPC.VpcEndpoint(this, 's3Endpoint', {
+    vpcId: this.vpc.id,
+    serviceName: `com.amazonaws.${this.options.region}.s3`,
+    tagsAll: {
+      ...this.options.tagsAll,
+    },
+  });
+
+  readonly privateRouteS3Endpoint = new VPC.VpcEndpointRouteTableAssociation(this, 'privateRouteS3Endpoint', {
+    routeTableId: this.privateRouteTable.id,
+    vpcEndpointId: this.s3Endpoint.id,
+  });
+
+  readonly publicRouteS3Endpoint = new VPC.VpcEndpointRouteTableAssociation(this, 'publicRouteS3Endpoint', {
+    routeTableId: this.publicRouteTable.id,
+    vpcEndpointId: this.s3Endpoint.id,
+  });
+
+  readonly publicRouteIgw = new VPC.Route(this, 'publicRouteIgw', {
     routeTableId: this.publicRouteTable.id,
     destinationCidrBlock: '0.0.0.0/0',
     gatewayId: this.igw.id,
   });
 
-  readonly publicRouteIgw6 = new VPC.Route(this, `publicRouteIgw6`, {
+  readonly publicRouteIgw6 = new VPC.Route(this, 'publicRouteIgw6', {
     routeTableId: this.publicRouteTable.id,
     destinationIpv6CidrBlock: '::/0',
     gatewayId: this.igw.id,

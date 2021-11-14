@@ -95,6 +95,7 @@ export class CodeBuildStack extends Resource {
   };
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codebuild_project
+  // https://docs.aws.amazon.com/codebuild/latest/APIReference/API_CreateProject.html
   // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
   readonly build = new CodeBuild.CodebuildProject(this, 'build', {
     name: `${this.options.prefix}-${this.suffix.result}`,

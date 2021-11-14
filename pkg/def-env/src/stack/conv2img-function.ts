@@ -1,4 +1,4 @@
-import { IAM, LambdaFunction, S3, SQS } from '@cdktf/provider-aws';
+import { CloudWatch, IAM, LambdaFunction, S3, SQS } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { Fn } from 'cdktf';
@@ -9,16 +9,20 @@ import type { HTTPTask } from './http-task';
 import type { RepoImage } from './repo-image';
 import type { ServiceBuckets } from './service-buckets';
 
+// PDF 1 枚で 6 秒強
+// TODO(service): よりページが多いドキュメントのテスト
+
 // Lambda の処理タイムアウト
 const lambdaTimeoutSeconds = 30;
 // 処理されきらなかったときに Queue に戻るまでの時間
 // Lambda より長くしておく
 const visibilityTimeoutSeconds = 35;
 // Queue にメッセージを保持しておく期間
-const messageRetentionSeconds = 60 * 10; // 10 minutes
+const messageRetentionSeconds = 90;
 
 export interface Conv2imgFunctionOptions {
   prefix: string;
+  logsPrefix: string;
   tagsAll?: Record<string, string>;
   task: HTTPTask;
   network: DataNetwork;
@@ -153,6 +157,15 @@ export class Conv2imgFunction extends Resource {
     ],
   });
 
+  readonly criticalLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'criticalLogGroup', {
+    name: `${this.options.logsPrefix}/critical`,
+    retentionInDays: 7,
+
+    tagsAll: {
+      ...this.options.tagsAll,
+    },
+  });
+
   readonly policyDocument = new IAM.DataAwsIamPolicyDocument(this, 'policyDocument', {
     version: '2012-10-17',
     statement: [
@@ -186,6 +199,11 @@ export class Conv2imgFunction extends Resource {
         effect: 'Allow',
         resources: ['*'],
         actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
+      },
+      {
+        effect: 'Allow',
+        resources: [`${this.criticalLogGroup.arn}:*`],
+        actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
       },
       {
         // https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html#vpc-permissions
@@ -251,8 +269,13 @@ export class Conv2imgFunction extends Resource {
     packageType: 'Image',
     role: this.role.arn,
     imageUri: this.options.repoImage.imageUri,
-    environment: { variables: this.options.env },
-    memorySize: 256,
+    environment: {
+      variables: {
+        ...this.options.env,
+        CLOUDWATCH_CRITICAL_LOG_GROUP: z.string().parse(this.criticalLogGroup.name),
+      },
+    },
+    memorySize: 1024,
     timeout: lambdaTimeoutSeconds,
 
     tagsAll: {

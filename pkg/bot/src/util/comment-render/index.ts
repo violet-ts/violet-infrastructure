@@ -51,7 +51,7 @@ export const renderCommentBody = (body: CommentBody): string => {
         mode === 'ul' ? '</li>' : '',
       ].join('\n'),
     ),
-    { ul: '<ul>', plain: '' }[mode],
+    { ul: '</ul>', plain: '' }[mode],
   ].join('\n');
 };
 
@@ -65,8 +65,15 @@ export const renderProcessingDuration = (status: CmdStatus, from: Temporal.Insta
 };
 
 export const renderAnchor = (name: string, href: string): string => {
-  // TODO: escape href
   return `<a href="${href}">${name}</a>`;
+};
+
+export const renderImage = (href: string): string => {
+  return `<img src="${href}" />`;
+};
+
+export const renderBadge = (badgeLabel: string, badgeColor: string, href: string): string => {
+  return renderAnchor(renderImage(`https://img.shields.io/badge/-${badgeLabel}-${badgeColor}?style=flat`), href);
 };
 
 export const renderBold = (content: string): string => {

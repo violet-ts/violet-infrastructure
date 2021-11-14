@@ -4,7 +4,7 @@ import { toTemporalInstant } from '@js-temporal/polyfill';
 import { getBuild } from '@self/bot/src/cmd/template/codebuild';
 import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
-import { renderAnchor, renderCode, renderTimestamp } from '@self/bot/src/util/comment-render';
+import { renderAnchor, renderBadge, renderCode, renderTimestamp } from '@self/bot/src/util/comment-render';
 import {
   renderECRImageDigest,
   renderECSCluster,
@@ -257,6 +257,7 @@ const createCmd = (
       };
     },
     async update(entry, ctx) {
+      const footBadges = new Map<string, string>();
       const { credentials, logger } = ctx;
       const { last, statusChangedAt, status, timeRange } = await getBuild({
         buildId: entry.buildId,
@@ -271,9 +272,14 @@ const createCmd = (
         timeRange,
       };
 
+      if (entry.tfBuildOutput) {
+        footBadges.set('Web', renderBadge('Web', '2ba3d6', entry.tfBuildOutput.web_url));
+      }
+
       return {
         status,
         values,
+        footBadges,
       };
     },
   };

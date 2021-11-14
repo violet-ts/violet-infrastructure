@@ -61,6 +61,8 @@ export class VioletEnvStack extends TerraformStack {
   /** len = 6 + 6 + 1 + 1 = 14 */
   private readonly prefix = `vio-e-${getHash6(this.options.dynamicOpEnv.NAMESPACE)}-${this.options.section[0]}`;
 
+  private readonly logsPrefix = `violet-env-${getHash6(this.options.dynamicOpEnv.NAMESPACE)}-${this.options.section}`;
+
   readonly nullProvider = new NullProvider(this, 'nullProvider', {});
 
   readonly random = new RandomProvider(this, 'random', {});
@@ -202,6 +204,7 @@ export class VioletEnvStack extends TerraformStack {
 
   readonly conv2imgFunction = new Conv2imgFunction(this, 'conv2imgFunction', {
     prefix: `${this.prefix}-c2i`,
+    logsPrefix: `${this.logsPrefix}-lambda-conv2img`,
     task: this.apiTask,
     network: this.network,
     repoImage: this.lambdaConv2imgRepoImage,

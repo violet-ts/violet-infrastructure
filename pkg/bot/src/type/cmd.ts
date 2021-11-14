@@ -50,6 +50,7 @@ export type ReplyCmdMainResult<Entry = EntryForTypeCheck, CommentValues = Commen
   entry: Entry;
   values: CommentValues;
   watchTriggers?: Set<string> | null | undefined;
+  footBadges?: Map<string, string> | null | undefined;
 };
 
 export interface CommentHint {
@@ -71,6 +72,7 @@ export interface UpdateResult<Entry = Record<never, never>, CommentValues = Comm
   updateEntry?: Partial<Entry>;
   values: CommentValues;
   watchTriggers?: Set<string> | null | undefined;
+  footBadges?: Map<string, string> | null | undefined;
 }
 
 export type ReplyCmdStatic = {

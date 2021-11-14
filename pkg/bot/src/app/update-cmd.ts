@@ -47,7 +47,7 @@ export const reEvaluateCommentEntry = async (
   const fullEntryTyped: FullEntryForTypeCheck = parseFullEntryForTypeCheck(fullEntry);
   const result = await cmd.update(fullEntryTyped, cmdCtx);
   touchResult?.(result);
-  const { status, updateEntry, values, watchTriggers } = result;
+  const { status, updateEntry, values, watchTriggers, footBadges } = result;
   logger.debug('Command update processed.', { status, updateEntry, values });
   if (updateEntry != null) {
     const obj: Record<string, unknown> = updateEntry;
@@ -75,7 +75,7 @@ export const reEvaluateCommentEntry = async (
     logger,
   );
   logger.debug('New entry computed.', { newEntry });
-  const fullComment = constructFullComment(cmd, newEntry, values, cmdCtx, includeHeader);
+  const fullComment = constructFullComment(cmd, newEntry, values, cmdCtx, includeHeader, footBadges);
   return {
     fullComment,
     newEntry,

@@ -61,12 +61,14 @@ export const constructFullComment = (
   values: CommentValuesForTypeCheck,
   ctx: BasicContext,
   includeHeader: boolean,
+  footBadges: Map<string, string> | undefined | null,
 ): string => {
   const commentHead = includeHeader
     ? [embedDirective(`mark:${cmd.name}:${entry.uuid}`), `@${entry.callerName}`, '', ''].join('\n')
-    : [];
+    : '';
+  const commentFoot = footBadges ? ['', '', [...footBadges.values()].join(''), ''].join('\n') : '';
   const comment = renderCommentBody(constructFullCommentBody(cmd, entry, values, ctx));
-  const full = commentHead + comment;
+  const full = commentHead + comment + commentFoot;
   return full;
 };
 
@@ -90,11 +92,11 @@ export const runMain = async (
   );
   const result = await cmd.main(ctx, parsedArgs, generalEntry);
   touchResult?.(result);
-  const { status, entry, values, watchTriggers } = result;
+  const { status, entry, values, watchTriggers, footBadges } = result;
   logger.info('Command main process done.', { status, entry, values, watchTriggers });
 
   const fullEntry = { ...entry, ...generalEntry, watchTriggers };
-  const full = constructFullComment(cmd, fullEntry, values, ctx, createComment);
+  const full = constructFullComment(cmd, fullEntry, values, ctx, createComment, footBadges);
 
   if (createComment) {
     logger.info('Creating comment for success...');
