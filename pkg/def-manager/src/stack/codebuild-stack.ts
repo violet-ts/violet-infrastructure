@@ -5,6 +5,7 @@ import { String as RandomString } from '@cdktf/provider-random';
 import { computedBotCodeBuildEnv } from '@self/shared/lib/bot/env';
 import type { CodeBuildStackEnv } from '@self/shared/lib/codebuild-stack/env';
 import { codeBuildStackCodeBuildEnv } from '@self/shared/lib/codebuild-stack/env';
+import { devInfoLogRetentionDays } from '@self/shared/lib/const/logging';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import { sharedCodeBuildEnv } from '@self/shared/lib/def/env-vars';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
@@ -58,7 +59,7 @@ export class CodeBuildStack extends Resource {
 
   readonly buildLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'buildLogGroup', {
     namePrefix: `${this.options.logsPrefix}/build`,
-    retentionInDays: 3,
+    retentionInDays: devInfoLogRetentionDays,
 
     tagsAll: {
       ...this.options.tagsAll,

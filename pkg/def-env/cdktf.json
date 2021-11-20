@@ -1,6 +1,6 @@
 {
   "language": "typescript",
-  "app": "echo ERROR: you should specify app explicitly. && exit 1",
+  "app": "pnpm run -w cdktf-prepare:env && ts-node -T ./src/entry.ts",
   "projectId": "e9809131-0431-46c8-845a-b1e25cb4ee24",
   "terraformProviders": [
     "random",

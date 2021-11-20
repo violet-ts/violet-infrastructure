@@ -4,6 +4,7 @@ import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import { String as RandomString } from '@cdktf/provider-random';
 import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
+import { devInfoLogRetentionDays } from '@self/shared/lib/const/logging';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import { Fn } from 'cdktf';
 import type { Construct } from 'constructs';
@@ -25,6 +26,8 @@ export interface BotOptions {
 
   infraSourceBucket: S3.S3Bucket;
   infraSourceZip: S3.S3BucketObject;
+  gcipConfigJson: string;
+  gcipProject: string;
 
   previewZone: Route53.DataAwsRoute53Zone;
 }
@@ -92,6 +95,8 @@ export class Bot extends Resource {
     BOT_TABLE_NAME: this.table.name,
     BOT_ISSUE_MAP_TABLE_NAME: this.issueMap.name,
     BOT_TOPIC_NAME: z.string().parse(this.topic.name),
+    GCIP_CONFIG_JSON: this.options.gcipConfigJson,
+    GCIP_PROJECT: this.options.gcipProject,
   };
 
   readonly parameters = botEnv.map(
@@ -140,7 +145,7 @@ export class Bot extends Resource {
 
   readonly accessLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'accessLogGroup', {
     name: `${this.options.logsPrefix}/access`,
-    retentionInDays: 3,
+    retentionInDays: devInfoLogRetentionDays,
 
     tagsAll: {
       ...this.options.tagsAll,

@@ -18,6 +18,7 @@ import { DockerHubCredentials } from './dockerhub-credentials';
 import { OperateEnv } from './operate-env';
 import { RepoStack } from './repo-stack';
 import { UpdatePRLabels } from './update-pr-labels';
+import { gcipConfigDevJson } from './values';
 
 export interface VioletManagerOptions {
   region: string;
@@ -227,6 +228,8 @@ export class VioletManagerStack extends TerraformStack {
 
     infraSourceBucket: this.infraSourceBucket,
     infraSourceZip: this.infraSourceZip,
+    gcipConfigJson: gcipConfigDevJson,
+    gcipProject: this.options.sharedEnv.DEV_GCIP_PROJECT,
     previewZone: this.previewZone,
 
     tagsAll: {

@@ -1,6 +1,7 @@
 import { CloudWatch, IAM, LambdaFunction, S3, SQS } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
+import { devInfoLogRetentionDays } from '@self/shared/lib/const/logging';
 import { Fn } from 'cdktf';
 import type { Construct } from 'constructs';
 import { z } from 'zod';
@@ -159,7 +160,7 @@ export class Conv2imgFunction extends Resource {
 
   readonly criticalLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'criticalLogGroup', {
     name: `${this.options.logsPrefix}/critical`,
-    retentionInDays: 7,
+    retentionInDays: devInfoLogRetentionDays,
 
     tagsAll: {
       ...this.options.tagsAll,

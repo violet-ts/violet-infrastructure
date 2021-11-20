@@ -181,6 +181,10 @@ export class VioletEnvStack extends TerraformStack {
     S3_REGION: z.string().parse(this.aws.region),
     S3_BUCKET_ORIGINAL: z.string().parse(this.serviceBuckets.originalBucket.bucket),
     S3_BUCKET_CONVERTED: z.string().parse(this.serviceBuckets.convertedBucket.bucket),
+    // 認証の仕方が入ったファイル (Workload Identity Federation)
+    // https://cloud.google.com/iam/docs/using-workload-identity-federation
+    GCIP_CONFIG_JSON: this.options.computedBotEnv.GCIP_CONFIG_JSON,
+    GCLOUD_PROJECT: this.options.computedBotEnv.GCIP_PROJECT,
   };
 
   readonly apiTask = new HTTPTask(this, 'apiTask', {
