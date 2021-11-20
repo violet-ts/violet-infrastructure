@@ -1,6 +1,7 @@
 import { CloudWatch, ECS, ELB, IAM, Route53, VPC } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
+import { devInfoLogRetentionDays } from '@self/shared/lib/const/logging';
 import { z } from 'zod';
 import type { VioletEnvStack } from '.';
 import type { RepoImage } from './repo-image';
@@ -215,7 +216,7 @@ export class HTTPTask extends Resource {
   readonly logGroup = new CloudWatch.CloudwatchLogGroup(this, 'logGroup', {
     name: this.options.prefix,
     // TODO(service): longer for prod
-    retentionInDays: 7,
+    retentionInDays: devInfoLogRetentionDays,
     tagsAll: {
       ...this.options.tagsAll,
     },

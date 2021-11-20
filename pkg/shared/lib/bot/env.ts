@@ -19,6 +19,10 @@ export const computedBotEnvSchema = z.object({
   BOT_TABLE_NAME: z.string(),
   BOT_ISSUE_MAP_TABLE_NAME: z.string(),
   BOT_TOPIC_NAME: z.string(),
+  // 認証の仕方が入ったファイル (Workload Identity Federation)
+  // https://cloud.google.com/iam/docs/using-workload-identity-federation
+  GCIP_CONFIG_JSON: z.string(),
+  GCIP_PROJECT: z.string(),
 });
 export type ComputedBotEnv = z.infer<typeof computedBotEnvSchema>;
 export const computedBotCodeBuildEnv = (env: ComputedBotEnv): CodeBuildEnv =>

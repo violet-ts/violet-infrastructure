@@ -25,6 +25,9 @@ export const sharedEnvSchema = z.object({
   /** 事前に作成した AWS Route53 Zone */
   PREVIEW_ZONE_ID: z.string(),
   TF_BACKEND_ORGANIZATION: z.string(),
+  DEV_GCIP_API_KEY: z.string(),
+  DEV_GCIP_AUTH_DOMAIN: z.string(),
+  DEV_GCIP_PROJECT: z.string(),
 });
 // ローカルからのみ与えることが可能
 export type SharedEnv = z.infer<typeof sharedEnvSchema>;

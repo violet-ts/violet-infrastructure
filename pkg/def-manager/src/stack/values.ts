@@ -1,5 +1,5 @@
 import { botSecretsSchema } from '@self/shared/lib/bot/env';
-import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
+import { ensureJsonString, ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -18,3 +18,5 @@ export const botEnv = Object.entries(
     BOT_PRIVATE_KEY: botPrivateKey,
   }),
 );
+export const gcipConfigDevJsonPath = ensurePath(path.resolve(rootDir, 'pkg', 'bot', 'gcip-config-dev.local.json'));
+export const gcipConfigDevJson = ensureJsonString(fs.readFileSync(gcipConfigDevJsonPath).toString());

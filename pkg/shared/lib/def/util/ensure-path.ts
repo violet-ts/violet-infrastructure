@@ -6,3 +6,8 @@ export const ensurePath = (p: string): string => {
   if (!fs.existsSync(p)) throw new Error(`Path "${p}" not found.`);
   return p;
 };
+
+export const ensureJsonString = (s: string): string => {
+  JSON.parse(s);
+  return s;
+};

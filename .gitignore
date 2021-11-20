@@ -6,10 +6,11 @@ cdktf.out/
 cdktf.log
 .pnpm-debug.log*
 
-*.local.zip
-
 *terraform.*.tfstate*
 .terraform/
 tsconfig.tsbuildinfo
 
 *.local
+*.local.zip
+*.local.pem
+*.local.json
