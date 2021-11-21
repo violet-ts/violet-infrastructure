@@ -111,6 +111,7 @@ export const prAnalyze = ({
     if (['.eslintignore', '.prettierignore', '.stylelintignore', '.npmrc'].includes(basename)) labels.add('rule');
     if (['pnpm-lock.yaml'].includes(basename)) labels.add('update/lockfile');
     if (f.startsWith('.github/')) labels.add('rule');
+    if (f.startsWith('.vscode/')) labels.add('update/vscode');
     if (f.startsWith('.github/workflows/')) labels.add('update/ci');
     if (['CODEOWNERS'].includes(basename)) labels.add('update/codeowners');
     if (['.gitignore'].includes(basename)) labels.add('update/gitignore');

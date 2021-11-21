@@ -391,6 +391,7 @@ describe('prAnalyze', () => {
     expect(prAnalyze(c('CODEOWNERS')).sort()).toEqual(['diff/XS', 'update/codeowners'].sort());
     expect(prAnalyze(c('.gitignore')).sort()).toEqual(['diff/XS', 'update/gitignore'].sort());
     expect(prAnalyze(c('.dockerignore')).sort()).toEqual(['diff/XS', 'update/dockerignore'].sort());
+    expect(prAnalyze(c('.vscode/settings.json')).sort()).toEqual(['diff/XS', 'update/vscode'].sort());
   });
 
   it('should analyze invalid update', () => {
