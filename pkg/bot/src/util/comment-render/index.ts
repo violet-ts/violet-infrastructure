@@ -83,3 +83,14 @@ export const renderBold = (content: string): string => {
 export const renderCode = (code: string): string => {
   return `<code>${code}</code>`;
 };
+
+// https://github.com/vercel/next.js/blob/canary/packages/next/build/utils.ts#L107-L115
+export const renderFrontendContentBytes = (bytes: number): string => {
+  const color = (() => {
+    if (bytes < 130 * 1000) return '%23ddffaa';
+    if (bytes < 170 * 1000) return '%23ffff00';
+    return 'red';
+  })();
+  const badge = renderImage(`https://img.shields.io/badge/-${prettyBytes(bytes)}-${color}?style=flat`);
+  return `<span title="${bytes} bytes">${badge}</span>`;
+};

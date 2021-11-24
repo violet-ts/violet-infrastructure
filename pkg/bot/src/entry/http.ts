@@ -31,6 +31,8 @@ const main = async () => {
 
   const secrets = await requireSecrets(env, credentials, logger);
   const { webhooks } = createWebhooks(env, secrets, credentials, logger);
+  // const botInstallationId = Number.parseInt(process.env.BOT_INSTALLATION_ID ?? '', 10)
+  // const octokit = await createOctokit(secrets, botInstallationId);
 
   // eslint-disable-next-line no-console
   console.log(`Listening on :${port}`);
