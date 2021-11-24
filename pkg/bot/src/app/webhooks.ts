@@ -7,6 +7,8 @@ import type { Octokit } from '@octokit/rest';
 import { Webhooks } from '@octokit/webhooks';
 import type { IssueCommentEvent } from '@octokit/webhooks-types';
 import { runMain } from '@self/bot/src/app/cmd';
+import { ensureIssueMap } from '@self/bot/src/app/issue-map';
+import nextBuildSummaryHook from '@self/bot/src/app/webhooks/next-build-summary';
 import { issueMapEntrySchema } from '@self/bot/src/type/issue-map';
 import type { AccumuratedBotEnv, BotSecrets } from '@self/shared/lib/bot/env';
 import { createOctokit } from '@self/shared/lib/bot/octokit';
@@ -107,10 +109,6 @@ export const createWebhooks = (
     logger.debug('event received', all);
   });
 
-  // TODO
-  // webhooks.on('workflow_run.completed', ({ payload }) => {
-  // });
-
   const onNewPRCommit = async (owner: string, repo: string, prNumber: number, botInstallationId: number) => {
     const codeBuild = new CodeBuild({ credentials, logger });
     const startBuildResult = await codeBuild.startBuild({
@@ -130,21 +128,35 @@ export const createWebhooks = (
     logger.debug('Build started for PR labels update', { startBuildResult });
   };
 
-  webhooks.on(['pull_request.opened', 'issues.opened'], ({ payload }) => {
+  webhooks.on(['workflow_run.completed'], ({ payload }) => {
     const inner = async () => {
-      const db = new DynamoDB({ credentials, logger });
-      await db.putItem({
-        TableName: env.BOT_ISSUE_MAP_TABLE_NAME,
-        Item: {
-          number: {
-            N: ('issue' in payload ? payload.issue.number : payload.pull_request.number).toString(),
-          },
-        },
+      await nextBuildSummaryHook({
+        env,
+        secrets,
+        payload,
+        credentials,
+        logger,
       });
     };
     add(
       inner().catch((e) => {
-        logger.error(`Error while running issue_comment reciever`, e);
+        logger.error(`Error while running workflow_run.completed reciever`, e);
+      }),
+    );
+  });
+
+  webhooks.on(['pull_request.opened', 'issues.opened'], ({ payload }) => {
+    const inner = async () => {
+      await ensureIssueMap({
+        env,
+        credentials,
+        logger,
+        prNumber: 'issue' in payload ? payload.issue.number : payload.pull_request.number,
+      });
+    };
+    add(
+      inner().catch((e) => {
+        logger.error(`Error while running pull_request.opened, issues.opened reciever`, e);
       }),
     );
   });
@@ -161,7 +173,10 @@ export const createWebhooks = (
     };
     add(
       inner().catch((e) => {
-        logger.error(`Error while running issue_comment reciever`, e);
+        logger.error(
+          `Error while running pull_request.opened, pull_request.edited, pull_request.synchronize reciever`,
+          e,
+        );
       }),
     );
   });
@@ -187,7 +202,7 @@ export const createWebhooks = (
     };
     add(
       inner().catch((e) => {
-        logger.error(`Error while running issue_comment reciever`, e);
+        logger.error(`Error while running issue_comment.created reciever`, e);
       }),
     );
   });
