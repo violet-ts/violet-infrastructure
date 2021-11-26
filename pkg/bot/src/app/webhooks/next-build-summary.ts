@@ -67,7 +67,7 @@ const main = async ({ payload, secrets, env, credentials, logger }: Params): Pro
 
   const prNumbers = payload.workflow_run.pull_requests.map((pull) => pull.number);
   logger.info('Extracted PR numbers.', { prNumbers });
-  if (prNumbers.length) {
+  if (prNumbers.length === 0) {
     logger.info('No number found. Trying to crawl.', {
       owner,
       repo,
