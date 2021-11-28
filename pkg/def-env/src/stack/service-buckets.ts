@@ -21,6 +21,21 @@ export class ServiceBuckets extends Resource {
     // TODO(cost): for prod: lifecycle
     bucketPrefix: `${this.options.prefix}-orig-`,
     forceDestroy: true,
+    grant: [
+      {
+        type: 'Group',
+        uri: 'http://acs.amazonaws.com/groups/global/AllUsers',
+        permissions: ['READ'],
+      },
+    ],
+    // TODO(security): restrict CORS
+    corsRule: [
+      {
+        allowedHeaders: ['*'],
+        allowedMethods: ['GET', 'PUT', 'POST'],
+        allowedOrigins: ['*'],
+      },
+    ],
   });
 
   // https://docs.aws.amazon.com/AmazonS3/latest/API/API_Types.html
@@ -31,6 +46,21 @@ export class ServiceBuckets extends Resource {
     // TODO(cost): for prod: lifecycle
     bucketPrefix: `${this.options.prefix}-conv-`,
     forceDestroy: true,
+    grant: [
+      {
+        type: 'Group',
+        uri: 'http://acs.amazonaws.com/groups/global/AllUsers',
+        permissions: ['READ'],
+      },
+    ],
+    // TODO(security): restrict CORS
+    corsRule: [
+      {
+        allowedHeaders: ['*'],
+        allowedMethods: ['GET', 'PUT', 'POST'],
+        allowedOrigins: ['*'],
+      },
+    ],
   });
 
   readonly objectsFullAccessPolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'objectsFullAccessPolicyDocument', {
