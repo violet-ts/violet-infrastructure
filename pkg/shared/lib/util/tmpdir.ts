@@ -1,4 +1,3 @@
-import format from 'date-fns/format';
 import * as fs from 'fs';
 import { tmpdir } from 'os';
 import * as path from 'path';
@@ -9,6 +8,14 @@ export interface TmpdirContext {
   close(): void;
 }
 
+const formatDate = (date: Date) => {
+  return `${`000${date.getFullYear()}`.slice(-4)}-${`0${date.getMonth() + 1}`.slice(-2)}-${`0${date.getDate()}`.slice(
+    -2,
+  )}.${`0${date.getHours()}`.slice(-2)}-${`0${date.getMinutes()}`.slice(-2)}-${`0${date.getSeconds()}`.slice(
+    -2,
+  )}.${`00${date.getMilliseconds()}`.slice(-3)}`;
+};
+
 // NOTE: Lambda compatible.
 export const createTmpdirContext = (): TmpdirContext => {
   let name: string | null = null;
@@ -16,7 +23,7 @@ export const createTmpdirContext = (): TmpdirContext => {
   return {
     open(): string {
       if (name != null) throw new Error('already opened');
-      name = path.resolve(tmpdir(), `vinf.${format(new Date(), 'yyyy-MM-dd.HH-mm-ss.SSS')}.d`);
+      name = path.resolve(tmpdir(), `vinf.${formatDate(new Date())}.d`);
       fs.mkdirSync(name, { recursive: true });
       return name;
     },

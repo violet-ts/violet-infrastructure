@@ -163,6 +163,34 @@ export class VioletManagerStack extends TerraformStack {
     zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
   });
 
+  readonly publicDevBucket = new S3.S3Bucket(this, 'publicDevBucket', {
+    ...(this.options.sharedEnv.PUBLIC_DEV_BUCKET
+      ? {
+          bucket: this.options.sharedEnv.PUBLIC_DEV_BUCKET,
+        }
+      : {
+          bucketPrefix: `violet-public-dev-${this.suffix.result}`,
+        }),
+    versioning: {
+      enabled: this.isProd,
+    },
+    forceDestroy: !this.isProd,
+    grant: [
+      {
+        type: 'Group',
+        uri: 'http://acs.amazonaws.com/groups/global/AllUsers',
+        permissions: ['READ'],
+      },
+    ],
+    corsRule: [
+      {
+        allowedHeaders: ['*'],
+        allowedMethods: ['GET', 'PUT', 'POST', 'DELETE'],
+        allowedOrigins: ['*'],
+      },
+    ],
+  });
+
   readonly infraSourceBucket = new S3.S3Bucket(this, 'infraSourceBucket', {
     bucketPrefix: `vio-infra-source-`,
     acl: 'private',

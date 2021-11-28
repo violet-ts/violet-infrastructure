@@ -28,6 +28,7 @@ export const sharedEnvSchema = z.object({
   DEV_GCIP_API_KEY: z.string(),
   DEV_GCIP_AUTH_DOMAIN: z.string(),
   DEV_GCIP_PROJECT: z.string(),
+  PUBLIC_DEV_BUCKET: z.string().optional(),
 });
 // ローカルからのみ与えることが可能
 export type SharedEnv = z.infer<typeof sharedEnvSchema>;
