@@ -84,13 +84,19 @@ export const renderCode = (code: string): string => {
   return `<code>${code}</code>`;
 };
 
+export const renderScoreBadge = (text: string, color: 'red' | 'yellow' | 'green'): string => {
+  const badgeColor = { red: 'red', yellow: '%23ffff00', green: '%23ddffaa' }[color];
+  const badge = renderImage(`https://img.shields.io/badge/-${text.replace(/-/, '--')}-${badgeColor}?style=flat`);
+  return badge;
+};
+
 // https://github.com/vercel/next.js/blob/canary/packages/next/build/utils.ts#L107-L115
-export const renderFrontendContentBytes = (bytes: number): string => {
+export const renderWebContentBytes = (bytes: number): string => {
   const color = (() => {
-    if (bytes < 130 * 1000) return '%23ddffaa';
-    if (bytes < 170 * 1000) return '%23ffff00';
+    if (bytes < 130 * 1000) return 'green';
+    if (bytes < 170 * 1000) return 'yellow';
     return 'red';
   })();
-  const badge = renderImage(`https://img.shields.io/badge/-${prettyBytes(bytes)}-${color}?style=flat`);
+  const badge = renderScoreBadge(prettyBytes(bytes), color);
   return `<span title="${bytes} bytes">${badge}</span>`;
 };

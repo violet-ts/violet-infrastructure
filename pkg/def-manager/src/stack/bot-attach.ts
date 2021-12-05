@@ -118,7 +118,7 @@ export class BotAttach extends Resource {
     s3Bucket: this.options.bot.ghWebhookBucket.bucket,
     s3Key: this.options.bot.githubBotZip.key,
     role: this.options.bot.ghWebhookExecRole.arn,
-    memorySize: 256,
+    memorySize: 1024,
     environment: {
       variables: accumuratedBotEnvSchema.parse(this.accumuratedBotEnv),
     },
@@ -138,7 +138,7 @@ export class BotAttach extends Resource {
     s3Key: this.options.bot.onAnyZip.key,
     role: this.options.bot.onAnyExecRole.arn,
     reservedConcurrentExecutions: 1,
-    memorySize: 256,
+    memorySize: 1024,
     environment: {
       variables: accumuratedBotEnvSchema.parse(this.accumuratedBotEnv),
     },

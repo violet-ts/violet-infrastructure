@@ -2,25 +2,46 @@ import { Lambda } from '@aws-sdk/client-lambda';
 import { getCodeBuildCredentials } from '@self/shared/lib/aws';
 import { computedBotEnvSchema } from '@self/shared/lib/bot/env';
 import { requireSecrets } from '@self/shared/lib/bot/secrets';
+import { setupCachedChrome } from '@self/shared/lib/chrome/setup';
+import { codeBuildStackEnvSchema } from '@self/shared/lib/codebuild-stack/env';
+import { codeBuildEnvSchema } from '@self/shared/lib/codebuild/env';
+import { lighthouseCategories, lighthouseNames } from '@self/shared/lib/const/lighthouse';
 import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
 import { initEnv } from '@self/shared/lib/def/util/init-env';
 import { createLambdaLogger } from '@self/shared/lib/loggers';
-import type {
-  GeneralBuildOutput,
-  InvokeFunctionBuildOutput,
-  TfBuildOutput,
+import type { LighthouseBuildOutput } from '@self/shared/lib/operate-env/build-output';
+import {
+  generalBuildOutputSchema,
+  invokeFunctionBuildOutputSchema,
+  lighthouseBuildOutputSchema,
+  tfBuildOutputSchema,
 } from '@self/shared/lib/operate-env/build-output';
-import { tfBuildOutputSchema } from '@self/shared/lib/operate-env/build-output';
 import { computedOpEnvSchema, dynamicOpEnvSchema, scriptOpEnvSchema } from '@self/shared/lib/operate-env/op-env';
 import type { OpTfOutput } from '@self/shared/lib/operate-env/output';
 import { computedRunScriptEnvSchema, dynamicRunScriptEnvSchema } from '@self/shared/lib/run-script/env';
 import { updateTableRootKeys } from '@self/shared/lib/util/dynamodb';
-import { exec } from '@self/shared/lib/util/exec';
+import { exec, execThrow } from '@self/shared/lib/util/exec';
+import { createTmpdirContext } from '@self/shared/lib/util/tmpdir';
+import { asyncIter } from 'ballvalve';
+import * as chromeLauncher from 'chrome-launcher';
+import * as fs from 'fs';
+import type { LighthouseOptions } from 'lighthouse';
+import lighthouse from 'lighthouse';
+import lighthouseDesktopConfig from 'lighthouse/lighthouse-core/config/desktop-config';
+import * as os from 'os';
+import * as path from 'path';
+import { z } from 'zod';
+
+type LighthousePathResult = Required<LighthouseBuildOutput>['lighthouseBuildOutput']['paths'][number];
 
 const main = async (): Promise<void> => {
   initEnv();
 
-  const env = scriptOpEnvSchema
+  const violetInfraArtifactsDir = path.resolve(os.homedir(), 'violet-infra-artifacts');
+
+  const env = codeBuildEnvSchema
+    .merge(codeBuildStackEnvSchema)
+    .merge(scriptOpEnvSchema)
     .merge(sharedEnvSchema)
     .merge(computedOpEnvSchema)
     .merge(dynamicOpEnvSchema)
@@ -28,6 +49,11 @@ const main = async (): Promise<void> => {
     .merge(dynamicRunScriptEnvSchema)
     .merge(computedRunScriptEnvSchema)
     .parse(process.env);
+
+  const args: readonly string[] = z
+    .string()
+    .array()
+    .parse(JSON.parse(env.RUN_SCRIPT_ARGS ?? '[]'));
 
   const credentials = getCodeBuildCredentials();
   // TODO(logging): not lambda
@@ -41,10 +67,12 @@ const main = async (): Promise<void> => {
 
   const delay = (ms: number): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-  const updateTable = async <T extends Record<string, Record<string, unknown>>>(outputObj: T) => {
-    logger.debug('Updating table.', { outputObj });
+  const updateTable = async <T extends Record<string, Record<string, unknown>>>(
+    schema: z.ZodSchema<T>,
+    outputObj: T,
+  ) => {
     await updateTableRootKeys(
-      outputObj,
+      schema.parse(outputObj),
       env.BOT_TABLE_NAME,
       {
         uuid: { S: env.ENTRY_UUID },
@@ -54,30 +82,21 @@ const main = async (): Promise<void> => {
     );
   };
 
-  const e = async (file: string, args: string[], silent: boolean): Promise<{ stdout: string; stderr: string }> => {
-    console.log(`Running ${[file, ...args].map((a) => JSON.stringify(a)).join(' ')}`);
-    const { stdout, stderr, exitCode } = await exec(file, args, silent);
-    if (exitCode !== 0) {
-      if (silent) console.error({ stdout, stderr });
-      throw new Error(`exit with ${exitCode}`);
-    }
-    return { stdout, stderr };
-  };
-
-  await updateTable<GeneralBuildOutput>({
+  await updateTable(generalBuildOutputSchema, {
     generalBuildOutput: {
+      buildId: env.CODEBUILD_BUILD_ID,
       sourceZipBucket: env.INFRA_SOURCE_BUCKET,
       sourceZipKey: env.INFRA_SOURCE_ZIP_KEY,
     },
   });
 
   const tfSynthInit = async (): Promise<void> => {
-    await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:get'], false);
-    await e('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth'], false);
-    await e('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init', '-no-color'], false);
+    await execThrow('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:get'], false);
+    await execThrow('pnpm', ['--dir', './pkg/def-env', 'run', 'cdktf:synth'], false);
+    await execThrow('terraform', ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'init', '-no-color'], false);
     // NOTE: https://github.com/hashicorp/terraform/issues/23261
     // https://www.terraform.io/docs/cloud/api/workspaces.html
-    await e(
+    await execThrow(
       'curl',
       [
         '--header',
@@ -133,7 +152,7 @@ const main = async (): Promise<void> => {
       ),
     });
 
-    await updateTable<TfBuildOutput & InvokeFunctionBuildOutput>({
+    await updateTable(tfBuildOutputSchema.merge(invokeFunctionBuildOutputSchema), {
       tfBuildOutput,
       invokeFunctionBuildOutput: {
         executedFunctionName: tfBuildOutput.api_exec_function_name,
@@ -165,7 +184,7 @@ const main = async (): Promise<void> => {
       lastFailed = false;
       try {
         console.log(`${i + 1}-th run... (success=${success}, failure=${failure})`);
-        await e(
+        await execThrow(
           'terraform',
           ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', tfCmd, '-no-color', ...tfArgs],
           false,
@@ -193,7 +212,7 @@ const main = async (): Promise<void> => {
       // NOTE: 削除含む apply で一発では正常に apply できない事がある
       await operate('apply', ['--auto-approve'], 1, 2);
       const tfBuildOutput = await getTfBuildOutput();
-      await updateTable<TfBuildOutput>({
+      await updateTable(tfBuildOutputSchema, {
         tfBuildOutput,
       });
       break;
@@ -203,7 +222,7 @@ const main = async (): Promise<void> => {
         throw new Error(`not allowed to destroy workspace "${secrets.TF_ENV_BACKEND_TOKEN}"`);
       }
       await operate('destroy', ['--auto-approve'], 1, 2);
-      await e(
+      await execThrow(
         'curl',
         [
           '--header',
@@ -220,7 +239,7 @@ const main = async (): Promise<void> => {
     }
     case 'status': {
       const tfBuildOutput = await getTfBuildOutput();
-      await updateTable<TfBuildOutput>({
+      await updateTable(tfBuildOutputSchema, {
         tfBuildOutput,
       });
       break;
@@ -229,7 +248,7 @@ const main = async (): Promise<void> => {
       await operate('destroy', ['--auto-approve'], 1, 2);
       await operate('apply', ['--auto-approve'], 1, 2);
       const tfBuildOutput = await getTfBuildOutput();
-      await updateTable<TfBuildOutput>({
+      await updateTable(tfBuildOutputSchema, {
         tfBuildOutput,
       });
       break;
@@ -243,8 +262,107 @@ const main = async (): Promise<void> => {
       break;
     }
     case 'prisma/db/seed': {
-      // TODO: other seeds
-      await apiExecPnpm(['run', '_:prisma:seed', '--', 'dev']);
+      const seedNames = args.length ? [...args] : ['dev'];
+      for (const seedName of seedNames) {
+        await apiExecPnpm(['run', '_:prisma:seed', '--', seedName]);
+      }
+      break;
+    }
+    case 'lighthouse': {
+      const tfBuildOutput = await getTfBuildOutput();
+      await fs.promises.mkdir(violetInfraArtifactsDir, { recursive: true });
+      const chromePath = await setupCachedChrome();
+      const targetPaths = args.length ? [...args] : [''];
+      const targetOrigin = tfBuildOutput.web_url;
+
+      const paths = await asyncIter(targetPaths)
+        .flatMap((targetPath) =>
+          asyncIter([
+            [targetPath, 'mobile'],
+            [targetPath, 'desktop'],
+          ] as const),
+        )
+        .enumerate()
+        .map(async ([i, [targetPath, mode]]): Promise<LighthousePathResult> => {
+          const userDataDirCtx = createTmpdirContext();
+          const userDataDir = userDataDirCtx.open();
+          try {
+            logger.info('Starting Chrome...');
+            const chrome = await chromeLauncher.launch({
+              chromeFlags: ['--headless', '--no-sandbox'],
+              chromePath,
+              userDataDir,
+            });
+            try {
+              logger.info(`Chrome started on port ${chrome.port}`, { port: chrome.port });
+              const desktop = mode === 'desktop';
+              const options: LighthouseOptions = {
+                logLevel: 'info',
+                output: ['html'],
+                onlyCategories: [...lighthouseCategories],
+                formFactor: desktop ? 'desktop' : 'mobile',
+                port: chrome.port,
+                // TODO(hardcoded): locale
+                locale: 'ja',
+              };
+              const targetUrl = `${targetOrigin}${targetPath}`;
+              const urlReference = targetUrl.replace(/[\P{L}\s/!@#$%^&*()+|~`\\='";:[\]{}<>,.?-]/gu, '_');
+              const runnerResult = await lighthouse(targetUrl, options, desktop ? lighthouseDesktopConfig : undefined);
+
+              const reportHtml = typeof runnerResult.report === 'string' ? [runnerResult.report] : runnerResult.report;
+
+              if (reportHtml.length !== 1) throw new Error(`report HTML length is not 1`);
+
+              const s3Folder = `${i}-${mode}-${urlReference}`;
+              const dir = path.resolve(violetInfraArtifactsDir, s3Folder);
+
+              await fs.promises.mkdir(dir, { recursive: true });
+              await fs.promises.writeFile(path.resolve(dir, lighthouseNames.html), reportHtml[0]);
+              await fs.promises.writeFile(path.resolve(dir, lighthouseNames.json), JSON.stringify(runnerResult));
+
+              return {
+                path: targetPath,
+                url: targetUrl,
+                mode,
+                scores: {
+                  performance: runnerResult.lhr.categories.performance.score,
+                  'best-practices': runnerResult.lhr.categories['best-practices'].score,
+                  accessibility: runnerResult.lhr.categories.accessibility.score,
+                  seo: runnerResult.lhr.categories.seo.score,
+                },
+                s3Folder,
+                lhrTreemapJson: runnerResult,
+              };
+            } finally {
+              await chrome.kill();
+            }
+          } finally {
+            userDataDirCtx.close();
+          }
+        })
+        .collect();
+
+      const profileArgs = process.env.AWS_PROFILE ? ['--profile', process.env.AWS_PROFILE] : [];
+      await execThrow(
+        'aws',
+        [
+          ...profileArgs,
+          's3',
+          'sync',
+          violetInfraArtifactsDir,
+          `s3://${env.BUILD_ARTIFACT_BUCKET}/${env.CODEBUILD_BUILD_ID}`,
+          '--acl',
+          'public-read',
+        ],
+        false,
+      );
+
+      await updateTable(lighthouseBuildOutputSchema, {
+        lighthouseBuildOutput: {
+          origin: targetOrigin,
+          paths,
+        },
+      });
       break;
     }
     default: {
@@ -255,4 +373,7 @@ const main = async (): Promise<void> => {
   console.log(`Table: ${entryURL}`);
 };
 
-void main();
+void main().catch((err: unknown) => {
+  console.error(err);
+  process.exit(1);
+});

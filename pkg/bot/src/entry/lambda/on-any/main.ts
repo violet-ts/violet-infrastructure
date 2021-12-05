@@ -3,7 +3,7 @@
 // コメントは uuid さえ特定すれば他の情報を一切必要とせずに更新できるようにしている。
 // そのため、uuid を特定する材料さえ見つければ良い。
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
-import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { matchers } from '@self/bot/src/app/matchers';
 import { reEvaluateAndUpdate } from '@self/bot/src/app/update-cmd';
 import type { FullEntryForTypeCheck } from '@self/bot/src/type/cmd';
@@ -15,6 +15,7 @@ import { createOctokit } from '@self/shared/lib/bot/octokit';
 import { requireSecrets } from '@self/shared/lib/bot/secrets';
 import { sharedEnvSchema } from '@self/shared/lib/def/env-vars';
 import { createLambdaLogger } from '@self/shared/lib/loggers';
+import { marshall } from '@self/shared/lib/util/aws/dynamodb';
 import type { Handler } from 'aws-lambda';
 
 /* eslint-disable no-restricted-syntax,no-await-in-loop */
@@ -57,10 +58,7 @@ const handler: Handler = async (event: unknown, context) => {
     const db = new DynamoDB({ credentials, logger });
 
     const expr = triggers.map((_trigger, i) => `contains(watchTriggers, :trigger${i})`).join(' OR ');
-    const values = marshall(Object.fromEntries(triggers.map((trigger, i) => [`:trigger${i}`, trigger])), {
-      convertEmptyValues: true,
-      removeUndefinedValues: true,
-    });
+    const values = marshall(Object.fromEntries(triggers.map((trigger, i) => [`:trigger${i}`, trigger])));
 
     const res = await db.scan({
       TableName: env.BOT_TABLE_NAME,

@@ -2,6 +2,8 @@ import build, { buildCmds } from '@self/bot/src/cmd/build';
 import debugReEval from '@self/bot/src/cmd/debug/re-eval';
 import debugUpdatePRLabels from '@self/bot/src/cmd/debug/update-pr-labels';
 import deploy from '@self/bot/src/cmd/deploy';
+import lighthouse from '@self/bot/src/cmd/lighthouse';
+import lighthousePresetDefault from '@self/bot/src/cmd/lighthouse-preset-default';
 import parallel from '@self/bot/src/cmd/meta/parallel';
 import serial from '@self/bot/src/cmd/meta/serial';
 import ping from '@self/bot/src/cmd/ping';
@@ -10,6 +12,7 @@ import previewRecreate from '@self/bot/src/cmd/preview-recreate';
 import previewStart from '@self/bot/src/cmd/preview-start';
 import previewStatus from '@self/bot/src/cmd/preview-status';
 import prismaDbSeed from '@self/bot/src/cmd/prisma-db-seed';
+import prismaDbSeedPresetLighthouse from '@self/bot/src/cmd/prisma-db-seed-preset-lighthouse';
 import prismaMigrateDeploy from '@self/bot/src/cmd/prisma-migrate-deploy';
 import prismaMigrateReset from '@self/bot/src/cmd/prisma-migrate-reset';
 import switchCmd from '@self/bot/src/cmd/switch';
@@ -68,10 +71,13 @@ export const cmds: ReplyCmd[] = [
   prismaMigrateDeploy,
   prismaMigrateReset,
   prismaDbSeed,
+  prismaDbSeedPresetLighthouse,
   deploy,
   debugReEval,
   debugUpdatePRLabels,
   parallel,
   serial,
+  lighthouse,
+  lighthousePresetDefault,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ] as any;

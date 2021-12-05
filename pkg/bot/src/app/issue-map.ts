@@ -1,9 +1,10 @@
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import type { Credentials, Provider } from '@aws-sdk/types';
-import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+import { unmarshall } from '@aws-sdk/util-dynamodb';
 import type { IssueMapEntry } from '@self/bot/src/type/issue-map';
 import { issueMapEntrySchema } from '@self/bot/src/type/issue-map';
 import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
+import { marshall } from '@self/shared/lib/util/aws/dynamodb';
 import type { Logger } from 'winston';
 
 export interface EnsureIssueMapParams {

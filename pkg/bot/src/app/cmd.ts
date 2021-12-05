@@ -1,7 +1,6 @@
 // 綺麗な分離単位というよりは便利な単位
 
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
-import { marshall } from '@aws-sdk/util-dynamodb';
 import { Temporal } from '@js-temporal/polyfill';
 import { cmds } from '@self/bot/src/app/cmds';
 import type {
@@ -16,6 +15,7 @@ import type {
 } from '@self/bot/src/type/cmd';
 import { renderCode, renderCommentBody, renderTimestamp } from '@self/bot/src/util/comment-render';
 import { embedDirective } from '@self/bot/src/util/parse-comment';
+import { marshall } from '@self/shared/lib/util/aws/dynamodb';
 import arg from 'arg';
 
 export const findCmdByName = (name: string): ReplyCmd => {
@@ -115,7 +115,7 @@ export const runMain = async (
     const db = new DynamoDB({ credentials, logger });
     await db.putItem({
       TableName: env.BOT_TABLE_NAME,
-      Item: marshall(fullEntry, { convertEmptyValues: true, removeUndefinedValues: true }),
+      Item: marshall(fullEntry),
     });
   }
 

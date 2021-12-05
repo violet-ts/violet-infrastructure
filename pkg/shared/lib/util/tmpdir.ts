@@ -34,7 +34,12 @@ export const createTmpdirContext = (): TmpdirContext => {
     close(): void {
       if (name == null) throw new Error('not opened yet');
       try {
-        fs.rmSync(name, { recursive: true, maxRetries: 3, force: true });
+        if (process.env.DEBUG_KEEP_VIOLET_TMP_CONTEXT === '1') {
+          // eslint-disable-next-line no-console
+          console.warn('DEBUG_KEEP_VIOLET_TMP_CONTEXT is set');
+        } else {
+          fs.rmSync(name, { recursive: true, maxRetries: 3, force: true });
+        }
       } catch (err: unknown) {
         // eslint-disable-next-line no-console
         console.warn('failed to remove', err);
