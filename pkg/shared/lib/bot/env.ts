@@ -15,6 +15,7 @@ export const computedBotEnvSchema = z.object({
   PREVIEW_DOMAIN: z.string(),
   INFRA_SOURCE_BUCKET: z.string(),
   INFRA_SOURCE_ZIP_KEY: z.string(),
+  BUILD_ARTIFACT_BUCKET: z.string(),
   BOT_SSM_PREFIX: z.string(),
   BOT_TABLE_NAME: z.string(),
   BOT_ISSUE_MAP_TABLE_NAME: z.string(),

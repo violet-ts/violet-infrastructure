@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 export const dynamicRunScriptEnvSchema = z.object({
   ENTRY_UUID: z.string(),
+  RUN_SCRIPT_ARGS: z.string().optional(),
 });
 export type DynamicRunScriptEnv = z.infer<typeof dynamicRunScriptEnvSchema>;
 export const dynamicRunScriptCodeBuildEnv = (env: DynamicRunScriptEnv): CodeBuildEnv =>

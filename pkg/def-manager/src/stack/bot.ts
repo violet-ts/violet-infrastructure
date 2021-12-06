@@ -43,6 +43,23 @@ export class Bot extends Resource {
     special: false,
   });
 
+  // TODO(cost): lifecycle
+  readonly buildArtifact = new S3.S3Bucket(this, 'buildArtifact', {
+    bucket: `violet-build-artifact-${this.suffix.result}`,
+    forceDestroy: true,
+    acl: 'public-read',
+    corsRule: [
+      {
+        allowedHeaders: ['*'],
+        allowedMethods: ['GET'],
+        allowedOrigins: ['github.com'],
+      },
+    ],
+    tagsAll: {
+      ...this.options.tagsAll,
+    },
+  });
+
   readonly logsPrefix = this.options.logsPrefix;
 
   readonly ssmPrefix = this.options.ssmPrefix;
@@ -91,6 +108,7 @@ export class Bot extends Resource {
     PREVIEW_DOMAIN: z.string().parse(this.options.previewZone.name),
     INFRA_SOURCE_BUCKET: z.string().parse(this.options.infraSourceBucket.bucket),
     INFRA_SOURCE_ZIP_KEY: this.options.infraSourceZip.key,
+    BUILD_ARTIFACT_BUCKET: z.string().parse(this.buildArtifact.bucket),
     BOT_SSM_PREFIX: this.ssmPrefix,
     BOT_TABLE_NAME: this.table.name,
     BOT_ISSUE_MAP_TABLE_NAME: this.issueMap.name,

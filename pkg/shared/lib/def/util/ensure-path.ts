@@ -8,6 +8,6 @@ export const ensurePath = (p: string): string => {
 };
 
 export const ensureJsonString = (s: string): string => {
-  JSON.parse(s);
-  return s;
+  // Compared to returning s, it drops whitespaces.
+  return JSON.stringify(JSON.parse(s));
 };

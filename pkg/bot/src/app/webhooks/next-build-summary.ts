@@ -1,6 +1,5 @@
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import type { Credentials, Provider } from '@aws-sdk/types';
-import { marshall } from '@aws-sdk/util-dynamodb';
 import type { WorkflowRunEvent } from '@octokit/webhooks-types';
 import { ensureIssueMap } from '@self/bot/src/app/issue-map';
 import type { IssueMapEntry } from '@self/bot/src/type/issue-map';
@@ -9,6 +8,7 @@ import { getCheckPullNumber } from '@self/bot/src/util/github/checks';
 import { parseActionsOutput, parseNextBuildOutput } from '@self/bot/src/util/next-build-summary/parse';
 import type { AccumuratedBotEnv, BotSecrets } from '@self/shared/lib/bot/env';
 import { createOctokit } from '@self/shared/lib/bot/octokit';
+import { marshall } from '@self/shared/lib/util/aws/dynamodb';
 import { createTmpdirContext } from '@self/shared/lib/util/tmpdir';
 import extractZip from 'extract-zip';
 import * as fs from 'fs';

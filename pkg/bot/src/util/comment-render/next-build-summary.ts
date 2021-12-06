@@ -1,4 +1,4 @@
-import { renderAnchor, renderCode, renderFrontendContentBytes } from '@self/bot/src/util/comment-render';
+import { renderAnchor, renderCode, renderWebContentBytes } from '@self/bot/src/util/comment-render';
 import type { NextBuildFirstLoad, NextBuildPage, NextBuildSummary } from '@self/bot/src/util/next-build-summary/parse';
 
 export const renderNextBuildSummary = (summary: NextBuildSummary): string => {
@@ -60,8 +60,8 @@ export const renderNextBuildPages = (pages: readonly NextBuildPage[]): string =>
       `<tr>`,
       `<td>${page.rawType}</td>`,
       `<td>${renderCode(page.path)}</td>`,
-      `<td>${renderFrontendContentBytes(page.sizeInBytes)}</td>`,
-      `<td>${renderFrontendContentBytes(page.firstLoadInBytes)}</td>`,
+      `<td>${renderWebContentBytes(page.sizeInBytes)}</td>`,
+      `<td>${renderWebContentBytes(page.firstLoadInBytes)}</td>`,
       `</tr>`,
     ])
     .join('');
@@ -73,7 +73,7 @@ export const renderNextBuildFirstLoads = (firstLoads: readonly NextBuildFirstLoa
     .flatMap((page) => [
       `<tr>`,
       `<td>${renderCode(page.path)}</td>`,
-      `<td>${renderFrontendContentBytes(page.sizeInBytes)}</td>`,
+      `<td>${renderWebContentBytes(page.sizeInBytes)}</td>`,
       `</tr>`,
     ])
     .join('');

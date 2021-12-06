@@ -17,6 +17,7 @@ import type { AccumuratedBotEnv } from '@self/shared/lib/bot/env';
 import {
   generalBuildOutputSchema,
   invokeFunctionBuildOutputSchema,
+  lighthouseBuildOutputSchema,
   runTaskBuildOutputSchema,
   tfBuildOutputSchema,
 } from '@self/shared/lib/operate-env/build-output';
@@ -24,6 +25,7 @@ import type { ScriptOpEnv } from '@self/shared/lib/operate-env/op-env';
 import { dynamicOpCodeBuildEnv, scriptOpCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
 import { dynamicRunScriptCodeBuildEnv } from '@self/shared/lib/run-script/env';
 import { z } from 'zod';
+import { renderLighthousePathResults } from '../../util/comment-render/lighthouse-result';
 
 // TODO(hardcoded)
 const imageRegion = 'ap-northeast-1';
@@ -38,7 +40,8 @@ const entrySchema = z
   .merge(generalBuildOutputSchema)
   .merge(tfBuildOutputSchema)
   .merge(runTaskBuildOutputSchema)
-  .merge(invokeFunctionBuildOutputSchema);
+  .merge(invokeFunctionBuildOutputSchema)
+  .merge(lighthouseBuildOutputSchema);
 export type Entry = z.infer<typeof entrySchema>;
 
 export interface CommentValues {
@@ -63,7 +66,7 @@ const createCmd = (
     ...st,
     entrySchema,
     argSchema,
-    async main(ctx, _args, generalEntry) {
+    async main(ctx, args, generalEntry) {
       const { number: prNumber } = ctx.commentPayload.issue;
       const { credentials, logger } = ctx;
 
@@ -119,6 +122,7 @@ const createCmd = (
         environmentVariablesOverride: [
           ...dynamicRunScriptCodeBuildEnv({
             ENTRY_UUID: generalEntry.uuid,
+            RUN_SCRIPT_ARGS: JSON.stringify(args._),
           }),
           ...scriptOpCodeBuildEnv({
             OPERATION: paramsGetter(ctx.env).operation,
@@ -173,6 +177,15 @@ const createCmd = (
         main: [
           `ビルドステータス: ${values.buildStatus} (${renderTimestamp(values.statusChangedAt)})`,
           timeRange && `ビルド時間: ${timeRange}`,
+          ...(entry.lighthouseBuildOutput
+            ? [
+                renderLighthousePathResults({
+                  buildId: entry.buildId,
+                  buildArtifactBucket: ctx.env.BUILD_ARTIFACT_BUCKET,
+                  pathResults: entry.lighthouseBuildOutput.paths,
+                }),
+              ]
+            : []),
           ...(entry.tfBuildOutput
             ? ((o) => [`api: ${renderAnchor(o.api_url, o.api_url)}`, `web: ${renderAnchor(o.web_url, o.web_url)}`])(
                 entry.tfBuildOutput,

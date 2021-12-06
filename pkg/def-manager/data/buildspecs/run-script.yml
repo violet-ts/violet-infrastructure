@@ -5,6 +5,8 @@ env:
     PNPM_VERSION: "6"
     HUSKY: "0"
     NODE_OPTIONS: --unhandled-rejections=throw
+    # https://github.com/aws/aws-codebuild-docker-images/blob/7410123ecfac0615e6d24c5acddc67f8e76b4539/ubuntu/standard/5.0/Dockerfile#L80
+    LH_CHROME_PATH: google-chrome
   shell: bash
 
 phases:

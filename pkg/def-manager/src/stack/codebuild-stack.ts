@@ -110,8 +110,8 @@ export class CodeBuildStack extends Resource {
       imagePullCredentialsType: 'CODEBUILD',
       privilegedMode: true,
       environmentVariable: [
-        ...sharedCodeBuildEnv(this.options.sharedEnv),
         ...codeBuildStackCodeBuildEnv(this.codeBuildStackEnv),
+        ...sharedCodeBuildEnv(this.options.sharedEnv),
         ...computedBotCodeBuildEnv(this.options.bot.computedBotEnv),
         ...this.options.environmentVariable,
       ],
