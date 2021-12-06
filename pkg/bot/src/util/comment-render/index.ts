@@ -86,7 +86,7 @@ export const renderCode = (code: string): string => {
 
 export const renderScoreBadge = (text: string, color: 'red' | 'yellow' | 'green'): string => {
   const badgeColor = { red: 'red', yellow: '%23ffff00', green: '%23ddffaa' }[color];
-  const badge = renderImage(`https://img.shields.io/badge/-${text.replace(/-/, '--')}-${badgeColor}?style=flat`);
+  const badge = renderImage(`https://img.shields.io/badge/-${text.replace(/-/g, '--')}-${badgeColor}?style=flat`);
   return badge;
 };
 
