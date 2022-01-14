@@ -17,6 +17,7 @@ import { APIExecFunction } from './api-exec-function';
 import { Conv2imgFunction } from './conv2img-function';
 import { DataNetwork } from './data-network';
 import { HTTPTask } from './http-task';
+import { MainDashboard } from './main-dashboard';
 import { MysqlDb } from './mysql';
 import { RepoImage } from './repo-image';
 import { ServiceBuckets } from './service-buckets';
@@ -252,6 +253,21 @@ export class VioletEnvStack extends TerraformStack {
     },
   });
 
+  readonly mainDashboard = new MainDashboard(this, 'mainDashboard', {
+    name: `${this.prefix}-main`,
+    serviceBuckets: this.serviceBuckets,
+    serviceMysql: this.mysql,
+    conv2imgFunction: this.conv2imgFunction,
+    apiExecFunction: this.apiExecFunction,
+    cluster: this.cluster,
+    apiTask: this.apiTask,
+    webTask: this.webTask,
+    lambdaApiexecRepoImage: this.lambdaApiexecRepoImage,
+    lambdaConv2imgRepoImage: this.lambdaConv2imgRepoImage,
+    webRepoImage: this.webRepoImage,
+    apiRepoImage: this.apiRepoImage,
+  });
+
   readonly localEnvFile = new TerraformOutput(this, 'localEnvFile', {
     value: Object.entries({
       ...this.options.dynamicOpEnv,
@@ -278,6 +294,7 @@ export class VioletEnvStack extends TerraformStack {
     api_exec_function_name: z.string().parse(this.apiExecFunction.function.functionName),
     original_bucket: z.string().parse(this.serviceBuckets.originalBucket.bucket),
     converted_bucket: z.string().parse(this.serviceBuckets.convertedBucket.bucket),
+    main_dashboard_name: this.mainDashboard.dashboard.dashboardName,
   };
 
   readonly opOutput = new TerraformOutput(this, `opOutput`, {

@@ -6,6 +6,7 @@ import type { ReplyCmd, ReplyCmdStatic } from '@self/bot/src/type/cmd';
 import { getImageDetailByTag } from '@self/bot/src/util/aws/ecr';
 import { renderAnchor, renderBadge, renderCode, renderTimestamp } from '@self/bot/src/util/comment-render';
 import {
+  renderCloudwatchDashboard,
   renderECRImageDigest,
   renderECSCluster,
   renderLambdaFunction,
@@ -250,6 +251,7 @@ const createCmd = (
                         region: o.env_region,
                         resourceGroupName: o.resource_group_name,
                       })}`,
+                      `Dashboard for Env: ${renderCloudwatchDashboard({ dashboardName: o.main_dashboard_name })}`,
                       `Original S3 Bucket: ${renderS3Bucket({ bucket: o.original_bucket })}`,
                       `Converted S3 Bucket: ${renderS3Bucket({ bucket: o.converted_bucket })}`,
                       `API Exec Function: ${renderLambdaFunction({
