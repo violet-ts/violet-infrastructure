@@ -16,6 +16,7 @@ export const opTfOutputSchema = z.object({
   api_exec_function_name: z.string(),
   original_bucket: z.string(),
   converted_bucket: z.string(),
+  main_dashboard_name: z.string(),
 });
 
 export type OpTfOutput = z.infer<typeof opTfOutputSchema>;

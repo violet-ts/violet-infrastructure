@@ -51,6 +51,16 @@ export const renderLambdaFunction = ({ region, functionName }: RenderLambdaFunct
   );
 };
 
+export interface RenderCloudwatchDashboardParams {
+  dashboardName: string;
+}
+export const renderCloudwatchDashboard = ({ dashboardName }: RenderCloudwatchDashboardParams): string => {
+  return renderAnchor(
+    dashboardName,
+    `https://console.aws.amazon.com/cloudwatch/home#dashboards:name=${dashboardName};start=P28D;expand=true`,
+  );
+};
+
 export interface RenderECSClusterParams {
   region: string;
   clusterName: string;
