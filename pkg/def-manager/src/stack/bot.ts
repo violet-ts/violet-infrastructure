@@ -1,8 +1,8 @@
-import type { ECR, Route53 } from '@cdktf/provider-aws';
-import { APIGatewayV2, CloudWatch, DynamoDB, IAM, S3, SNS, SQS, SSM } from '@cdktf/provider-aws';
+import type { ecr, route53 } from '@cdktf/provider-aws';
+import { apigatewayv2, cloudwatch, dynamodb, iam, s3, sns, sqs, ssm } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import { String as RandomString } from '@cdktf/provider-random';
+import { StringResource as RandomString } from '@cdktf/provider-random';
 import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
 import { devInfoLogRetentionDays } from '@self/shared/lib/const/logging';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
@@ -15,7 +15,7 @@ import type { DictContext } from './context/dict';
 import { botBuildDir, botEnv } from './values';
 
 export type BuildDictContext = DictContext<CodeBuildStack>;
-export type RepoDictContext = DictContext<ECR.EcrRepository>;
+export type RepoDictContext = DictContext<ecr.EcrRepository>;
 
 export interface BotOptions {
   tagsAll?: Record<string, string>;
@@ -24,12 +24,12 @@ export interface BotOptions {
   logsPrefix: string;
   ssmPrefix: string;
 
-  infraSourceBucket: S3.S3Bucket;
-  infraSourceZip: S3.S3BucketObject;
+  infraSourceBucket: s3.S3Bucket;
+  infraSourceZip: s3.S3BucketObject;
   gcipConfigJson: string;
   gcipProject: string;
 
-  previewZone: Route53.DataAwsRoute53Zone;
+  previewZone: route53.DataAwsRoute53Zone;
 }
 export class Bot extends Resource {
   constructor(scope: Construct, name: string, public options: BotOptions, config?: ResourceConfig) {
@@ -44,7 +44,7 @@ export class Bot extends Resource {
   });
 
   // TODO(cost): lifecycle
-  readonly buildArtifact = new S3.S3Bucket(this, 'buildArtifact', {
+  readonly buildArtifact = new s3.S3Bucket(this, 'buildArtifact', {
     bucket: `violet-build-artifact-${this.suffix.result}`,
     forceDestroy: true,
     acl: 'public-read',
@@ -65,7 +65,7 @@ export class Bot extends Resource {
   readonly ssmPrefix = this.options.ssmPrefix;
 
   // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
-  readonly issueMap = new DynamoDB.DynamodbTable(this, 'issueMap', {
+  readonly issueMap = new dynamodb.DynamodbTable(this, 'issueMap', {
     // len = 20 + 6 + 6 = 32
     name: `${this.options.prefix}-issu-${this.suffix.result}`,
     billingMode: 'PAY_PER_REQUEST',
@@ -79,7 +79,7 @@ export class Bot extends Resource {
   });
 
   // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
-  readonly table = new DynamoDB.DynamodbTable(this, 'table', {
+  readonly table = new dynamodb.DynamodbTable(this, 'table', {
     // len = 20 + 5 + 6 = 31
     name: `${this.options.prefix}-${this.suffix.result}`,
     billingMode: 'PAY_PER_REQUEST',
@@ -96,7 +96,7 @@ export class Bot extends Resource {
     hashKey: 'uuid',
   });
 
-  readonly topic = new SNS.SnsTopic(this, 'topic', {
+  readonly topic = new sns.SnsTopic(this, 'topic', {
     // len = 20 + 1 + 6 = 27
     name: `${this.options.prefix}-${this.suffix.result}`,
     tagsAll: {
@@ -119,7 +119,7 @@ export class Bot extends Resource {
 
   readonly parameters = botEnv.map(
     ([key, value]) =>
-      new SSM.SsmParameter(this, `parameters-${key}`, {
+      new ssm.SsmParameter(this, `parameters-${key}`, {
         name: `${this.options.ssmPrefix}/${key}`,
         value,
         type: 'SecureString',
@@ -130,7 +130,7 @@ export class Bot extends Resource {
       }),
   );
 
-  readonly commonPolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'commonPolicyDocument', {
+  readonly commonPolicyDocument = new iam.DataAwsIamPolicyDocument(this, 'commonPolicyDocument', {
     version: '2012-10-17',
     statement: [
       // TODO(security): restrict
@@ -142,14 +142,14 @@ export class Bot extends Resource {
       {
         effect: 'Allow',
         actions: [
-          `dynamodb:PutItem`,
-          `dynamodb:BatchPutItem`,
-          `dynamodb:GetItem`,
-          `dynamodb:BatchWriteItem`,
-          `dynamodb:UpdateItem`,
-          `dynamodb:DeleteItem`,
-          `dynamodb:Query`,
-          `dynamodb:Scan`,
+          'dynamodb:PutItem',
+          'dynamodb:BatchPutItem',
+          'dynamodb:GetItem',
+          'dynamodb:BatchWriteItem',
+          'dynamodb:UpdateItem',
+          'dynamodb:DeleteItem',
+          'dynamodb:Query',
+          'dynamodb:Scan',
         ],
         resources: [this.table.arn, this.issueMap.arn],
       },
@@ -161,7 +161,7 @@ export class Bot extends Resource {
     ],
   });
 
-  readonly accessLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'accessLogGroup', {
+  readonly accessLogGroup = new cloudwatch.CloudwatchLogGroup(this, 'accessLogGroup', {
     name: `${this.options.logsPrefix}/access`,
     retentionInDays: devInfoLogRetentionDays,
 
@@ -172,7 +172,7 @@ export class Bot extends Resource {
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item
   // ローカルでのスクリプト実行時のダミー用
-  readonly dummyItem = new DynamoDB.DynamodbTableItem(this, 'dummyItem', {
+  readonly dummyItem = new dynamodb.DynamodbTableItem(this, 'dummyItem', {
     tableName: this.table.name,
     hashKey: this.table.hashKey,
     item: JSON.stringify({
@@ -180,7 +180,7 @@ export class Bot extends Resource {
     }),
   });
 
-  readonly roleAssumeDocument = new IAM.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
+  readonly roleAssumeDocument = new iam.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -196,7 +196,7 @@ export class Bot extends Resource {
     ],
   });
 
-  readonly ghWebhookExecRole = new IAM.IamRole(this, 'ghWebhookExecRole', {
+  readonly ghWebhookExecRole = new iam.IamRole(this, 'ghWebhookExecRole', {
     // len = 20 + 5 + 6 = 31
     name: `${this.options.prefix}-ghe-${this.suffix.result}`,
     assumeRolePolicy: this.roleAssumeDocument.json,
@@ -206,7 +206,7 @@ export class Bot extends Resource {
     },
   });
 
-  readonly onAnyExecRole = new IAM.IamRole(this, 'onAnyExecRole', {
+  readonly onAnyExecRole = new iam.IamRole(this, 'onAnyExecRole', {
     // len = 20 + 5 + 6 = 31
     name: `${this.options.prefix}-oae-${this.suffix.result}`,
     assumeRolePolicy: this.roleAssumeDocument.json,
@@ -217,7 +217,7 @@ export class Bot extends Resource {
   });
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy
-  readonly commonPolicy = new IAM.IamPolicy(this, 'commonPolicy', {
+  readonly commonPolicy = new iam.IamPolicy(this, 'commonPolicy', {
     namePrefix: this.options.prefix,
     policy: this.commonPolicyDocument.json,
 
@@ -227,7 +227,7 @@ export class Bot extends Resource {
   });
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy_attachment
-  readonly commonPolicyAttach = new IAM.IamPolicyAttachment(this, 'commonPolicyAttach', {
+  readonly commonPolicyAttach = new iam.IamPolicyAttachment(this, 'commonPolicyAttach', {
     // len = 20 + 1 + 6 = 27
     name: `${this.options.prefix}-${this.suffix.result}`,
     roles: [z.string().parse(this.ghWebhookExecRole.name), z.string().parse(this.onAnyExecRole.name)],
@@ -235,7 +235,7 @@ export class Bot extends Resource {
   });
 
   // https://docs.aws.amazon.com/apigatewayv2/latest/api-reference/apis-apiid.html
-  readonly api = new APIGatewayV2.Apigatewayv2Api(this, 'api', {
+  readonly api = new apigatewayv2.Apigatewayv2Api(this, 'api', {
     // len = 20 + 1 + 6 = 27
     name: `${this.options.prefix}-${this.suffix.result}`,
     protocolType: 'HTTP',
@@ -245,7 +245,7 @@ export class Bot extends Resource {
     },
   });
 
-  readonly ghWebhookBucket = new S3.S3Bucket(this, 'ghWebhookBucket', {
+  readonly ghWebhookBucket = new s3.S3Bucket(this, 'ghWebhookBucket', {
     bucket: `${this.options.prefix}-lambda-${this.suffix.result}`,
     acl: 'private',
     forceDestroy: true,
@@ -257,7 +257,7 @@ export class Bot extends Resource {
 
   readonly githubBotZipPath = ensurePath(path.resolve(botBuildDir, 'github-bot.zip'));
 
-  readonly githubBotZip = new S3.S3BucketObject(this, 'githubBotZip', {
+  readonly githubBotZip = new s3.S3BucketObject(this, 'githubBotZip', {
     bucket: z.string().parse(this.ghWebhookBucket.bucket),
     key: `github-bot-${Fn.sha1(Fn.filebase64(this.githubBotZipPath))}.zip`,
     source: this.githubBotZipPath,
@@ -270,7 +270,7 @@ export class Bot extends Resource {
 
   readonly onAnyZipPath = ensurePath(path.resolve(botBuildDir, 'on-any.zip'));
 
-  readonly onAnyZip = new S3.S3BucketObject(this, 'onAnyZip', {
+  readonly onAnyZip = new s3.S3BucketObject(this, 'onAnyZip', {
     bucket: z.string().parse(this.ghWebhookBucket.bucket),
     key: `on-any-${Fn.sha1(Fn.filebase64(this.onAnyZipPath))}.zip`,
     source: this.onAnyZipPath,
@@ -285,7 +285,7 @@ export class Bot extends Resource {
 
   readonly webhookEndpoint = `${this.api.apiEndpoint}${this.webhookRoute}`;
 
-  readonly apiDefaultStage = new APIGatewayV2.Apigatewayv2Stage(this, 'apiDefaultStage', {
+  readonly apiDefaultStage = new apigatewayv2.Apigatewayv2Stage(this, 'apiDefaultStage', {
     apiId: this.api.id,
     name: '$default',
     autoDeploy: true,
@@ -308,13 +308,13 @@ export class Bot extends Resource {
     },
   });
 
-  readonly onAnyQueue = new SQS.SqsQueue(this, 'onAnyQueue', {
+  readonly onAnyQueue = new sqs.SqsQueue(this, 'onAnyQueue', {
     // len = 20 + 4 + 6 = 30
     name: `${this.options.prefix}-oa-${this.suffix.result}`,
   });
 
   // on-any-queue (allow)----> (document)
-  readonly allowReceiveQueueDoc = new IAM.DataAwsIamPolicyDocument(this, 'allowReceiveQueueDoc', {
+  readonly allowReceiveQueueDoc = new iam.DataAwsIamPolicyDocument(this, 'allowReceiveQueueDoc', {
     version: '2012-10-17',
     statement: [
       {
@@ -327,7 +327,7 @@ export class Bot extends Resource {
   });
 
   //  on-any-queue (allow)----> on-any-lambda
-  readonly allowReceiveQueueToOnAnyFunctionPolicy = new IAM.IamRolePolicy(
+  readonly allowReceiveQueueToOnAnyFunctionPolicy = new iam.IamRolePolicy(
     this,
     'allowReceiveQueueToOnAnyFunctionPolicy',
     {
@@ -339,7 +339,7 @@ export class Bot extends Resource {
   );
 
   // bot-topic ---->(allow) on-any-queue (document)
-  readonly allowBotTopicToOnAnyQueueDoc = new IAM.DataAwsIamPolicyDocument(this, 'allowBotTopicToOnAnyQueueDoc', {
+  readonly allowBotTopicToOnAnyQueueDoc = new iam.DataAwsIamPolicyDocument(this, 'allowBotTopicToOnAnyQueueDoc', {
     version: '2012-10-17',
     statement: [
       {
@@ -364,13 +364,13 @@ export class Bot extends Resource {
   });
 
   // bot-topic ---->(allow) on-any-queue
-  readonly allowBotTopicToOnAnyQueue = new SQS.SqsQueuePolicy(this, 'allowBotTopicToOnAnyQueue', {
+  readonly allowBotTopicToOnAnyQueue = new sqs.SqsQueuePolicy(this, 'allowBotTopicToOnAnyQueue', {
     queueUrl: this.onAnyQueue.url,
     policy: this.allowBotTopicToOnAnyQueueDoc.json,
   });
 
   // bot-topic --(subscribe)--> on-any-queue
-  readonly botTopicSubscriptionToOnAnyQueue = new SNS.SnsTopicSubscription(this, 'botTopicSubscriptionToOnAnyQueue', {
+  readonly botTopicSubscriptionToOnAnyQueue = new sns.SnsTopicSubscription(this, 'botTopicSubscriptionToOnAnyQueue', {
     topicArn: this.topic.arn,
     protocol: 'sqs',
     endpoint: this.onAnyQueue.arn,

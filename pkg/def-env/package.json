@@ -9,7 +9,7 @@
     "cdktf:deploy:yes": "pnpm run _:cdktf-init-and -- apply --auto-approve && pnpm run _:tf -- apply --auto-approve",
     "cdktf:destroy": "pnpm run _:cdktf-init-and -- destroy",
     "cdktf:get": "cdktf get",
-    "cdktf:list": "pnpm run _:cdktf-init-and -- show",
+    "cdktf:show": "cdktf show",
     "cdktf:synth": "cdktf synth",
     "test": "run-s test:tsc test:jest",
     "test-watch": "run-p test-watch:*",

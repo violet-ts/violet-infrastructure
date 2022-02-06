@@ -27,7 +27,6 @@ const handler: APIGatewayProxyHandlerV2 = async (event, _context) => {
   logger.info('Verifying...');
   await webhooks.verifyAndReceive({
     id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     name: eventName as any,
     payload,
     signature: signatureSHA256,

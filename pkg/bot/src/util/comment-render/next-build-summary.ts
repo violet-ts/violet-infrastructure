@@ -57,12 +57,12 @@ export const renderNextBuildSummary = (summary: NextBuildSummary): string => {
 export const renderNextBuildPages = (pages: readonly NextBuildPage[]): string => {
   const tbody = pages
     .flatMap((page) => [
-      `<tr>`,
+      '<tr>',
       `<td>${page.rawType}</td>`,
       `<td>${renderCode(page.path)}</td>`,
       `<td>${renderWebContentBytes(page.sizeInBytes)}</td>`,
       `<td>${renderWebContentBytes(page.firstLoadInBytes)}</td>`,
-      `</tr>`,
+      '</tr>',
     ])
     .join('');
   return `<table><thead><tr><th></th><th>パス</th><th>サイズ</th><th>初期ロードJS</th></tr></thead><tbody>${tbody}</tbody></table>`;
@@ -71,10 +71,10 @@ export const renderNextBuildPages = (pages: readonly NextBuildPage[]): string =>
 export const renderNextBuildFirstLoads = (firstLoads: readonly NextBuildFirstLoad[]): string => {
   const tbody = firstLoads
     .flatMap((page) => [
-      `<tr>`,
+      '<tr>',
       `<td>${renderCode(page.path)}</td>`,
       `<td>${renderWebContentBytes(page.sizeInBytes)}</td>`,
-      `</tr>`,
+      '</tr>',
     ])
     .join('');
   return `<table><thead><tr><th>ファイル名</th><th>サイズ</th></tr></thead><tbody>${tbody}</tbody></table>`;

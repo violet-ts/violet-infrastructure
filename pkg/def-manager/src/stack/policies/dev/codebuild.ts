@@ -1,0 +1,45 @@
+import type { PolicySet } from '@self/def-manager/src/stack/policies/dev/types';
+import { RESOURCE_DEV_SHORT_PREFIX } from '@self/shared/lib/const';
+
+export const devCodebuildPolicy = (ac: string): PolicySet => ({
+  allowResources: [
+    `arn:aws:ecs:*:${ac}:container-instance/${RESOURCE_DEV_SHORT_PREFIX}*`,
+    // `arn:aws:rds:*:${ac}:cluster-pg:*`,
+    `arn:aws:rds:*:${ac}:snapshot:${RESOURCE_DEV_SHORT_PREFIX}*`,
+    // `arn:aws:rds:*:${ac}:db-proxy-endpoint:*`,
+    `arn:aws:rds:*:${ac}:db:${RESOURCE_DEV_SHORT_PREFIX}*`,
+    // `arn:aws:rds:*:${ac}:es:*`,
+    // `arn:aws:rds:*:${ac}:db-proxy:*`,
+    // `arn:aws:rds:*:${ac}:target-group:*`,
+    // `arn:aws:rds:*:${ac}:cluster-snapshot:*`,
+    // `arn:aws:rds:*:${ac}:pg:*`,
+    // `arn:aws:rds:*:${ac}:ri:*`,
+    // `arn:aws:rds:*:${ac}:cluster:*`,
+    // `arn:aws:rds:*:${ac}:og:*`,
+    // `arn:aws:rds:*:${ac}:cev:*/*/*`,
+    `arn:aws:rds:*:${ac}:secgrp:${RESOURCE_DEV_SHORT_PREFIX}*`,
+    // `arn:aws:rds:*:${ac}:cluster-endpoint:*`,
+    // `arn:aws:rds::${ac}:global-cluster:*`,
+    `arn:aws:rds:*:${ac}:subgrp:${RESOURCE_DEV_SHORT_PREFIX}*`,
+  ],
+  allowActions: [
+    'codebuild:List*',
+
+    // `codebuild:ListCuratedEnvironmentImages`,
+    // `codebuild:ListReportGroups`,
+    // `codebuild:ListSourceCredentials`,
+    // `codebuild:ListRepositories`,
+    // `codebuild:ListSharedProjects`,
+    // `codebuild:ListBuildBatches`,
+    // `codebuild:ListSharedReportGroups`,
+    // `codebuild:ImportSourceCredentials`,
+    // `codebuild:ListReports`,
+    // `codebuild:ListBuilds`,
+    // `codebuild:DeleteOAuthToken`,
+    // `codebuild:ListProjects`,
+    // `codebuild:DeleteSourceCredentials`,
+    // `codebuild:PersistOAuthToken`,
+    // `codebuild:ListConnectedOAuthAccounts`,
+  ],
+  explicitDeny: ['codebuild:CreateProject', 'codebuild:DeleteProject'],
+});

@@ -1,7 +1,8 @@
-import { ECR } from '@cdktf/provider-aws';
+import { ecr } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import { String as RandomString } from '@cdktf/provider-random';
+import { StringResource as RandomString } from '@cdktf/provider-random';
+import { RESOURCE_DEV_PREFIX, RESOURCE_PROD_PREFIX } from '@self/shared/lib/const';
 import type { Construct } from 'constructs';
 import type { RepoDictContext } from './bot';
 
@@ -24,8 +25,8 @@ export class RepoStack extends Resource {
     special: false,
   });
 
-  readonly prodRepo = new ECR.EcrRepository(this, 'prodRepo', {
-    name: `${this.options.prefix}-${this.options.name.toLowerCase()}-prod-${this.suffix.result}`,
+  readonly prodRepo = new ecr.EcrRepository(this, 'prodRepo', {
+    name: `${RESOURCE_PROD_PREFIX}${this.options.name.toLowerCase()}-${this.suffix.result}`,
     imageTagMutability: 'IMMUTABLE',
     imageScanningConfiguration: {
       scanOnPush: true,
@@ -38,8 +39,8 @@ export class RepoStack extends Resource {
 
   readonly devRepo = this.options.devRepoDictContext.add(
     this.options.name,
-    new ECR.EcrRepository(this, 'devRepo', {
-      name: `${this.options.prefix}-${this.options.name.toLowerCase()}-dev-${this.suffix.result}`,
+    new ecr.EcrRepository(this, 'devRepo', {
+      name: `${RESOURCE_DEV_PREFIX}${this.options.name.toLowerCase()}-${this.suffix.result}`,
       imageTagMutability: 'MUTABLE',
       tagsAll: {
         Section: 'development',

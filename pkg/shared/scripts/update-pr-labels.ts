@@ -51,15 +51,15 @@ const main = async (): Promise<void> => {
           cwd: tmpdir,
         },
       );
-      await execThrow('git', [...gitConfigArgs, 'fetch', '--quiet', `origin`, baseRef], false, { cwd: tmpdir });
-      await execThrow('git', [...gitConfigArgs, 'branch', '--quiet', `base`, 'FETCH_HEAD'], false, { cwd: tmpdir });
-      await execThrow('git', [...gitConfigArgs, 'fetch', '--quiet', `origin`, targetRef], false, { cwd: tmpdir });
-      await execThrow('git', [...gitConfigArgs, 'branch', '--quiet', `target`, 'FETCH_HEAD'], false, { cwd: tmpdir });
-      await execThrow('git', [...gitConfigArgs, 'checkout', '--quiet', `target`], false, { cwd: tmpdir });
-      await execThrow('git', [...gitConfigArgs, 'checkout', `base`], false, { cwd: tmpdir });
-      await execThrow('git', [...gitConfigArgs, 'checkout', '-b', `merged`], false, { cwd: tmpdir });
-      await execThrow('git', [...gitConfigArgs, 'merge', '--quiet', `target`, '-Xours'], false, { cwd: tmpdir });
-      await execThrow('git', [...gitConfigArgs, 'diff', `base`], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'fetch', '--quiet', 'origin', baseRef], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'branch', '--quiet', 'base', 'FETCH_HEAD'], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'fetch', '--quiet', 'origin', targetRef], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'branch', '--quiet', 'target', 'FETCH_HEAD'], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'checkout', '--quiet', 'target'], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'checkout', 'base'], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'checkout', '-b', 'merged'], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'merge', '--quiet', 'target', '-Xours'], false, { cwd: tmpdir });
+      await execThrow('git', [...gitConfigArgs, 'diff', 'base'], false, { cwd: tmpdir });
 
       const parsePRParams = {
         dockerfilesOutput: (

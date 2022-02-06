@@ -48,7 +48,7 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
     await db.updateItem({
       TableName: ctx.env.BOT_ISSUE_MAP_TABLE_NAME,
       Key: { number: { N: ctx.commentPayload.issue.number.toString() } },
-      UpdateExpression: `SET namespace = :namespace`,
+      UpdateExpression: 'SET namespace = :namespace',
       ExpressionAttributeValues: { ':namespace': { S: to } },
     });
 

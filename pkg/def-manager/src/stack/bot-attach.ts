@@ -1,8 +1,8 @@
-import type { ECR } from '@cdktf/provider-aws';
-import { APIGatewayV2, IAM, LambdaFunction } from '@cdktf/provider-aws';
+import type { ecr } from '@cdktf/provider-aws';
+import { apigatewayv2, iam, lambdafunction } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import { String as RandomString } from '@cdktf/provider-random';
+import { StringResource as RandomString } from '@cdktf/provider-random';
 import type { AccumuratedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
 import { accumuratedBotEnvSchema } from '@self/shared/lib/bot/env';
 import type { SharedEnv } from '@self/shared/lib/def/env-vars';
@@ -13,7 +13,7 @@ import type { CodeBuildStack } from './codebuild-stack';
 import type { DictContext } from './context/dict';
 
 export type BuildDictContext = DictContext<CodeBuildStack>;
-export type RepoDictContext = DictContext<ECR.EcrRepository>;
+export type RepoDictContext = DictContext<ecr.EcrRepository>;
 
 export interface BotAttachOptions {
   tagsAll?: Record<string, string>;
@@ -50,7 +50,7 @@ export class BotAttach extends Resource {
     PR_UPDATE_LABELS_PROJECT_NAME: this.options.buildDictContext.get('UpLa').build.name,
   };
 
-  readonly afterwardPolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'afterwardPolicyDocument', {
+  readonly afterwardPolicyDocument = new iam.DataAwsIamPolicyDocument(this, 'afterwardPolicyDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -86,7 +86,7 @@ export class BotAttach extends Resource {
   });
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy
-  readonly afterwardPolicy = new IAM.IamPolicy(this, 'afterwardPolicy', {
+  readonly afterwardPolicy = new iam.IamPolicy(this, 'afterwardPolicy', {
     namePrefix: this.options.prefix,
     policy: this.afterwardPolicyDocument.json,
 
@@ -96,7 +96,7 @@ export class BotAttach extends Resource {
   });
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy_attachment
-  readonly afterwardPolicyAttach = new IAM.IamPolicyAttachment(this, 'afterwardPolicyAttach', {
+  readonly afterwardPolicyAttach = new iam.IamPolicyAttachment(this, 'afterwardPolicyAttach', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     roles: [
       z.string().parse(this.options.bot.ghWebhookExecRole.name),
@@ -113,7 +113,7 @@ export class BotAttach extends Resource {
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function
   // TODO(logging): retention
-  readonly ghWebhookFunction = new LambdaFunction.LambdaFunction(this, 'ghWebhookFunction', {
+  readonly ghWebhookFunction = new lambdafunction.LambdaFunction(this, 'ghWebhookFunction', {
     functionName: `${this.options.prefix}-github-bot-${this.suffix.result}`,
     s3Bucket: this.options.bot.ghWebhookBucket.bucket,
     s3Key: this.options.bot.githubBotZip.key,
@@ -132,7 +132,7 @@ export class BotAttach extends Resource {
   });
 
   // TODO(logging): retention
-  readonly onAnyFunction = new LambdaFunction.LambdaFunction(this, 'onAnyFunction', {
+  readonly onAnyFunction = new lambdafunction.LambdaFunction(this, 'onAnyFunction', {
     functionName: `${this.options.prefix}-on-any-${this.suffix.result}`,
     s3Bucket: this.options.bot.ghWebhookBucket.bucket,
     s3Key: this.options.bot.onAnyZip.key,
@@ -152,7 +152,7 @@ export class BotAttach extends Resource {
   });
 
   // on-any-queue ---->(allow) on-any-lambda
-  readonly allowExecutionFromQueue = new LambdaFunction.LambdaPermission(this, 'allowExecutionFromQueue', {
+  readonly allowExecutionFromQueue = new lambdafunction.LambdaPermission(this, 'allowExecutionFromQueue', {
     statementId: 'AllowExecutionFromQueue',
     action: 'lambda:InvokeFunction',
     functionName: this.onAnyFunction.functionName,
@@ -161,7 +161,7 @@ export class BotAttach extends Resource {
   });
 
   // on-any-queue --(subscribe)--> on-any-lambda
-  readonly onAnyQueueSubscriptionToOnAnyFunction = new LambdaFunction.LambdaEventSourceMapping(
+  readonly onAnyQueueSubscriptionToOnAnyFunction = new lambdafunction.LambdaEventSourceMapping(
     this,
     'onAnyQueueSubscriptionToOnAnyFunction',
     {
@@ -173,7 +173,7 @@ export class BotAttach extends Resource {
   );
 
   // api-gw ---->(allow) bot-lambda
-  readonly allowApigwToBotFunction = new LambdaFunction.LambdaPermission(this, 'allowApigwToBotFunction', {
+  readonly allowApigwToBotFunction = new lambdafunction.LambdaPermission(this, 'allowApigwToBotFunction', {
     statementId: 'AllowExecutionFromAPIGatewayv2',
     action: 'lambda:InvokeFunction',
     functionName: this.ghWebhookFunction.functionName,
@@ -182,7 +182,7 @@ export class BotAttach extends Resource {
   });
 
   // api-gw --(subscribe)--> bot-lambda
-  readonly integ = new APIGatewayV2.Apigatewayv2Integration(this, 'integ', {
+  readonly integ = new apigatewayv2.Apigatewayv2Integration(this, 'integ', {
     apiId: this.options.bot.api.id,
     integrationType: 'AWS_PROXY',
 
@@ -197,7 +197,7 @@ export class BotAttach extends Resource {
     dependsOn: [this.allowApigwToBotFunction],
   });
 
-  readonly apiHookRoute = new APIGatewayV2.Apigatewayv2Route(this, 'apiHookRoute', {
+  readonly apiHookRoute = new apigatewayv2.Apigatewayv2Route(this, 'apiHookRoute', {
     apiId: this.options.bot.api.id,
     routeKey: `POST ${this.options.bot.webhookRoute}`,
     target: `integrations/${this.integ.id}`,

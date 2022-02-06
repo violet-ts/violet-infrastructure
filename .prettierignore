@@ -1,5 +1,8 @@
 node_modules/
 build/
+dist/
+out/
+.next/
 
 cdktf.out/
 cdktf.*.out/
@@ -7,3 +10,4 @@ cdktf.*.out/
 .terraform/
 
 .gen/
+$*

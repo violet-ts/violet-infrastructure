@@ -1,10 +1,11 @@
-import { CloudWatch, CodeBuild, CodeStar, IAM, S3, SNS } from '@cdktf/provider-aws';
+import { cloudwatch, codebuild, codestar, iam, s3, sns } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import { String as RandomString } from '@cdktf/provider-random';
+import { StringResource as RandomString } from '@cdktf/provider-random';
 import { computedBotCodeBuildEnv } from '@self/shared/lib/bot/env';
 import type { CodeBuildStackEnv } from '@self/shared/lib/codebuild-stack/env';
 import { codeBuildStackCodeBuildEnv } from '@self/shared/lib/codebuild-stack/env';
+import { RESOURCE_MANAGER_DEV_PREFIX } from '@self/shared/lib/const';
 import { devInfoLogRetentionDays } from '@self/shared/lib/const/logging';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import { sharedCodeBuildEnv } from '@self/shared/lib/def/env-vars';
@@ -42,14 +43,8 @@ export class CodeBuildStack extends Resource {
     special: false,
   });
 
-  // TODO: https://github.com/hashicorp/terraform-provider-aws/issues/10195
-  readonly cachename = `${this.options.prefix}-${this.options.sharedEnv.MANAGER_NAMESPACE}-cache`;
-
-  // TODO(cost): lifecycle
-  readonly cache = new S3.S3Bucket(this, 'cache', {
-    // TODO
-    bucket: this.cachename,
-    // bucket: `${this.options.prefix}-cache-${this.suffix.result}`,
+  readonly cache = new s3.S3Bucket(this, 'cache', {
+    bucketPrefix: `${RESOURCE_MANAGER_DEV_PREFIX}-cache-`,
     acl: 'private',
     forceDestroy: true,
     tagsAll: {
@@ -57,8 +52,8 @@ export class CodeBuildStack extends Resource {
     },
   });
 
-  readonly buildLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'buildLogGroup', {
-    namePrefix: `${this.options.logsPrefix}/build`,
+  readonly buildLogGroup = new cloudwatch.CloudwatchLogGroup(this, 'buildLogGroup', {
+    namePrefix: `${this.options.logsPrefix}/build-`,
     retentionInDays: devInfoLogRetentionDays,
 
     tagsAll: {
@@ -66,7 +61,7 @@ export class CodeBuildStack extends Resource {
     },
   });
 
-  readonly roleAssumeDocument = new IAM.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
+  readonly roleAssumeDocument = new iam.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -82,7 +77,7 @@ export class CodeBuildStack extends Resource {
     ],
   });
 
-  readonly role = new IAM.IamRole(this, 'role', {
+  readonly role = new iam.IamRole(this, 'role', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     assumeRolePolicy: this.roleAssumeDocument.json,
 
@@ -98,7 +93,7 @@ export class CodeBuildStack extends Resource {
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codebuild_project
   // https://docs.aws.amazon.com/codebuild/latest/APIReference/API_CreateProject.html
   // https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
-  readonly build = new CodeBuild.CodebuildProject(this, 'build', {
+  readonly build = new codebuild.CodebuildProject(this, 'build', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     concurrentBuildLimit: 10,
     environment: {
@@ -129,8 +124,7 @@ export class CodeBuildStack extends Resource {
     cache: {
       // https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-s3
       type: 'S3',
-      location: this.cachename,
-      // location: this.cache.arn,
+      location: this.cache.arn,
     },
     logsConfig: {
       cloudwatchLogs: {
@@ -145,7 +139,7 @@ export class CodeBuildStack extends Resource {
     dependsOn: [this.cache],
   });
 
-  readonly rolePolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'rolePolicyDocument', {
+  readonly rolePolicyDocument = new iam.DataAwsIamPolicyDocument(this, 'rolePolicyDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -162,13 +156,13 @@ export class CodeBuildStack extends Resource {
     ],
   });
 
-  readonly rolePolicy = new IAM.IamRolePolicy(this, 'rolePolicy', {
+  readonly rolePolicy = new iam.IamRolePolicy(this, 'rolePolicy', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     role: z.string().parse(this.role.name),
     policy: this.rolePolicyDocument.json,
   });
 
-  readonly topicPolicyDoc = new IAM.DataAwsIamPolicyDocument(this, 'topicPolicyDoc', {
+  readonly topicPolicyDoc = new iam.DataAwsIamPolicyDocument(this, 'topicPolicyDoc', {
     statement: [
       {
         actions: ['sns:Publish'],
@@ -183,13 +177,13 @@ export class CodeBuildStack extends Resource {
     ],
   });
 
-  readonly topicPolicy = new SNS.SnsTopicPolicy(this, 'topicPolicy', {
+  readonly topicPolicy = new sns.SnsTopicPolicy(this, 'topicPolicy', {
     arn: this.options.bot.topic.arn,
     policy: this.topicPolicyDoc.json,
   });
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codestarnotifications_notification_rule
-  readonly notification = new CodeStar.CodestarnotificationsNotificationRule(this, 'notification', {
+  readonly notification = new codestar.CodestarnotificationsNotificationRule(this, 'notification', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     resource: this.build.arn,
     detailType: 'BASIC',

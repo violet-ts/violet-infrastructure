@@ -47,7 +47,7 @@ export const renderCommentBody = (body: CommentBody): string => {
         `${renderCommentBody(hint.body)}`,
         '',
         '',
-        `</details>`,
+        '</details>',
         mode === 'ul' ? '</li>' : '',
       ].join('\n'),
     ),

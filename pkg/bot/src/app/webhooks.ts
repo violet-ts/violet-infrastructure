@@ -140,7 +140,7 @@ export const createWebhooks = (
     };
     add(
       inner().catch((e) => {
-        logger.error(`Error while running workflow_run.completed reciever`, e);
+        logger.error('Error while running workflow_run.completed reciever', e);
       }),
     );
   });
@@ -156,7 +156,7 @@ export const createWebhooks = (
     };
     add(
       inner().catch((e) => {
-        logger.error(`Error while running pull_request.opened, issues.opened reciever`, e);
+        logger.error('Error while running pull_request.opened, issues.opened reciever', e);
       }),
     );
   });
@@ -174,7 +174,7 @@ export const createWebhooks = (
     add(
       inner().catch((e) => {
         logger.error(
-          `Error while running pull_request.opened, pull_request.edited, pull_request.synchronize reciever`,
+          'Error while running pull_request.opened, pull_request.edited, pull_request.synchronize reciever',
           e,
         );
       }),
@@ -193,7 +193,7 @@ export const createWebhooks = (
       const botInstallationId = z.number().parse(payload.installation?.id);
       const octokit = await createOctokit(secrets, botInstallationId);
       const parsed = parseComment(payload.comment.body, botPrefix);
-      logger.debug(`Comment parsed.`, { parsed });
+      logger.debug('Comment parsed.', { parsed });
       if (parsed.length) {
         const boundCmd = toBoundCmd(parsed);
 
@@ -202,7 +202,7 @@ export const createWebhooks = (
     };
     add(
       inner().catch((e) => {
-        logger.error(`Error while running issue_comment.created reciever`, e);
+        logger.error('Error while running issue_comment.created reciever', e);
       }),
     );
   });

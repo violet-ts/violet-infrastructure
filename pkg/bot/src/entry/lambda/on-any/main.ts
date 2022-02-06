@@ -18,7 +18,6 @@ import { createLambdaLogger } from '@self/shared/lib/loggers';
 import { marshall } from '@self/shared/lib/util/aws/dynamodb';
 import type { Handler } from 'aws-lambda';
 
-/* eslint-disable no-restricted-syntax,no-await-in-loop */
 const handler: Handler = async (event: unknown, context) => {
   const env = sharedEnvSchema.merge(computedBotEnvSchema).merge(computedAfterwardBotEnvSchema).parse(process.env);
 
@@ -86,6 +85,5 @@ const handler: Handler = async (event: unknown, context) => {
 
   logger.info('Finishing...');
 };
-/* eslint-enable no-restricted-syntax,no-await-in-loop */
 
 export { handler };

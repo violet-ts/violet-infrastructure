@@ -23,7 +23,7 @@ export const requireSecrets = async (
   const secrets: BotSecrets = Object.fromEntries(
     parameters
       .map((p) => {
-        if (typeof p.Name !== 'string') throw new Error(`name not found`);
+        if (typeof p.Name !== 'string') throw new Error('name not found');
         const key = p.Name.split('/').slice(-1)[0];
         if (typeof p.Value !== 'string') throw new Error(`value for "${key}" is not found`);
         return [key, p.Value];
@@ -31,7 +31,6 @@ export const requireSecrets = async (
       .filter((entry): entry is [SecretKeys, string] => {
         return keys.includes(entry[0]);
       }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ) as any;
 
   if (Object.keys(secrets).length !== keys.length) throw new Error('not all secrets are set');

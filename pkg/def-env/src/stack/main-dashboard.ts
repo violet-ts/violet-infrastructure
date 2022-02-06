@@ -1,7 +1,10 @@
-import type { ECS } from '@cdktf/provider-aws';
-import { CloudWatch } from '@cdktf/provider-aws';
+import type { ecs } from '@cdktf/provider-aws';
+import { cloudwatch } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
+import { StringResource as RandomString } from '@cdktf/provider-random';
+import { RESOURCE_DEV_SHORT_PREFIX, RESOURCE_PROD_SHORT_PREFIX } from '@self/shared/lib/const';
+import type { ComputedOpEnv } from '@self/shared/lib/operate-env/op-env';
 import type { Construct } from 'constructs';
 import type { APIExecFunction } from './api-exec-function';
 import type { Conv2imgFunction } from './conv2img-function';
@@ -11,24 +14,37 @@ import type { RepoImage } from './repo-image';
 import type { ServiceBuckets } from './service-buckets';
 
 export interface MainDashboardOptions {
-  name: string;
   serviceBuckets: ServiceBuckets;
   serviceMysql: MysqlDb;
   conv2imgFunction: Conv2imgFunction;
   apiExecFunction: APIExecFunction;
-  cluster: ECS.EcsCluster;
+  cluster: ecs.EcsCluster;
   apiTask: HTTPTask;
   webTask: HTTPTask;
   lambdaApiexecRepoImage: RepoImage;
   lambdaConv2imgRepoImage: RepoImage;
   webRepoImage: RepoImage;
   apiRepoImage: RepoImage;
+  computedOpEnv: ComputedOpEnv;
 }
 
 export class MainDashboard extends Resource {
   constructor(scope: Construct, name: string, public options: MainDashboardOptions, config?: ResourceConfig) {
     super(scope, name, config);
   }
+
+  get shortPrefix(): string {
+    return `${
+      this.options.computedOpEnv.SECTION === 'development' ? RESOURCE_DEV_SHORT_PREFIX : RESOURCE_PROD_SHORT_PREFIX
+    }`;
+  }
+
+  private readonly suffix = new RandomString(this, 'suffix', {
+    length: 8,
+    lower: true,
+    upper: false,
+    special: false,
+  });
 
   readonly dashboardBody = {
     widgets: [
@@ -284,9 +300,8 @@ export class MainDashboard extends Resource {
     ],
   };
 
-  readonly dashboard = new CloudWatch.CloudwatchDashboard(this, 'dashboard', {
-    dashboardName: this.options.name,
-    // dashboardBody: Fn.jsonencode(this.dashboardBody),
+  readonly dashboard = new cloudwatch.CloudwatchDashboard(this, 'dashboard', {
+    dashboardName: `${this.shortPrefix}${this.suffix.result}`,
     dashboardBody: JSON.stringify(this.dashboardBody),
   });
 }

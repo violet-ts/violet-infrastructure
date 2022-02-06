@@ -2,7 +2,6 @@ import lighthouse from '@self/bot/src/cmd/lighthouse';
 import createCmd from '@self/bot/src/cmd/template/bound-cmd';
 import type { ReplyCmd } from '@self/bot/src/type/cmd';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const cmdBound: ReplyCmd = lighthouse as any;
 
 const paths = ['', '/browser/Lighthouse%20Basic/Dir1/Work1'];

@@ -79,5 +79,4 @@ export const cmds: ReplyCmd[] = [
   serial,
   lighthouse,
   lighthousePresetDefault,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ] as any;

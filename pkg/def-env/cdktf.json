@@ -3,8 +3,9 @@
   "app": "pnpm run -w cdktf-prepare:env && ts-node -T ./src/entry.ts",
   "projectId": "e9809131-0431-46c8-845a-b1e25cb4ee24",
   "terraformProviders": [
-    "random",
-    "hashicorp/null@ ~>3.1.0"
+    "random@ ~>3.1.0",
+    "hashicorp/null@ ~>3.1.0",
+    "hashicorp/aws@ ~>3.73.0"
   ],
   "terraformModules": [],
   "context": {

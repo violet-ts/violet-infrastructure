@@ -1,5 +1,5 @@
 import type { AwsProvider } from '@cdktf/provider-aws';
-import { ECR } from '@cdktf/provider-aws';
+import { ecr } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import type { SharedEnv } from '@self/shared/lib/def/env-vars';
@@ -19,11 +19,11 @@ export class RepoImage extends Resource {
     super(scope, name, config);
   }
 
-  readonly repo = new ECR.DataAwsEcrRepository(this, 'repo', {
+  readonly repo = new ecr.DataAwsEcrRepository(this, 'repo', {
     name: this.options.repoName,
   });
 
-  readonly image = new ECR.DataAwsEcrImage(this, 'image', {
+  readonly image = new ecr.DataAwsEcrImage(this, 'image', {
     repositoryName: this.repo.name,
     imageDigest: this.options.imageDigest,
   });

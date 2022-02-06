@@ -14,8 +14,8 @@ interface SetupChromeParams {
  * @see https://raw.githubusercontent.com/GoogleChrome/chrome-launcher/v0.14.1/scripts/download-chrome.sh
  */
 export const setupChrome = async ({ installDirPath }: SetupChromeParams): Promise<string> => {
-  const windowsZipUrl = `https://download-chromium.appspot.com/dl/Win?type=snapshots`;
-  const linuxZipUrl = `https://download-chromium.appspot.com/dl/Linux_x64?type=snapshots`;
+  const windowsZipUrl = 'https://download-chromium.appspot.com/dl/Win?type=snapshots';
+  const linuxZipUrl = 'https://download-chromium.appspot.com/dl/Linux_x64?type=snapshots';
   const isWin = os.platform() === 'win32';
   const zipUrl = isWin ? windowsZipUrl : linuxZipUrl;
   const zipPath = path.resolve(installDirPath, 'chrome.zip');

@@ -1,8 +1,8 @@
-import type { S3 } from '@cdktf/provider-aws';
-import { IAM } from '@cdktf/provider-aws';
+import type { s3 } from '@cdktf/provider-aws';
+import { iam } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import { String as RandomString } from '@cdktf/provider-random';
+import { StringResource as RandomString } from '@cdktf/provider-random';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import type { ComputedOpEnv } from '@self/shared/lib/operate-env/op-env';
 import { computedOpCodeBuildEnv } from '@self/shared/lib/operate-env/op-env';
@@ -25,8 +25,8 @@ export interface OperateEnvOptions {
   webRepo: RepoStack;
   lambdaConv2imgRepo: RepoStack;
   lambdaApiexecRepo: RepoStack;
-  infraSourceBucket: S3.S3Bucket;
-  infraSourceZip: S3.S3BucketObject;
+  infraSourceBucket: s3.S3Bucket;
+  infraSourceZip: s3.S3BucketObject;
   region: string;
 
   buildDictContext: BuildDictContext;
@@ -54,6 +54,7 @@ export class OperateEnv extends Resource {
   });
 
   readonly computedOpEnv: ComputedOpEnv = {
+    SECTION: 'development',
     API_REPO_NAME: this.options.apiRepo.devRepo.name,
     WEB_REPO_NAME: this.options.webRepo.devRepo.name,
     LAMBDA_CONV2IMG_REPO_NAME: this.options.lambdaConv2imgRepo.devRepo.name,
@@ -88,11 +89,11 @@ export class OperateEnv extends Resource {
     },
   });
 
-  readonly rolePolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'rolePolicyDocument', {
+  readonly rolePolicyDocument = new iam.DataAwsIamPolicyDocument(this, 'rolePolicyDocument', {
     version: '2012-10-17',
     statement: [
       {
-        // TODO(security): 強すぎる。 https://github.com/violet-ts/violet-infrastructure/issues/20
+        // TODO(security): restrict。 https://github.com/violet-ts/violet-infrastructure/issues/20
         effect: 'Allow',
         resources: ['*'],
         actions: [
@@ -182,7 +183,7 @@ export class OperateEnv extends Resource {
     ],
   });
 
-  readonly rolePolicy = new IAM.IamRolePolicy(this, 'rolePolicy', {
+  readonly rolePolicy = new iam.IamRolePolicy(this, 'rolePolicy', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     role: z.string().parse(this.runScript.buildStack.role.name),
     policy: this.rolePolicyDocument.json,

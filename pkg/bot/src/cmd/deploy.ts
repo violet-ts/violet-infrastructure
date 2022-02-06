@@ -13,7 +13,6 @@ const cmds: ReplyCmd[] = [
   prismaMigrateDeploy,
   prismaDbSeedPresetLighthouse,
   lighthousePresetDefault,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ] as any;
 
 const cmd = createCmd(

@@ -20,3 +20,4 @@ export const botEnv = Object.entries(
 );
 export const gcipConfigDevJsonPath = ensurePath(path.resolve(rootDir, 'pkg', 'bot', 'gcip-config-dev.local.json'));
 export const gcipConfigDevJson = ensureJsonString(fs.readFileSync(gcipConfigDevJsonPath).toString());
+export const portalApiBuildDir = ensurePath(path.resolve(rootDir, 'pkg', 'portal', 'api', 'build'));

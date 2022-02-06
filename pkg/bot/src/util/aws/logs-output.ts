@@ -1,4 +1,3 @@
-/* eslint-disable no-await-in-loop */
 import { CloudWatchLogs } from '@aws-sdk/client-cloudwatch-logs';
 import type { Credentials, Provider } from '@aws-sdk/types';
 import type { Logger } from 'winston';
@@ -31,4 +30,3 @@ export const collectLogsOutput = async (
   } while (typeof nextToken === 'string');
   return p;
 };
-/* eslint-enable no-await-in-loop */

@@ -1,8 +1,8 @@
-import type { ECR } from '@cdktf/provider-aws';
-import { IAM } from '@cdktf/provider-aws';
+import type { ecr } from '@cdktf/provider-aws';
+import { iam } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import { String as RandomString } from '@cdktf/provider-random';
+import { StringResource as RandomString } from '@cdktf/provider-random';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import type { CodeBuildEnv } from '@self/shared/lib/util/aws-cdk';
 import { z } from 'zod';
@@ -14,7 +14,7 @@ export interface ContainerBuildOptions {
   name: string;
   sharedEnv: SharedEnv;
   managerEnv: ManagerEnv;
-  repo: ECR.EcrRepository;
+  repo: ecr.EcrRepository;
   tagsAll: Record<string, string>;
   prefix: string;
   logsPrefix: string;
@@ -70,13 +70,13 @@ export class ContainerBuild extends Resource {
 
   readonly dockerHubPolicy =
     this.parent.dockerHubCredentials &&
-    new IAM.IamRolePolicy(this, 'dockerHubPolicy', {
+    new iam.IamRolePolicy(this, 'dockerHubPolicy', {
       namePrefix: `${this.options.prefix}-dcred`,
       policy: this.parent.dockerHubCredentials.policyDocument.json,
       role: this.buildStack.role.id,
     });
 
-  readonly policyDocument = new IAM.DataAwsIamPolicyDocument(this, 'policyDocument', {
+  readonly policyDocument = new iam.DataAwsIamPolicyDocument(this, 'policyDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -98,7 +98,7 @@ export class ContainerBuild extends Resource {
     ],
   });
 
-  readonly rolePolicy = new IAM.IamRolePolicy(this, 'rolePolicy', {
+  readonly rolePolicy = new iam.IamRolePolicy(this, 'rolePolicy', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     role: z.string().parse(this.buildStack.role.name),
     policy: this.policyDocument.json,

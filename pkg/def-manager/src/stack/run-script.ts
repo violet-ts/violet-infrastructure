@@ -1,8 +1,8 @@
-import type { S3 } from '@cdktf/provider-aws';
-import { IAM } from '@cdktf/provider-aws';
+import type { s3 } from '@cdktf/provider-aws';
+import { iam } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import { String as RandomString } from '@cdktf/provider-random';
+import { StringResource as RandomString } from '@cdktf/provider-random';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
 import type { ComputedRunScriptEnv } from '@self/shared/lib/run-script/env';
@@ -20,8 +20,8 @@ export interface RunScriptOptions {
   name: string;
   sharedEnv: SharedEnv;
   managerEnv: ManagerEnv;
-  infraSourceBucket: S3.S3Bucket;
-  infraSourceZip: S3.S3BucketObject;
+  infraSourceBucket: s3.S3Bucket;
+  infraSourceZip: s3.S3BucketObject;
   prefix: string;
   logsPrefix: string;
   runScriptName: string;
@@ -69,20 +69,20 @@ export class RunScript extends Resource {
     }),
   );
 
-  readonly rolePolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'rolePolicyDocument', {
+  readonly rolePolicyDocument = new iam.DataAwsIamPolicyDocument(this, 'rolePolicyDocument', {
     version: '2012-10-17',
     statement: [
       {
         effect: 'Allow',
         actions: [
-          `dynamodb:PutItem`,
-          `dynamodb:BatchPutItem`,
-          `dynamodb:GetItem`,
-          `dynamodb:BatchWriteItem`,
-          `dynamodb:UpdateItem`,
-          `dynamodb:DeleteItem`,
-          `dynamodb:Query`,
-          `dynamodb:Scan`,
+          'dynamodb:PutItem',
+          'dynamodb:BatchPutItem',
+          'dynamodb:GetItem',
+          'dynamodb:BatchWriteItem',
+          'dynamodb:UpdateItem',
+          'dynamodb:DeleteItem',
+          'dynamodb:Query',
+          'dynamodb:Scan',
         ],
         resources: [this.options.bot.table.arn, this.options.bot.issueMap.arn],
       },
@@ -94,7 +94,7 @@ export class RunScript extends Resource {
     ],
   });
 
-  readonly rolePolicy = new IAM.IamRolePolicy(this, 'rolePolicy', {
+  readonly rolePolicy = new iam.IamRolePolicy(this, 'rolePolicy', {
     name: `${this.options.prefix}-${this.suffix.result}`,
     role: z.string().parse(this.buildStack.role.name),
     policy: this.rolePolicyDocument.json,
