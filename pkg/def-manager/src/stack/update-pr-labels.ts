@@ -1,5 +1,5 @@
-import type { S3 } from '@cdktf/provider-aws';
-import { IAM } from '@cdktf/provider-aws';
+import type { s3 } from '@cdktf/provider-aws';
+import { iam } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
@@ -14,8 +14,8 @@ export interface UpdatePRLabelsOptions {
   logsPrefix: string;
   sharedEnv: SharedEnv;
   managerEnv: ManagerEnv;
-  infraSourceBucket: S3.S3Bucket;
-  infraSourceZip: S3.S3BucketObject;
+  infraSourceBucket: s3.S3Bucket;
+  infraSourceZip: s3.S3BucketObject;
   bot: Bot;
 
   buildDictContext: BuildDictContext;
@@ -44,7 +44,7 @@ export class UpdatePRLabels extends Resource {
     },
   });
 
-  readonly rolePolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'rolePolicyDocument', {
+  readonly rolePolicyDocument = new iam.DataAwsIamPolicyDocument(this, 'rolePolicyDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -55,7 +55,7 @@ export class UpdatePRLabels extends Resource {
     ],
   });
 
-  readonly rolePolicy = new IAM.IamRolePolicy(this, 'rolePolicy', {
+  readonly rolePolicy = new iam.IamRolePolicy(this, 'rolePolicy', {
     namePrefix: this.options.prefix,
     role: z.string().parse(this.runScript.buildStack.role.name),
     policy: this.rolePolicyDocument.json,

@@ -1,4 +1,4 @@
-import { VPC } from '@cdktf/provider-aws';
+import { vpc } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import type { VioletEnvStack } from '.';
@@ -12,7 +12,7 @@ export class DataNetwork extends Resource {
 
   readonly azs = ['ap-northeast-1a', 'ap-northeast-1c', 'ap-northeast-1d'] as const;
 
-  readonly vpc = new VPC.DataAwsVpc(this, 'vpc', {
+  readonly vpc = new vpc.DataAwsVpc(this, 'vpc', {
     filter: [
       {
         name: 'vpc-id',
@@ -21,7 +21,7 @@ export class DataNetwork extends Resource {
     ],
   });
 
-  readonly dbSg = new VPC.DataAwsSecurityGroup(this, 'dbSg', {
+  readonly dbSg = new vpc.DataAwsSecurityGroup(this, 'dbSg', {
     vpcId: this.vpc.id,
     filter: [
       {
@@ -31,7 +31,7 @@ export class DataNetwork extends Resource {
     ],
   });
 
-  readonly lbSg = new VPC.DataAwsSecurityGroup(this, 'lbSg', {
+  readonly lbSg = new vpc.DataAwsSecurityGroup(this, 'lbSg', {
     vpcId: this.vpc.id,
     filter: [
       {
@@ -41,7 +41,7 @@ export class DataNetwork extends Resource {
     ],
   });
 
-  readonly serviceSg = new VPC.DataAwsSecurityGroup(this, 'serviceSg', {
+  readonly serviceSg = new vpc.DataAwsSecurityGroup(this, 'serviceSg', {
     vpcId: this.vpc.id,
     filter: [
       {
@@ -53,7 +53,7 @@ export class DataNetwork extends Resource {
 
   readonly privateSubnets = (['NETWORK_PRIV_ID0', 'NETWORK_PRIV_ID1', 'NETWORK_PRIV_ID2'] as const).map(
     (name, i) =>
-      new VPC.DataAwsSubnet(this, `privateSubnets-${i}`, {
+      new vpc.DataAwsSubnet(this, `privateSubnets-${i}`, {
         vpcId: this.vpc.id,
         filter: [
           {
@@ -66,7 +66,7 @@ export class DataNetwork extends Resource {
 
   readonly publicSubnets = (['NETWORK_PUB_ID0', 'NETWORK_PUB_ID1', 'NETWORK_PUB_ID2'] as const).map(
     (name, i) =>
-      new VPC.DataAwsSubnet(this, `publicSubnets-${i}`, {
+      new vpc.DataAwsSubnet(this, `publicSubnets-${i}`, {
         vpcId: this.vpc.id,
         filter: [
           {

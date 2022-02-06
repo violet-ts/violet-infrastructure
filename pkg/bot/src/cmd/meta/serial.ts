@@ -34,7 +34,6 @@ export interface CommentValues {
 export const argSchema = {} as const;
 export type ArgSchema = typeof argSchema;
 
-/* eslint-disable no-restricted-syntax,no-await-in-loop */
 const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
   name: 'serial',
   hidden: true,
@@ -203,6 +202,5 @@ const cmd: ReplyCmd<Entry, CommentValues, ArgSchema> = {
     };
   },
 };
-/* eslint-enable no-restricted-syntax,no-await-in-loop */
 
 export default cmd;

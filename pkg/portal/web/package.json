@@ -1,0 +1,37 @@
+{
+  "name": "@portal/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "compile": "next build && next export",
+    "dev": "run-p -l dev:*",
+    "dev:next": "next dev",
+    "dev:pathpida": "pathpida --watch",
+    "generate": "run-p -l generate:*",
+    "generate:pathpida": "pathpida",
+    "start": "next start"
+  },
+  "devDependencies": {
+    "@aspida/fetch": "^1.7.1",
+    "@aspida/swr": "^1.7.1",
+    "@babel/core": "^7.16.12",
+    "@emotion/cache": "^11.7.1",
+    "@emotion/react": "^11.7.1",
+    "@emotion/server": "^11.4.0",
+    "@emotion/styled": "^11.6.0",
+    "@icons-pack/react-simple-icons": "^4.6.1",
+    "@mui/icons-material": "^5.3.1",
+    "@mui/lab": "^5.0.0-alpha.67",
+    "@mui/material": "^5.3.1",
+    "amazon-cognito-identity-js": "^5.2.6",
+    "aws-amplify": "^4.3.13",
+    "next": "^12.0.9",
+    "next-transpile-modules": "^9.0.0",
+    "pathpida": "^0.17.0",
+    "prop-types": "^15.8.1",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "recharts": "^2.1.8",
+    "swr": "^1.2.1"
+  }
+}

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return,@typescript-eslint/no-explicit-any */
 import type { AttributeValue } from '@aws-sdk/client-dynamodb';
 import { marshall as utilMarhsall } from '@aws-sdk/util-dynamodb';
 
@@ -28,4 +27,3 @@ export const marshall = <T extends { [K in keyof T]: any }>(
   const normalized = normalize(data, done);
   return utilMarhsall(normalized, { removeUndefinedValues: true });
 };
-/* eslint-enable @typescript-eslint/no-unsafe-return,@typescript-eslint/no-explicit-any */

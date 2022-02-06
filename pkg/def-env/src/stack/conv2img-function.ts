@@ -1,7 +1,10 @@
-import { CloudWatch, IAM, LambdaFunction, S3, SQS } from '@cdktf/provider-aws';
+import { cloudwatch, iam, lambdafunction, s3, sqs } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
+import { StringResource as RandomString } from '@cdktf/provider-random';
+import { RESOURCE_DEV_SHORT_PREFIX, RESOURCE_PROD_SHORT_PREFIX } from '@self/shared/lib/const';
 import { devInfoLogRetentionDays } from '@self/shared/lib/const/logging';
+import type { ComputedOpEnv } from '@self/shared/lib/operate-env/op-env';
 import { Fn } from 'cdktf';
 import type { Construct } from 'constructs';
 import { z } from 'zod';
@@ -29,6 +32,7 @@ export interface Conv2imgFunctionOptions {
   network: DataNetwork;
   repoImage: RepoImage;
   serviceBuckets: ServiceBuckets;
+  computedOpEnv: ComputedOpEnv;
 
   env: Record<string, string>;
 }
@@ -38,11 +42,24 @@ export class Conv2imgFunction extends Resource {
     super(scope, name, config);
   }
 
+  get shortPrefix(): string {
+    return `${
+      this.options.computedOpEnv.SECTION === 'development' ? RESOURCE_DEV_SHORT_PREFIX : RESOURCE_PROD_SHORT_PREFIX
+    }c2i-`;
+  }
+
+  private readonly suffix = new RandomString(this, 'suffix', {
+    length: 8,
+    lower: true,
+    upper: false,
+    special: false,
+  });
+
   readonly fromKeyPrefix = 'works/original';
 
   // TODO(service): pipe to SNS for alarming
-  readonly dlq = new SQS.SqsQueue(this, 'dlq', {
-    namePrefix: `${this.options.prefix}-dead-`,
+  readonly dlq = new sqs.SqsQueue(this, 'dlq', {
+    namePrefix: `${this.shortPrefix}dlq-`,
     messageRetentionSeconds: 1209600, // 14 days (max)
 
     tagsAll: {
@@ -51,8 +68,8 @@ export class Conv2imgFunction extends Resource {
   });
 
   // https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html
-  readonly queue = new SQS.SqsQueue(this, 'queue', {
-    namePrefix: `${this.options.prefix}-`,
+  readonly queue = new sqs.SqsQueue(this, 'queue', {
+    namePrefix: `${this.shortPrefix}qu-`,
     messageRetentionSeconds,
     visibilityTimeoutSeconds,
     redrivePolicy: Fn.jsonencode({
@@ -66,7 +83,7 @@ export class Conv2imgFunction extends Resource {
   });
 
   // queue ---->(allow) dlq (document)
-  readonly allowQueueToDLQDoc = new IAM.DataAwsIamPolicyDocument(this, 'allowQueueToDLQDoc', {
+  readonly allowQueueToDLQDoc = new iam.DataAwsIamPolicyDocument(this, 'allowQueueToDLQDoc', {
     version: '2012-10-17',
     statement: [
       {
@@ -91,13 +108,13 @@ export class Conv2imgFunction extends Resource {
   });
 
   // queue ---->(allow) dlq
-  readonly allowQueueToDLQ = new SQS.SqsQueuePolicy(this, 'allowQueueToDLQ', {
+  readonly allowQueueToDLQ = new sqs.SqsQueuePolicy(this, 'allowQueueToDLQ', {
     queueUrl: this.dlq.url,
     policy: this.allowQueueToDLQDoc.json,
   });
 
   // original-bucket ---->(allow) queue (document)
-  readonly allowOriginalBucketToQueueDoc = new IAM.DataAwsIamPolicyDocument(this, 'allowOriginalBucketToQueueDoc', {
+  readonly allowOriginalBucketToQueueDoc = new iam.DataAwsIamPolicyDocument(this, 'allowOriginalBucketToQueueDoc', {
     version: '2012-10-17',
     statement: [
       {
@@ -122,13 +139,13 @@ export class Conv2imgFunction extends Resource {
   });
 
   // original-bucket ---->(allow) queue
-  readonly allowOriginalBucketToQueue = new SQS.SqsQueuePolicy(this, 'allowOriginalBucketToQueue', {
+  readonly allowOriginalBucketToQueue = new sqs.SqsQueuePolicy(this, 'allowOriginalBucketToQueue', {
     queueUrl: this.queue.url,
     policy: this.allowOriginalBucketToQueueDoc.json,
   });
 
   // original-bucket --(subscribe)--> queue
-  readonly notification = new S3.S3BucketNotification(this, 'notification', {
+  readonly notification = new s3.S3BucketNotification(this, 'notification', {
     bucket: z.string().parse(this.options.serviceBuckets.originalBucket.bucket),
     queue: [
       {
@@ -142,7 +159,7 @@ export class Conv2imgFunction extends Resource {
     dependsOn: [this.allowOriginalBucketToQueue],
   });
 
-  readonly roleAssumeDocument = new IAM.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
+  readonly roleAssumeDocument = new iam.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -158,7 +175,7 @@ export class Conv2imgFunction extends Resource {
     ],
   });
 
-  readonly criticalLogGroup = new CloudWatch.CloudwatchLogGroup(this, 'criticalLogGroup', {
+  readonly criticalLogGroup = new cloudwatch.CloudwatchLogGroup(this, 'criticalLogGroup', {
     name: `${this.options.logsPrefix}/critical`,
     retentionInDays: devInfoLogRetentionDays,
 
@@ -167,7 +184,7 @@ export class Conv2imgFunction extends Resource {
     },
   });
 
-  readonly policyDocument = new IAM.DataAwsIamPolicyDocument(this, 'policyDocument', {
+  readonly policyDocument = new iam.DataAwsIamPolicyDocument(this, 'policyDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -230,19 +247,19 @@ export class Conv2imgFunction extends Resource {
     ],
   });
 
-  readonly role = new IAM.IamRole(this, 'role', {
-    name: this.options.prefix,
+  readonly role = new iam.IamRole(this, 'role', {
+    name: `${this.shortPrefix}${this.suffix.result}`,
     assumeRolePolicy: this.roleAssumeDocument.json,
   });
 
-  readonly lambdaPolicy = new IAM.IamRolePolicy(this, 'lambdaPolicy', {
-    namePrefix: this.options.prefix,
+  readonly lambdaPolicy = new iam.IamRolePolicy(this, 'lambdaPolicy', {
+    namePrefix: `${this.shortPrefix}lam-`,
     role: z.string().parse(this.role.name),
     policy: this.policyDocument.json,
   });
 
   // queue (allow)----> (document)
-  readonly allowReceiveQueueDoc = new IAM.DataAwsIamPolicyDocument(this, 'allowReceiveQueueDoc', {
+  readonly allowReceiveQueueDoc = new iam.DataAwsIamPolicyDocument(this, 'allowReceiveQueueDoc', {
     version: '2012-10-17',
     statement: [
       {
@@ -255,14 +272,14 @@ export class Conv2imgFunction extends Resource {
   });
 
   //  queue (allow)----> function
-  readonly allowReceiveQueueToFunctionPolicy = new IAM.IamRolePolicy(this, 'allowReceiveQueueToFunctionPolicy', {
-    namePrefix: `${this.options.prefix}-`,
+  readonly allowReceiveQueueToFunctionPolicy = new iam.IamRolePolicy(this, 'allowReceiveQueueToFunctionPolicy', {
+    namePrefix: `${this.shortPrefix}arq-`,
     role: z.string().parse(this.role.name),
     policy: this.allowReceiveQueueDoc.json,
   });
 
-  readonly function = new LambdaFunction.LambdaFunction(this, 'function', {
-    functionName: this.options.prefix,
+  readonly function = new lambdafunction.LambdaFunction(this, 'function', {
+    functionName: `${this.shortPrefix}${this.suffix.result}`,
     vpcConfig: {
       subnetIds: this.options.network.publicSubnets.map((subnet) => subnet.id),
       securityGroupIds: [this.options.network.serviceSg.id],
@@ -287,7 +304,7 @@ export class Conv2imgFunction extends Resource {
   });
 
   // queue ---->(allow) function
-  readonly allowExecutionFromQueue = new LambdaFunction.LambdaPermission(this, 'allowExecutionFromQueue', {
+  readonly allowExecutionFromQueue = new lambdafunction.LambdaPermission(this, 'allowExecutionFromQueue', {
     statementId: 'AllowExecutionFromQueue',
     action: 'lambda:InvokeFunction',
     functionName: this.function.functionName,
@@ -296,7 +313,7 @@ export class Conv2imgFunction extends Resource {
   });
 
   // queue --(subscribe)--> function
-  readonly queueSubscriptionToFunction = new LambdaFunction.LambdaEventSourceMapping(
+  readonly queueSubscriptionToFunction = new lambdafunction.LambdaEventSourceMapping(
     this,
     'queueSubscriptionToFunction',
     {

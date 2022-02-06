@@ -127,7 +127,7 @@ const main = async (): Promise<void> => {
     const outputJSON = (
       await exec(
         'terraform',
-        ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'output', '-no-color', '-json', `opOutput`],
+        ['-chdir=./pkg/def-env/cdktf.out/stacks/violet-infra', 'output', '-no-color', '-json', 'opOutput'],
         // TODO(security): output
         false,
       )
@@ -311,7 +311,7 @@ const main = async (): Promise<void> => {
 
               const reportHtml = typeof runnerResult.report === 'string' ? [runnerResult.report] : runnerResult.report;
 
-              if (reportHtml.length !== 1) throw new Error(`report HTML length is not 1`);
+              if (reportHtml.length !== 1) throw new Error('report HTML length is not 1');
 
               const s3Folder = `${i}-${mode}-${urlReference}`;
               const dir = path.resolve(violetInfraArtifactsDir, s3Folder);

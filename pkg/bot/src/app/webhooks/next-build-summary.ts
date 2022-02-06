@@ -107,7 +107,7 @@ const main = async ({ payload, secrets, env, credentials, logger }: Params): Pro
               N: prNumber.toString(),
             },
           },
-          UpdateExpression: `SET #key = :id`,
+          UpdateExpression: 'SET #key = :id',
           ExpressionAttributeNames: {
             '#key': key,
           },

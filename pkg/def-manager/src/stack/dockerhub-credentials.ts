@@ -1,5 +1,5 @@
-import type { CodeBuild } from '@cdktf/provider-aws';
-import { IAM, SecretsManager } from '@cdktf/provider-aws';
+import type { codebuild } from '@cdktf/provider-aws';
+import { iam, secretsmanager } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
 import type { DockerHubCred } from '@self/shared/lib/def/env-vars';
@@ -24,7 +24,7 @@ export class DockerHubCredentials extends Resource {
 
   readonly PASS_KEY = 'pass';
 
-  readonly credentials = new SecretsManager.SecretsmanagerSecret(this, 'credentials', {
+  readonly credentials = new secretsmanager.SecretsmanagerSecret(this, 'credentials', {
     namePrefix: `${this.options.prefix}-dockerhub-credentials-`,
 
     tagsAll: {
@@ -36,7 +36,7 @@ export class DockerHubCredentials extends Resource {
 
   readonly credentialsPassArn = `${this.credentials.arn}:${this.PASS_KEY}`;
 
-  readonly credentialsValue = new SecretsManager.SecretsmanagerSecretVersion(this, 'usernameValue', {
+  readonly credentialsValue = new secretsmanager.SecretsmanagerSecretVersion(this, 'usernameValue', {
     secretId: this.credentials.id,
     secretString: JSON.stringify({
       [this.USER_KEY]: this.options.dockerHubCred.USER,
@@ -44,7 +44,7 @@ export class DockerHubCredentials extends Resource {
     }),
   });
 
-  get codeBuildEnvironmentVariables(): CodeBuild.CodebuildProjectEnvironmentEnvironmentVariable[] {
+  get codeBuildEnvironmentVariables(): codebuild.CodebuildProjectEnvironmentEnvironmentVariable[] {
     return [
       {
         name: 'DOCKERHUB_USER',
@@ -59,7 +59,7 @@ export class DockerHubCredentials extends Resource {
     ];
   }
 
-  readonly policyDocument = new IAM.DataAwsIamPolicyDocument(this, 'policyDocument', {
+  readonly policyDocument = new iam.DataAwsIamPolicyDocument(this, 'policyDocument', {
     version: '2012-10-17',
     statement: [
       {

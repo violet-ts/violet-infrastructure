@@ -8,7 +8,7 @@
     "cdktf:deploy:yes": "cdktf apply --auto-approve",
     "cdktf:destroy": "cdktf destroy",
     "cdktf:get": "cdktf get",
-    "cdktf:list": "cdktf show",
+    "cdktf:show": "cdktf show",
     "cdktf:synth": "cdktf synth",
     "test": "run-s test:tsc test:jest",
     "test-watch": "run-p test-watch:*",

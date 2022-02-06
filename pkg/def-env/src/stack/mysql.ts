@@ -1,8 +1,10 @@
-import type { VPC } from '@cdktf/provider-aws';
-import { RDS } from '@cdktf/provider-aws';
+import type { vpc } from '@cdktf/provider-aws';
+import { rds } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
-import { Password } from '@cdktf/provider-random';
+import { Password, StringResource as RandomString } from '@cdktf/provider-random';
+import { RESOURCE_DEV_SHORT_PREFIX, RESOURCE_PROD_SHORT_PREFIX } from '@self/shared/lib/const';
+import type { ComputedOpEnv } from '@self/shared/lib/operate-env/op-env';
 import { Fn } from 'cdktf';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -11,19 +13,31 @@ import type { VioletEnvStack } from '.';
 import { dataDir } from './values';
 
 export interface MysqlDbOptions {
-  /** len <= 26 */
-  prefix: string;
   tagsAll?: Record<string, string>;
   /** e.g. rds:production-2015-06-26-06-05 */
   snapshotIdentifier?: string;
-  vpcSecurityGroups: VPC.DataAwsSecurityGroup[];
-  subnets: VPC.DataAwsSubnet[];
+  vpcSecurityGroups: vpc.DataAwsSecurityGroup[];
+  subnets: vpc.DataAwsSubnet[];
+  computedOpEnv: ComputedOpEnv;
 }
 
 export class MysqlDb extends Resource {
   constructor(private parent: VioletEnvStack, name: string, public options: MysqlDbOptions, config?: ResourceConfig) {
     super(parent, name, config);
   }
+
+  get shortPrefix(): string {
+    return `${
+      this.options.computedOpEnv.SECTION === 'development' ? RESOURCE_DEV_SHORT_PREFIX : RESOURCE_PROD_SHORT_PREFIX
+    }`;
+  }
+
+  private readonly suffix = new RandomString(this, 'suffix', {
+    length: 8,
+    lower: true,
+    upper: false,
+    special: false,
+  });
 
   // https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password
   // https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBInstance.html
@@ -46,8 +60,8 @@ export class MysqlDb extends Resource {
   })();
 
   // https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DBParameterGroup.html
-  readonly mysqlParameter = new RDS.DbParameterGroup(this, 'mysqlParameter', {
-    name: this.options.prefix,
+  readonly mysqlParameter = new rds.DbParameterGroup(this, 'mysqlParameter', {
+    name: `${this.shortPrefix}mysql-${this.suffix.result}`,
     family: 'mysql8.0',
     parameter: this.parameter,
 
@@ -58,8 +72,8 @@ export class MysqlDb extends Resource {
   });
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/db_subnet_group
-  readonly dbSubnetGroup = new RDS.DbSubnetGroup(this, 'dbSubnetGroup', {
-    name: this.options.prefix,
+  readonly dbSubnetGroup = new rds.DbSubnetGroup(this, 'dbSubnetGroup', {
+    name: `${this.shortPrefix}mysql-${this.suffix.result}`,
     subnetIds: this.options.subnets.map((subnet) => subnet.id),
 
     tagsAll: {
@@ -77,10 +91,10 @@ export class MysqlDb extends Resource {
   // TODO(security): prod: use db subnets
   // TODO(scale): prod: DB usage should be watched
   // TODO(perf): prod: tuning at scale
-  readonly db = new RDS.DbInstance(this, 'db', {
-    identifier: this.options.prefix,
+  readonly db = new rds.DbInstance(this, 'db', {
+    identifier: `${this.shortPrefix}mysql-${this.suffix.result}`,
     // DB name
-    name: `violet`,
+    name: 'violet',
     publiclyAccessible: ['development', 'preview', 'staging'].includes(this.parent.options.section),
     allocatedStorage: 10,
     dbSubnetGroupName: this.dbSubnetGroup.name,

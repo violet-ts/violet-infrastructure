@@ -1,4 +1,4 @@
-import { ACM, AwsProvider, ECS, IAM, ResourceGroups, Route53, SNS } from '@cdktf/provider-aws';
+import { acm, AwsProvider, ecs, iam, resourcegroups, route53, sns } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
 import { RandomProvider } from '@cdktf/provider-random';
 import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
@@ -104,23 +104,23 @@ export class VioletEnvStack extends TerraformStack {
     imageDigest: this.options.dynamicOpEnv.LAMBDA_APIEXEC_REPO_SHA,
   });
 
-  readonly zone = new Route53.DataAwsRoute53Zone(this, 'zone', {
+  readonly zone = new route53.DataAwsRoute53Zone(this, 'zone', {
     zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
   });
 
-  readonly certificate = new ACM.DataAwsAcmCertificate(this, 'certificate', {
-    domain: z.string().parse(this.zone.name),
+  readonly certificate = new acm.DataAwsAcmCertificate(this, 'certificate', {
+    domain: this.zone.name,
   });
 
   readonly network = new DataNetwork(this, 'network');
 
-  readonly botTopic = new SNS.DataAwsSnsTopic(this, 'botTopic', {
+  readonly botTopic = new sns.DataAwsSnsTopic(this, 'botTopic', {
     name: this.options.computedBotEnv.BOT_TOPIC_NAME,
   });
 
   // この namespace に属する Violet インフラを構築する、関連した
   // リソースの一覧
-  readonly resourceGroups = new ResourceGroups.ResourcegroupsGroup(this, 'resourceGroups', {
+  readonly resourceGroups = new resourcegroups.ResourcegroupsGroup(this, 'resourceGroups', {
     name: this.prefix,
     resourceQuery: {
       query: JSON.stringify({
@@ -147,10 +147,9 @@ export class VioletEnvStack extends TerraformStack {
   });
 
   readonly mysql = new MysqlDb(this, 'mysql', {
-    // len = 14 + 6 = 20
-    prefix: `${this.prefix}-mysql`,
     subnets: this.network.publicSubnets,
     vpcSecurityGroups: [this.network.dbSg],
+    computedOpEnv: this.options.computedOpEnv,
   });
 
   readonly dbURLLocal = new TerraformLocal(this, 'dbURLLocal', {
@@ -164,7 +163,7 @@ export class VioletEnvStack extends TerraformStack {
   });
 
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_Cluster.html
-  readonly cluster = new ECS.EcsCluster(this, 'cluster', {
+  readonly cluster = new ecs.EcsCluster(this, 'cluster', {
     name: this.prefix,
     capacityProviders: ['FARGATE'],
     // TODO(security): for production
@@ -172,7 +171,7 @@ export class VioletEnvStack extends TerraformStack {
   });
 
   readonly serviceBuckets = new ServiceBuckets(this, 'serviceBuckets', {
-    prefix: `${this.prefix}-s`,
+    computedOpEnv: this.options.computedOpEnv,
   });
 
   readonly apiEnv = {
@@ -196,11 +195,12 @@ export class VioletEnvStack extends TerraformStack {
 
     repoImage: this.apiRepoImage,
     healthcheckPath: '/healthz',
+    computedOpEnv: this.options.computedOpEnv,
 
     env: this.apiEnv,
   });
 
-  readonly apiServiceBucketsPolicy = new IAM.IamRolePolicy(this, 'apiServiceBucketsPolicy', {
+  readonly apiServiceBucketsPolicy = new iam.IamRolePolicy(this, 'apiServiceBucketsPolicy', {
     // len = 14 + 8 = 22
     name: `${this.prefix}-buckets`,
     role: z.string().parse(this.apiTask.taskRole.name),
@@ -214,6 +214,7 @@ export class VioletEnvStack extends TerraformStack {
     network: this.network,
     repoImage: this.lambdaConv2imgRepoImage,
     serviceBuckets: this.serviceBuckets,
+    computedOpEnv: this.options.computedOpEnv,
 
     env: this.apiEnv,
   });
@@ -224,15 +225,16 @@ export class VioletEnvStack extends TerraformStack {
     network: this.network,
     repoImage: this.lambdaApiexecRepoImage,
     serviceBuckets: this.serviceBuckets,
+    computedOpEnv: this.options.computedOpEnv,
 
     env: this.apiEnv,
   });
 
-  readonly operateEnvRole = new IAM.DataAwsIamRole(this, 'operateEnvRole', {
+  readonly operateEnvRole = new iam.DataAwsIamRole(this, 'operateEnvRole', {
     name: this.options.codeBuildStackEnv.SCRIPT_ROLE_NAME,
   });
 
-  readonly allowRunApiTaskRolePolicy = new IAM.IamRolePolicy(this, 'allowRunApiTaskRolePolicy', {
+  readonly allowRunApiTaskRolePolicy = new iam.IamRolePolicy(this, 'allowRunApiTaskRolePolicy', {
     name: this.prefix,
     role: this.operateEnvRole.name,
     policy: this.apiTask.allowRunTaskPolicyDoc.json,
@@ -246,6 +248,7 @@ export class VioletEnvStack extends TerraformStack {
 
     repoImage: this.webRepoImage,
     healthcheckPath: '/',
+    computedOpEnv: this.options.computedOpEnv,
 
     env: {
       API_BASE_PATH: '',
@@ -254,7 +257,6 @@ export class VioletEnvStack extends TerraformStack {
   });
 
   readonly mainDashboard = new MainDashboard(this, 'mainDashboard', {
-    name: `${this.prefix}-main`,
     serviceBuckets: this.serviceBuckets,
     serviceMysql: this.mysql,
     conv2imgFunction: this.conv2imgFunction,
@@ -266,6 +268,7 @@ export class VioletEnvStack extends TerraformStack {
     lambdaConv2imgRepoImage: this.lambdaConv2imgRepoImage,
     webRepoImage: this.webRepoImage,
     apiRepoImage: this.apiRepoImage,
+    computedOpEnv: this.options.computedOpEnv,
   });
 
   readonly localEnvFile = new TerraformOutput(this, 'localEnvFile', {
@@ -297,7 +300,7 @@ export class VioletEnvStack extends TerraformStack {
     main_dashboard_name: this.mainDashboard.dashboard.dashboardName,
   };
 
-  readonly opOutput = new TerraformOutput(this, `opOutput`, {
+  readonly opOutput = new TerraformOutput(this, 'opOutput', {
     value: this.opOutputValue,
   });
 }

@@ -1,0 +1,45 @@
+import type { PolicySet } from '@self/def-manager/src/stack/policies/dev/types';
+import { RESOURCE_DEV_IAM_PATH, RESOURCE_DEV_SHORT_PREFIX } from '@self/shared/lib/const';
+
+export const devIamPolicy = (ac: string): PolicySet => ({
+  allowResources: [
+    // `arn:aws:iam::${ac}:saml-provider/*`,
+    // `arn:aws:iam::${ac}:server-certificate/*`,
+    `arn:aws:iam::${ac}:role${RESOURCE_DEV_IAM_PATH}*`,
+    `arn:aws:iam::${ac}:policy/${RESOURCE_DEV_SHORT_PREFIX}*`,
+    // `arn:aws:iam::${ac}:mfa/*`,
+    // `arn:aws:iam::${ac}:access-report/*`,
+    `arn:aws:iam::${ac}:user${RESOURCE_DEV_IAM_PATH}*`,
+    // `arn:aws:iam::${ac}:oidc-provider/*`,
+    // `arn:aws:iam::${ac}:instance-profile/*`,
+    `arn:aws:iam::${ac}:group${RESOURCE_DEV_IAM_PATH}*`,
+    // `arn:aws:iam::${ac}:sms-mfa/*`,
+  ],
+  allowActions: [
+    // "iam:ListPolicies",
+    // "iam:GenerateCredentialReport",
+    // "iam:GetAccountPasswordPolicy",
+    // "iam:DeleteAccountPasswordPolicy",
+    // "iam:ListSAMLProviders",
+    // "iam:GetServiceLastAccessedDetailsWithEntities",
+    // "iam:ListServerCertificates",
+    // "iam:ListRoles",
+    // "iam:GetServiceLastAccessedDetails",
+    // "iam:ListVirtualMFADevices",
+    // "iam:GetOrganizationsAccessReport",
+    // "iam:SetSecurityTokenServicePreferences",
+    // "iam:GetContextKeysForCustomPolicy",
+    // "iam:SimulateCustomPolicy",
+    // "iam:UpdateAccountPasswordPolicy",
+    // "iam:ListOpenIDConnectProviders",
+    // "iam:CreateAccountAlias",
+    // "iam:ListAccountAliases",
+    // "iam:ListUsers",
+    // "iam:ListGroups",
+    // "iam:GetAccountAuthorizationDetails",
+    // "iam:DeleteAccountAlias",
+    // "iam:GetCredentialReport",
+    // "iam:GetAccountSummary"
+  ],
+  explicitDeny: ['iam:Tag*', 'iam:Untag*', 'iam:Create*', 'iam:Delete*'],
+});

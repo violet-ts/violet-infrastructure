@@ -48,6 +48,7 @@ export const dynamicOpCodeBuildEnv = (env: DynamicOpEnv): CodeBuildEnv =>
 
 // computed: Manager 環境を作ったときに自動で計算して固定して設定する
 export const computedOpEnvSchema = z.object({
+  SECTION: z.union([z.literal('development'), z.literal('production')]),
   API_REPO_NAME: z.string(),
   WEB_REPO_NAME: z.string(),
   LAMBDA_CONV2IMG_REPO_NAME: z.string(),

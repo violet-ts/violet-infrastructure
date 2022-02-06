@@ -36,7 +36,7 @@ const runBuildMain = async (): Promise<void> => {
     lambdaNames.map(async (entry) => {
       const zipPath = path.resolve(buildDir, `${entry}.zip`);
       await fs.promises.rm(zipPath).catch((e) => {
-        if (!e.message.match(/no such file or directory/)) throw e;
+        if (e.code !== 'ENOENT') throw e;
       });
       await execFile('zip', [zipPath, `${entry}.js`], { cwd: buildDir });
     }),

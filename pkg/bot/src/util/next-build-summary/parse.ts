@@ -1,4 +1,3 @@
-/* eslint-disable no-continue,no-restricted-syntax */
 export interface NextBuildSummary {
   pages: NextBuildPage[];
   firstLoads: NextBuildFirstLoad[];
@@ -98,4 +97,3 @@ export const parseActionsOutput = (output: readonly string[]): string[] => {
   }
   return lines;
 };
-/* eslint-enable no-continue,no-restricted-syntax */

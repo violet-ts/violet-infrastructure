@@ -1,8 +1,15 @@
-import { IAM, LambdaFunction } from '@cdktf/provider-aws';
+import { iam, lambdafunction } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
+import { StringResource as RandomString } from '@cdktf/provider-random';
+import {
+  RESOURCE_DEV_IAM_PATH,
+  RESOURCE_DEV_SHORT_PREFIX,
+  RESOURCE_PROD_IAM_PATH,
+  RESOURCE_PROD_SHORT_PREFIX,
+} from '@self/shared/lib/const';
+import type { ComputedOpEnv } from '@self/shared/lib/operate-env/op-env';
 import type { Construct } from 'constructs';
-import { z } from 'zod';
 import type { DataNetwork } from './data-network';
 import type { HTTPTask } from './http-task';
 import type { RepoImage } from './repo-image';
@@ -15,6 +22,7 @@ export interface APIExecFunctionOptions {
   network: DataNetwork;
   repoImage: RepoImage;
   serviceBuckets: ServiceBuckets;
+  computedOpEnv: ComputedOpEnv;
 
   env: Record<string, string>;
 }
@@ -24,7 +32,24 @@ export class APIExecFunction extends Resource {
     super(scope, name, config);
   }
 
-  readonly roleAssumeDocument = new IAM.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
+  get shortPrefix(): string {
+    return `${
+      this.options.computedOpEnv.SECTION === 'development' ? RESOURCE_DEV_SHORT_PREFIX : RESOURCE_PROD_SHORT_PREFIX
+    }ae-`;
+  }
+
+  get iamPath(): string {
+    return `${this.options.computedOpEnv.SECTION === 'development' ? RESOURCE_DEV_IAM_PATH : RESOURCE_PROD_IAM_PATH}`;
+  }
+
+  private readonly suffix = new RandomString(this, 'suffix', {
+    length: 8,
+    lower: true,
+    upper: false,
+    special: false,
+  });
+
+  readonly roleAssumeDocument = new iam.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -40,7 +65,7 @@ export class APIExecFunction extends Resource {
     ],
   });
 
-  readonly policyDocument = new IAM.DataAwsIamPolicyDocument(this, 'policyDocument', {
+  readonly policyDocument = new iam.DataAwsIamPolicyDocument(this, 'policyDocument', {
     version: '2012-10-17',
     statement: [
       // TODO(security): restrict
@@ -73,25 +98,26 @@ export class APIExecFunction extends Resource {
     ],
   });
 
-  readonly role = new IAM.IamRole(this, 'role', {
-    name: this.options.prefix,
+  readonly role = new iam.IamRole(this, 'role', {
+    namePrefix: 'apiexec-',
+    path: this.iamPath,
     assumeRolePolicy: this.roleAssumeDocument.json,
   });
 
-  readonly taskPolicy = new IAM.IamRolePolicy(this, 'taskPolicy', {
-    namePrefix: this.options.prefix,
-    role: z.string().parse(this.role.name),
+  readonly taskPolicy = new iam.IamRolePolicy(this, 'taskPolicy', {
+    namePrefix: `${this.shortPrefix}task-`,
+    role: this.role.name,
     policy: this.options.serviceBuckets.objectsFullAccessPolicyDocument.json,
   });
 
-  readonly lambdaPolicy = new IAM.IamRolePolicy(this, 'lambdaPolicy', {
-    namePrefix: this.options.prefix,
-    role: z.string().parse(this.role.name),
+  readonly lambdaPolicy = new iam.IamRolePolicy(this, 'lambdaPolicy', {
+    namePrefix: `${this.shortPrefix}lam-`,
+    role: this.role.name,
     policy: this.policyDocument.json,
   });
 
-  readonly function = new LambdaFunction.LambdaFunction(this, 'function', {
-    functionName: this.options.prefix,
+  readonly function = new lambdafunction.LambdaFunction(this, 'function', {
+    functionName: `${this.shortPrefix}ae-${this.suffix.result}`,
     vpcConfig: {
       subnetIds: this.options.network.publicSubnets.map((subnet) => subnet.id),
       securityGroupIds: [this.options.network.serviceSg.id],

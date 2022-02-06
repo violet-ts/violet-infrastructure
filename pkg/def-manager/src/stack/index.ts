@@ -1,11 +1,11 @@
-import { AwsProvider, ResourceGroups, Route53, S3 } from '@cdktf/provider-aws';
+import { acm, AwsProvider, resourcegroups, route53, s3 } from '@cdktf/provider-aws';
 import { NullProvider } from '@cdktf/provider-null';
-import { RandomProvider, String as RandomString } from '@cdktf/provider-random';
-import { projectRootDir, PROJECT_NAME } from '@self/shared/lib/const';
+import { RandomProvider, StringResource as RandomString } from '@cdktf/provider-random';
+import { projectRootDir, PROJECT_NAME, RESOURCE_PUBLIC_PREFIX } from '@self/shared/lib/const';
 import type { DockerHubCred, ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import type { Section } from '@self/shared/lib/def/types';
 import { ensurePath } from '@self/shared/lib/def/util/ensure-path';
-import { Fn, TerraformHclModule, TerraformOutput, TerraformStack } from 'cdktf';
+import { Fn, TerraformOutput, TerraformStack } from 'cdktf';
 import type { Construct } from 'constructs';
 import * as path from 'path';
 import { z } from 'zod';
@@ -16,6 +16,8 @@ import { ContainerBuild } from './build-container';
 import { createDictContext } from './context/dict';
 import { DockerHubCredentials } from './dockerhub-credentials';
 import { OperateEnv } from './operate-env';
+import { Policies } from './policies';
+import { PortalStack } from './portal';
 import { RepoStack } from './repo-stack';
 import { UpdatePRLabels } from './update-pr-labels';
 import { gcipConfigDevJson } from './values';
@@ -64,6 +66,15 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
+  readonly awsProviderUsEast1 = new AwsProvider(this, 'awsProviderUsEast1', {
+    region: 'us-east-1',
+    alias: 'aws-us-east-1',
+    profile: process.env.AWS_PROFILE || undefined,
+    defaultTags: {
+      tags: this.genTags(null),
+    },
+  });
+
   private readonly suffix = new RandomString(this, 'suffix', {
     length: 6,
     lower: true,
@@ -80,8 +91,8 @@ export class VioletManagerStack extends TerraformStack {
   // Violet プロジェクトすべてのリソース
   readonly allResources =
     this.isProd &&
-    new ResourceGroups.ResourcegroupsGroup(this, 'allResources', {
-      name: `violet-all`,
+    new resourcegroups.ResourcegroupsGroup(this, 'allResources', {
+      name: 'violet-all',
       resourceQuery: {
         query: JSON.stringify({
           ResourceTypeFilters: ['AWS::AllSupported'],
@@ -98,8 +109,8 @@ export class VioletManagerStack extends TerraformStack {
   // Violet Manager のリソース
   readonly managerResources =
     this.isProd &&
-    new ResourceGroups.ResourcegroupsGroup(this, 'managerResources', {
-      name: `violet-manager`,
+    new resourcegroups.ResourcegroupsGroup(this, 'managerResources', {
+      name: 'violet-manager',
       resourceQuery: {
         query: JSON.stringify({
           ResourceTypeFilters: ['AWS::AllSupported'],
@@ -120,7 +131,7 @@ export class VioletManagerStack extends TerraformStack {
       },
     });
 
-  readonly namespacedManagerResources = new ResourceGroups.ResourcegroupsGroup(this, 'namespacedManagerResources', {
+  readonly namespacedManagerResources = new resourcegroups.ResourcegroupsGroup(this, 'namespacedManagerResources', {
     name: `violet-manager-${this.options.sharedEnv.MANAGER_NAMESPACE}`,
     resourceQuery: {
       query: JSON.stringify({
@@ -159,17 +170,17 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly ssmPrefix = `/${PROJECT_NAME}-${this.suffix.result}`;
 
-  readonly previewZone = new Route53.DataAwsRoute53Zone(this, 'previewZone', {
+  readonly previewZone = new route53.DataAwsRoute53Zone(this, 'previewZone', {
     zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
   });
 
-  readonly publicDevBucket = new S3.S3Bucket(this, 'publicDevBucket', {
-    ...(this.options.sharedEnv.PUBLIC_DEV_BUCKET
+  readonly publicDevBucket = new s3.S3Bucket(this, 'publicDevBucket', {
+    ...(this.options.sharedEnv.PUBLIC_DEV_BUCKET_SUFFIX
       ? {
-          bucket: this.options.sharedEnv.PUBLIC_DEV_BUCKET,
+          bucket: `${RESOURCE_PUBLIC_PREFIX}${this.options.sharedEnv.PUBLIC_DEV_BUCKET_SUFFIX}`,
         }
       : {
-          bucketPrefix: `violet-public-dev-${this.suffix.result}`,
+          bucketPrefix: `${RESOURCE_PUBLIC_PREFIX}dev-`,
         }),
     versioning: {
       enabled: this.isProd,
@@ -191,15 +202,15 @@ export class VioletManagerStack extends TerraformStack {
     ],
   });
 
-  readonly infraSourceBucket = new S3.S3Bucket(this, 'infraSourceBucket', {
-    bucketPrefix: `vio-infra-source-`,
+  readonly infraSourceBucket = new s3.S3Bucket(this, 'infraSourceBucket', {
+    bucketPrefix: 'vio-infra-source-',
     acl: 'private',
     forceDestroy: true,
   });
 
   readonly infraSourceZipPath = ensurePath(path.resolve(projectRootDir, 'self.local.zip'));
 
-  readonly infraSourceZip = new S3.S3BucketObject(this, 'infraSourceZip', {
+  readonly infraSourceZip = new s3.S3BucketObject(this, 'infraSourceZip', {
     bucket: z.string().parse(this.infraSourceBucket.bucket),
     key: `source-${Fn.sha1(Fn.filebase64(this.infraSourceZipPath))}.zip`,
     source: this.infraSourceZipPath,
@@ -381,6 +392,10 @@ export class VioletManagerStack extends TerraformStack {
     },
   });
 
+  readonly policies = new Policies(this, 'policies', {
+    sharedEnv: this.options.sharedEnv,
+  });
+
   readonly botApiEndpoint = new TerraformOutput(this, 'botWebhookEndpoint', {
     value: this.bot.webhookEndpoint,
   });
@@ -399,14 +414,29 @@ export class VioletManagerStack extends TerraformStack {
       .join('\n'),
   });
 
-  readonly previewZoneCertificate = new TerraformHclModule(this, 'previewZoneCertificate', {
-    source: 'cloudposse/acm-request-certificate/aws',
-    version: '~>0.15.1',
-    variables: {
-      domain_name: this.previewZone.name,
-      process_domain_validation_options: true,
-      ttl: '5',
-      subject_alternative_names: [`*.${this.previewZone.name}`],
+  readonly previewCertificate = new acm.DataAwsAcmCertificate(this, 'previewCertificate', {
+    domain: this.previewZone.name,
+    provider: this.awsProviderUsEast1,
+  });
+
+  readonly portal = new PortalStack(this, 'portal', {
+    computedOpEnv: this.operateEnv.computedOpEnv,
+    sharedEnv: this.options.sharedEnv,
+    devGroupName: this.policies.devGroup.name,
+    zone: this.previewZone,
+    certificate: this.previewCertificate,
+    tagsAll: {
+      ...this.genTags(null),
     },
+  });
+
+  readonly portalWebEnvFile = new TerraformOutput(this, 'portalWebEnvFile', {
+    value: Object.entries({
+      NEXT_PUBLIC_PORTAL_API_BASE_URL: this.portal.apiLambda.api.apiEndpoint,
+      NEXT_PUBLIC_PORTAL_USER_POOL_ID: this.portal.userPool.id,
+      NEXT_PUBLIC_PORTAL_USER_POOL_WEB_CLIENT_ID: this.portal.userPoolClient.id,
+    })
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n'),
   });
 }

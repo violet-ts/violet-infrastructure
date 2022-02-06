@@ -22,7 +22,6 @@ export const getImageDetailByTag = async (
   const ecr = new ECR({ credentials, logger, region: params.imageRegion });
   let nextToken: string | undefined;
   do {
-    // eslint-disable-next-line no-await-in-loop -- sequential
     const page = await ecr.describeImages({
       repositoryName: params.imageRepoName,
       filter: { tagStatus: 'TAGGED' },

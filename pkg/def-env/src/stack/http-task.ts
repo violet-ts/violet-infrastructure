@@ -1,7 +1,10 @@
-import { CloudWatch, ECS, ELB, IAM, Route53, VPC } from '@cdktf/provider-aws';
+import { cloudwatch, ecs, elb, iam, route53 } from '@cdktf/provider-aws';
 import type { ResourceConfig } from '@cdktf/provider-null';
 import { Resource } from '@cdktf/provider-null';
+import { StringResource as RandomString } from '@cdktf/provider-random';
+import { RESOURCE_DEV_SHORT_PREFIX, RESOURCE_PROD_SHORT_PREFIX } from '@self/shared/lib/const';
 import { devInfoLogRetentionDays } from '@self/shared/lib/const/logging';
+import type { ComputedOpEnv } from '@self/shared/lib/operate-env/op-env';
 import { z } from 'zod';
 import type { VioletEnvStack } from '.';
 import type { RepoImage } from './repo-image';
@@ -22,6 +25,7 @@ export interface HTTPTaskOptions {
 
   repoImage: RepoImage;
   healthcheckPath: string;
+  computedOpEnv: ComputedOpEnv;
   env: Record<string, string>;
 }
 
@@ -29,6 +33,19 @@ export class HTTPTask extends Resource {
   constructor(private parent: VioletEnvStack, name: string, public options: HTTPTaskOptions, config?: ResourceConfig) {
     super(parent, name, config);
   }
+
+  get shortPrefix(): string {
+    return `${
+      this.options.computedOpEnv.SECTION === 'development' ? RESOURCE_DEV_SHORT_PREFIX : RESOURCE_PROD_SHORT_PREFIX
+    }`;
+  }
+
+  private readonly suffix = new RandomString(this, 'suffix', {
+    length: 8,
+    lower: true,
+    upper: false,
+    special: false,
+  });
 
   readonly subdomain = `${this.options.name}-${this.parent.options.dynamicOpEnv.NAMESPACE}`;
 
@@ -40,8 +57,8 @@ export class HTTPTask extends Resource {
   readonly subnets = [this.parent.network.publicSubnets[0], this.parent.network.publicSubnets[1]];
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb
-  readonly alb = new ELB.Alb(this, 'alb', {
-    name: this.options.prefix,
+  readonly alb = new elb.Alb(this, 'alb', {
+    name: `${this.shortPrefix}${this.options.name}-${this.suffix.result}`,
     internal: false,
     loadBalancerType: 'application',
     securityGroups: [this.parent.network.lbSg.id],
@@ -54,17 +71,8 @@ export class HTTPTask extends Resource {
     },
   });
 
-  readonly albEnis = new VPC.DataAwsNetworkInterfaces(this, 'albEnis', {
-    filter: [
-      {
-        name: 'description',
-        values: [`ELB ${this.alb.arnSuffix}`],
-      },
-    ],
-  });
-
   // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-type
-  readonly backend = new ELB.AlbTargetGroup(this, 'backend', {
+  readonly backend = new elb.AlbTargetGroup(this, 'backend', {
     port: 80,
     targetType: 'ip',
     protocol: 'HTTP',
@@ -87,7 +95,7 @@ export class HTTPTask extends Resource {
     ],
   });
 
-  readonly httpsListener = new ELB.AlbListener(this, 'httpsListener', {
+  readonly httpsListener = new elb.AlbListener(this, 'httpsListener', {
     loadBalancerArn: this.alb.arn,
     port: 443,
     protocol: 'HTTPS',
@@ -108,7 +116,7 @@ export class HTTPTask extends Resource {
   });
 
   // HTTPS へのリダイレクト
-  readonly httpListener = new ELB.AlbListener(this, 'httpListener', {
+  readonly httpListener = new elb.AlbListener(this, 'httpListener', {
     loadBalancerArn: this.alb.arn,
     port: 80,
     protocol: 'HTTP',
@@ -133,7 +141,7 @@ export class HTTPTask extends Resource {
     },
   });
 
-  readonly executionRoleAssumeDocument = new IAM.DataAwsIamPolicyDocument(this, 'executionRoleAssumeDocument', {
+  readonly executionRoleAssumeDocument = new iam.DataAwsIamPolicyDocument(this, 'executionRoleAssumeDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -149,16 +157,15 @@ export class HTTPTask extends Resource {
     ],
   });
 
-  readonly executionRole = new IAM.IamRole(this, 'executionRole', {
-    // len = 26 + 5 = 31
-    name: `${this.options.prefix}-exec`,
+  readonly executionRole = new iam.IamRole(this, 'executionRole', {
+    namePrefix: `${this.shortPrefix}${this.options.name}-exec-`,
     assumeRolePolicy: this.executionRoleAssumeDocument.json,
     tagsAll: {
       ...this.options.tagsAll,
     },
   });
 
-  readonly executionPolicyDocument = new IAM.DataAwsIamPolicyDocument(this, 'executionPolicyDocument', {
+  readonly executionPolicyDocument = new iam.DataAwsIamPolicyDocument(this, 'executionPolicyDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -181,14 +188,13 @@ export class HTTPTask extends Resource {
     ],
   });
 
-  readonly executionPolicy = new IAM.IamRolePolicy(this, 'executionPolicy', {
-    // len = 26 + 5 = 31
-    name: `${this.options.prefix}-exec`,
+  readonly executionPolicy = new iam.IamRolePolicy(this, 'executionPolicy', {
+    namePrefix: `${this.shortPrefix}${this.options.name}-exec-`,
     role: z.string().parse(this.executionRole.name),
     policy: this.executionPolicyDocument.json,
   });
 
-  readonly taskRoleAssumeDocument = new IAM.DataAwsIamPolicyDocument(this, 'taskRoleAssumeDocument', {
+  readonly taskRoleAssumeDocument = new iam.DataAwsIamPolicyDocument(this, 'taskRoleAssumeDocument', {
     version: '2012-10-17',
     statement: [
       {
@@ -204,17 +210,17 @@ export class HTTPTask extends Resource {
     ],
   });
 
-  readonly taskRole = new IAM.IamRole(this, 'taskRole', {
-    // len = 26 + 5 = 31
+  readonly taskRole = new iam.IamRole(this, 'taskRole', {
     name: `${this.options.prefix}-task`,
+    namePrefix: `${this.shortPrefix}${this.options.name}-task-`,
     assumeRolePolicy: this.taskRoleAssumeDocument.json,
     tagsAll: {
       ...this.options.tagsAll,
     },
   });
 
-  readonly logGroup = new CloudWatch.CloudwatchLogGroup(this, 'logGroup', {
-    name: this.options.prefix,
+  readonly logGroup = new cloudwatch.CloudwatchLogGroup(this, 'logGroup', {
+    namePrefix: `${this.shortPrefix}${this.options.name}-`,
     // TODO(service): longer for prod
     retentionInDays: devInfoLogRetentionDays,
     tagsAll: {
@@ -223,7 +229,7 @@ export class HTTPTask extends Resource {
   });
 
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_TaskDefinition.html
-  readonly definition = new ECS.EcsTaskDefinition(this, 'definition', {
+  readonly definition = new ecs.EcsTaskDefinition(this, 'definition', {
     requiresCompatibilities: ['FARGATE'],
     // NOTE: FARGATE only supports 'awsvpc'
     networkMode: 'awsvpc',
@@ -263,8 +269,8 @@ export class HTTPTask extends Resource {
     },
   });
 
-  readonly cnameRecord = new Route53.Route53Record(this, 'cnameRecord', {
-    zoneId: z.string().parse(this.parent.zone.zoneId),
+  readonly cnameRecord = new route53.Route53Record(this, 'cnameRecord', {
+    zoneId: this.parent.zone.zoneId,
     type: 'CNAME',
     ttl: 5,
     name: this.subdomain,
@@ -273,8 +279,8 @@ export class HTTPTask extends Resource {
 
   // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service
   // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_Service.html
-  readonly service = new ECS.EcsService(this, 'service', {
-    name: this.options.prefix,
+  readonly service = new ecs.EcsService(this, 'service', {
+    name: `${this.shortPrefix}${this.options.name}-${this.suffix.result}`,
     propagateTags: 'SERVICE',
     networkConfiguration: {
       subnets: this.parent.network.publicSubnets.map((subnet) => subnet.id),
@@ -311,7 +317,7 @@ export class HTTPTask extends Resource {
     ],
   });
 
-  readonly allowRunTaskPolicyDoc = new IAM.DataAwsIamPolicyDocument(this, 'allowRunTaskPolicyDoc', {
+  readonly allowRunTaskPolicyDoc = new iam.DataAwsIamPolicyDocument(this, 'allowRunTaskPolicyDoc', {
     version: '2012-10-17',
     statement: [
       {

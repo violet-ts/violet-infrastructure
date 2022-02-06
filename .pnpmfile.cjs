@@ -1,9 +1,19 @@
+const versionIgnoredInPeer = ['esbuild', 'cdktf'];
+const ignoredInPeer = ['react-native'];
+const sections = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'];
+
 function readPackage(pkg) {
-  const ignoredInPeer = ['esbuild', 'cdktf'];
-  for (const ignored of ignoredInPeer) {
-    for (const section of ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']) {
+  for (const ignored of versionIgnoredInPeer) {
+    for (const section of sections) {
       if (pkg[section][ignored]) {
         pkg[section][ignored] = '*';
+      }
+    }
+  }
+  for (const ignored of ignoredInPeer) {
+    for (const section of sections) {
+      if (pkg[section][ignored]) {
+        delete pkg[section][ignored];
       }
     }
   }

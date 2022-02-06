@@ -44,7 +44,7 @@ export const execThrow = async (
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> => {
   const { stdout, stderr, exitCode } = await exec(file, args, silent, options);
   if (exitCode !== 0) {
-    throw Object.assign(new Error(`exit code is not 0`), {
+    throw Object.assign(new Error('exit code is not 0'), {
       args: [file, ...args],
       options,
       stdout,

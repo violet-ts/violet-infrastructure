@@ -6,13 +6,7 @@ import buildWeb from './build-web';
 import { createParallel } from './meta/construct';
 import createCmd from './template/bound-cmd';
 
-export const buildCmds: ReplyCmd[] = [
-  buildApi,
-  buildWeb,
-  buildLambdaConv2img,
-  buildLambdaApiExec,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-] as any;
+export const buildCmds: ReplyCmd[] = [buildApi, buildWeb, buildLambdaConv2img, buildLambdaApiExec] as any;
 
 const cmd = createCmd(
   { name: 'build', description: 'すべてのコンテナをビルド', hidden: false },
