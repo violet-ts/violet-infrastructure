@@ -22,7 +22,7 @@ const Copyright: FC<any> = (props) => {
     <Typography variant="body2" color="text.secondary" align="center" {...props}>
       {'Copyright © '}
       <Link color="inherit" href="https://frourio.co.jp/">
-        株式会社frourio
+        フルーリオ株式会社
       </Link>{' '}
       2022
       {'.'}
