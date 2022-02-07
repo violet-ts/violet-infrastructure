@@ -54,7 +54,7 @@ const sendEmail = async ({ emailAddress, secretLoginCode, env }: SendEmailParams
               <p>Violet開発ポータルへのログイン用のシークレットコードです。</p>
               <p>コード:</p>
               <h3>${secretLoginCode}</h3>
-              <p>Copyright &copy; frourio株式会社 2022</p>
+              <p>Copyright &copy; フルーリオ株式会社 2022</p>
             </body>
           </html>`,
         },
@@ -63,7 +63,7 @@ const sendEmail = async ({ emailAddress, secretLoginCode, env }: SendEmailParams
           Data: [
             'Violet開発ポータルへのログイン用のシークレットコードです。',
             `コード: ${secretLoginCode}`,
-            'Copyright © frourio株式会社 2022',
+            'Copyright © フルーリオ株式会社 2022',
           ].join('\n'),
         },
       },

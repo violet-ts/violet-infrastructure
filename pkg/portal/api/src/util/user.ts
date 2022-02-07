@@ -101,6 +101,12 @@ export const addUser = async ({ env, credentials, email }: AddUserParams): Promi
   await cognito.adminCreateUser({
     UserPoolId: env.PORTAL_USER_POOL_ID,
     Username: email,
+    UserAttributes: [
+      {
+        Name: 'email',
+        Value: email,
+      },
+    ],
     MessageAction: 'SUPPRESS',
   });
   await ensureAndGetUser({ env, credentials, email });
