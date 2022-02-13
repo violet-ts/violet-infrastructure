@@ -211,7 +211,6 @@ export class HTTPTask extends Resource {
   });
 
   readonly taskRole = new iam.IamRole(this, 'taskRole', {
-    name: `${this.options.prefix}-task`,
     namePrefix: `${this.shortPrefix}${this.options.name}-task-`,
     assumeRolePolicy: this.taskRoleAssumeDocument.json,
     tagsAll: {
