@@ -170,6 +170,10 @@ export class VioletManagerStack extends TerraformStack {
 
   readonly ssmPrefix = `/${PROJECT_NAME}-${this.suffix.result}`;
 
+  readonly devZone = new route53.DataAwsRoute53Zone(this, 'devZone', {
+    zoneId: this.options.sharedEnv.DEV_ZONE_ID,
+  });
+
   readonly previewZone = new route53.DataAwsRoute53Zone(this, 'previewZone', {
     zoneId: this.options.sharedEnv.PREVIEW_ZONE_ID,
   });
@@ -414,17 +418,21 @@ export class VioletManagerStack extends TerraformStack {
       .join('\n'),
   });
 
+  readonly devCertificate = new acm.DataAwsAcmCertificate(this, 'devCertificate', {
+    domain: this.devZone.name,
+    provider: this.awsProviderUsEast1,
+  });
+
   readonly previewCertificate = new acm.DataAwsAcmCertificate(this, 'previewCertificate', {
     domain: this.previewZone.name,
-    provider: this.awsProviderUsEast1,
   });
 
   readonly portal = new PortalStack(this, 'portal', {
     computedOpEnv: this.operateEnv.computedOpEnv,
     sharedEnv: this.options.sharedEnv,
     devGroupName: this.policies.devGroup.name,
-    zone: this.previewZone,
-    certificate: this.previewCertificate,
+    zone: this.devZone,
+    certificate: this.devCertificate,
     tagsAll: {
       ...this.genTags(null),
     },

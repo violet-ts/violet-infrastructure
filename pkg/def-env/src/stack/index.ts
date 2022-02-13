@@ -119,7 +119,6 @@ export class VioletEnvStack extends TerraformStack {
 
   readonly certificate = new acm.DataAwsAcmCertificate(this, 'certificate', {
     domain: this.zone.name,
-    provider: this.awsProviderUsEast1,
   });
 
   readonly network = new DataNetwork(this, 'network');
