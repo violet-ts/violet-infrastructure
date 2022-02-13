@@ -76,6 +76,15 @@ export class VioletEnvStack extends TerraformStack {
     },
   });
 
+  readonly awsProviderUsEast1 = new AwsProvider(this, 'awsProviderUsEast1', {
+    region: 'us-east-1',
+    alias: 'aws-us-east-1',
+    profile: process.env.AWS_PROFILE || undefined,
+    defaultTags: {
+      tags: this.genTags(null, this.options.dynamicOpEnv.NAMESPACE, this.options.section),
+    },
+  });
+
   readonly apiRepoImage = new RepoImage(this, 'apiRepoImage', {
     aws: this.aws,
     sharedEnv: this.options.sharedEnv,
@@ -110,6 +119,7 @@ export class VioletEnvStack extends TerraformStack {
 
   readonly certificate = new acm.DataAwsAcmCertificate(this, 'certificate', {
     domain: this.zone.name,
+    provider: this.awsProviderUsEast1,
   });
 
   readonly network = new DataNetwork(this, 'network');
