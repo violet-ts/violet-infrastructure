@@ -23,6 +23,7 @@ export const sharedEnvSchema = z.object({
   MANAGER_NAMESPACE: z.union([z.literal('prod'), z.string().regex(/^dev-[\w-]*/)]),
   AWS_ACCOUNT_ID: z.string(),
   /** 事前に作成した AWS Route53 Zone */
+  DEV_ZONE_ID: z.string(),
   PREVIEW_ZONE_ID: z.string(),
   TF_BACKEND_ORGANIZATION: z.string(),
   DEV_GCIP_API_KEY: z.string(),
