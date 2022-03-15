@@ -2,11 +2,22 @@
   "extends": "@luma-dev/tsconfig-next/tsconfig.json",
   "compilerOptions": {
     "esModuleInterop": true,
+    "target": "es5",
     "lib": [
       "ES2020",
       "DOM",
       "DOM.Iterable"
     ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "strict": true,
     "incremental": true
   },
   "include": [
