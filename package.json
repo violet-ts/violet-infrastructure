@@ -15,18 +15,12 @@
     "lint-quiet": "pnpm run lint -- --quiet",
     "test": "pnpm run --filter=./pkg test",
     "test-watch": "pnpm run --filter=./pkg test-watch",
-    "dev:portal": "pnpm run --filter=./pkg/portal dev",
-    "prepare": "husky install"
+    "dev:portal": "pnpm run --filter=./pkg/portal dev"
   },
   "devDependencies": {
     "@cdktf/provider-aws": "^4.0.15",
     "@cdktf/provider-null": "^0.4.156",
     "@cdktf/provider-random": "^0.0.20",
-    "@luma-dev/eslint-config-base": "^0.9.0",
-    "@luma-dev/eslint-config-jest": "^0.2.7",
-    "@luma-dev/eslint-config-next": "^0.3.0",
-    "@luma-dev/prettier-config": "^0.1.0",
-    "@luma-dev/tsconfig-next": "^0.1.0",
     "@portal/api": "workspace:*",
     "@portal/web": "workspace:*",
     "@self/bot": "workspace:*",
@@ -45,7 +39,6 @@
     "esbuild-node-externals": "^1.4.1",
     "eslint": "^7.32.0",
     "fast-glob": "^3.2.11",
-    "husky": "^7.0.4",
     "jest": "^27.4.7",
     "node-dev": "^7.1.0",
     "npm-run-all": "^4.1.5",
