@@ -4,7 +4,7 @@
   "private": true,
   "license": "TODO",
   "scripts": {
-    "compile": "pnpm run --filter=./pkg/shared compile && pnpm run --filter=./pkg --filter=./pkg/shared",
+    "compile": "pnpm run --filter \"./pkg/**\" compile",
     "cdktf-prepare:manager": "run-p cdktf-prepare:_:*",
     "cdktf-prepare:env": "pnpm run cdktf-prepare:_:compile-bot",
     "cdktf-prepare:_:compile-bot": "pnpm run --filter=./pkg/bot compile",
