@@ -1,6 +1,6 @@
 import { iam, lambdafunction } from '@cdktf/provider-aws';
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import { portalApiBuildDir } from '@self/def-manager/src/stack/values';
 import { ZipLambda } from '@self/def-manager/src/stack/zip-lambda';
 import {
@@ -20,7 +20,7 @@ export interface AuthLambdaVerifyOptions {
   tagsAll?: Record<string, string>;
 }
 export class AuthLambdaVerify extends Resource {
-  constructor(scope: Construct, name: string, public options: AuthLambdaVerifyOptions, config?: ResourceConfig) {
+  constructor(private scope: Construct, name: string, public options: AuthLambdaVerifyOptions, config?: ResourceConfig) {
     super(scope, name, config);
   }
 
@@ -34,7 +34,7 @@ export class AuthLambdaVerify extends Resource {
     return `${this.options.computedOpEnv.SECTION === 'development' ? RESOURCE_DEV_IAM_PATH : RESOURCE_PROD_IAM_PATH}`;
   }
 
-  readonly roleAssumeDocument = new iam.DataAwsIamPolicyDocument(this, 'roleAssumeDocument', {
+  readonly roleAssumeDocument = new iam.DataAwsIamPolicyDocument(this.scope, 'roleAssumeDocument', {
     version: '2012-10-17',
     statement: [
       {

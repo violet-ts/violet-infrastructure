@@ -1,6 +1,6 @@
 import { iam, s3 } from '@cdktf/provider-aws';
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import { RESOURCE_DEV_PREFIX, RESOURCE_PROD_PREFIX } from '@self/shared/lib/const';
 import type { ComputedOpEnv } from '@self/shared/lib/operate-env/op-env';
 import type { Construct } from 'constructs';

@@ -1,7 +1,7 @@
 import type { codebuild } from '@cdktf/provider-aws';
 import { iam, secretsmanager } from '@cdktf/provider-aws';
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import type { DockerHubCred } from '@self/shared/lib/def/env-vars';
 import type { VioletManagerStack } from '.';
 

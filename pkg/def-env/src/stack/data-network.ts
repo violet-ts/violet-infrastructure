@@ -1,6 +1,6 @@
 import { vpc } from '@cdktf/provider-aws';
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import type { VioletEnvStack } from '.';
 
 export class DataNetwork extends Resource {
