@@ -187,7 +187,7 @@ export const createWebhooks = (
       logger.info('comment created', payload.comment.user);
       if (payload.comment.user.type !== 'User') return;
       // TODO(hardcoded)
-      if (!['LumaKernel', 'solufa', 'maihrs55', 'shuheiest', 'naoya502'].includes(payload.comment.user.login)) return;
+      if (!['LumaKernel', 'solufa', 'maimeeeee', 'shuheiest', 'naoya502'].includes(payload.comment.user.login)) return;
       logger.info('Authentication success.');
 
       const botInstallationId = z.number().parse(payload.installation?.id);
