@@ -1,7 +1,7 @@
 import type { ecr } from '@cdktf/provider-aws';
 import { apigatewayv2, iam, lambdafunction } from '@cdktf/provider-aws';
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import { StringResource as RandomString } from '@cdktf/provider-random';
 import type { AccumuratedBotEnv, ComputedAfterwardBotEnv } from '@self/shared/lib/bot/env';
 import { accumuratedBotEnvSchema } from '@self/shared/lib/bot/env';

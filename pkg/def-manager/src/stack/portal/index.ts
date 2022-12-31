@@ -1,7 +1,7 @@
 import type { acm } from '@cdktf/provider-aws';
 import { cloudfront, cognito, dynamodb, route53, s3 } from '@cdktf/provider-aws';
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import { StringResource as RandomString } from '@cdktf/provider-random';
 import { ApiLambda } from '@self/def-manager/src/stack/portal/api-lambda';
 import type { SharedEnv } from '@self/shared/lib/def/env-vars';

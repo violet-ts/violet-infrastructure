@@ -1,7 +1,7 @@
 import type { s3 } from '@cdktf/provider-aws';
 import { iam } from '@cdktf/provider-aws';
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import type { ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';
 import type { Construct } from 'constructs';
 import { z } from 'zod';

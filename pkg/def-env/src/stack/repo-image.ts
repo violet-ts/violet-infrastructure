@@ -1,7 +1,7 @@
 import type { AwsProvider } from '@cdktf/provider-aws';
 import { ecr } from '@cdktf/provider-aws';
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import type { SharedEnv } from '@self/shared/lib/def/env-vars';
 import type { Construct } from 'constructs';
 import { z } from 'zod';

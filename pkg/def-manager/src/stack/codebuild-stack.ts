@@ -1,6 +1,6 @@
 import { cloudwatch, codebuild, codestar, iam, s3, sns } from '@cdktf/provider-aws';
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import { StringResource as RandomString } from '@cdktf/provider-random';
 import { computedBotCodeBuildEnv } from '@self/shared/lib/bot/env';
 import type { CodeBuildStackEnv } from '@self/shared/lib/codebuild-stack/env';

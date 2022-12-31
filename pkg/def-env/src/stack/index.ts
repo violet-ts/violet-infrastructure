@@ -1,5 +1,5 @@
 import { acm, AwsProvider, ecs, iam, resourcegroups, route53, sns } from '@cdktf/provider-aws';
-import { NullProvider } from '@cdktf/provider-null';
+import { NullProvider } from '@cdktf/provider-null/lib/provider';
 import { RandomProvider } from '@cdktf/provider-random';
 import type { ComputedBotEnv } from '@self/shared/lib/bot/env';
 import type { CodeBuildStackEnv } from '@self/shared/lib/codebuild-stack/env';

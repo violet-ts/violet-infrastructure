@@ -1,5 +1,5 @@
 import { acm, AwsProvider, resourcegroups, route53, s3 } from '@cdktf/provider-aws';
-import { NullProvider } from '@cdktf/provider-null';
+import { NullProvider } from '@cdktf/provider-null/lib/provider';
 import { RandomProvider, StringResource as RandomString } from '@cdktf/provider-random';
 import { projectRootDir, PROJECT_NAME, RESOURCE_PUBLIC_PREFIX } from '@self/shared/lib/const';
 import type { DockerHubCred, ManagerEnv, SharedEnv } from '@self/shared/lib/def/env-vars';

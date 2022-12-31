@@ -1,6 +1,6 @@
 import { apigatewayv2, iam, lambdafunction } from '@cdktf/provider-aws';
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import { StringResource as RandomString } from '@cdktf/provider-random';
 import { portalApiBuildDir } from '@self/def-manager/src/stack/values';
 import { ZipLambda } from '@self/def-manager/src/stack/zip-lambda';

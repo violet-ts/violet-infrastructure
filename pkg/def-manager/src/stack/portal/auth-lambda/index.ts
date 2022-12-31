@@ -1,5 +1,5 @@
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import { AuthLambdaCreate } from '@self/def-manager/src/stack/portal/auth-lambda/create';
 import { AuthLambdaDefine } from '@self/def-manager/src/stack/portal/auth-lambda/define';
 import { AuthLambdaVerify } from '@self/def-manager/src/stack/portal/auth-lambda/verify';

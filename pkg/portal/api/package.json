@@ -20,6 +20,7 @@
     "@aws-sdk/client-iam": "^3.49.0",
     "@aws-sdk/client-ses": "^3.49.0",
     "@aws-sdk/credential-providers": "^3.48.0",
+    "@aws-sdk/types": "^3.47.1",
     "@aws-sdk/util-dynamodb": "^3.48.0",
     "@self/shared": "workspace:*",
     "@types/aws-lambda": "^8.10.91",

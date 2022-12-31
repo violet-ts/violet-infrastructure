@@ -1,7 +1,7 @@
 import type { vpc } from '@cdktf/provider-aws';
 import { rds } from '@cdktf/provider-aws';
-import type { ResourceConfig } from '@cdktf/provider-null';
-import { Resource } from '@cdktf/provider-null';
+import type { ResourceConfig } from '@cdktf/provider-null/lib/resource';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import { Password, StringResource as RandomString } from '@cdktf/provider-random';
 import { RESOURCE_DEV_SHORT_PREFIX, RESOURCE_PROD_SHORT_PREFIX } from '@self/shared/lib/const';
 import type { ComputedOpEnv } from '@self/shared/lib/operate-env/op-env';
